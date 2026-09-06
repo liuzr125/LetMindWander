@@ -17,13 +17,14 @@ import java.util.List;
 /** F03 数据访问集中在 Mapper，Service 不包含 SQL 或数据库查询。 */
 @Mapper
 public interface LearningPlanMapper extends BaseMapper<LearningPlanEntity> {
-    @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} ORDER BY effective_date DESC, version_no DESC LIMIT 1")
+    /** 最新保存版本必须按单调递增的 version_no 判定；effective_date 可因“调整今日”倒退。 */
+    @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} ORDER BY version_no DESC LIMIT 1")
     LearningPlanEntity selectLatest(@Param("ownerId") String ownerId);
 
     @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} ORDER BY version_no DESC")
     List<LearningPlanEntity> selectHistory(@Param("ownerId") String ownerId);
 
-    @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} ORDER BY effective_date DESC, version_no DESC LIMIT 1 FOR UPDATE")
+    @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} ORDER BY version_no DESC LIMIT 1 FOR UPDATE")
     LearningPlanEntity selectLatestForUpdate(@Param("ownerId") String ownerId);
 
     @Select("SELECT * FROM learning_plan WHERE owner_id = #{ownerId} AND effective_date <= #{date} " +

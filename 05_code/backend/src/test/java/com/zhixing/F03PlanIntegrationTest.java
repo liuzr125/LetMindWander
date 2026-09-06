@@ -43,6 +43,12 @@ class F03PlanIntegrationTest {
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(todayPayload))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(3))
                 .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).toString()));
+        mockMvc.perform(get("/api/plans").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(3));
+        String nextSavePayload = payload.replace("\"versionNo\":" + version, "\"versionNo\":3");
+        mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(nextSavePayload))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(4))
+                .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1).toString()));
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PLAN_VERSION_CONFLICT"));
     }
