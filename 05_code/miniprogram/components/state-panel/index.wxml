@@ -1,0 +1,6 @@
+<view class="panel">
+  <view class="mark"></view>
+  <text class="title">{{title}}</text>
+  <text class="description">{{description}}</text>
+  <slot></slot>
+</view>

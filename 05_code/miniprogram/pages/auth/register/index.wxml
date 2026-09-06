@@ -1,0 +1,50 @@
+<view class="register-page">
+  <view class="custom-nav" style="padding-top: {{topInset}}px;">
+    <view class="nav-content">
+      <view class="back" bindtap="goBack">‹</view><text class="nav-title">完成注册</text>
+    </view>
+  </view>
+
+  <view class="content">
+    <text class="title">认识一下，开始你的学习日常</text>
+    <text class="subtitle">确认以下信息，即可完成注册</text>
+
+    <button class="avatar-card" open-type="chooseAvatar" bindchooseavatar="changeAvatar">
+      <view class="avatar">
+        <image wx:if="{{avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="person"><i></i></view>
+      </view>
+      <text class="avatar-label">微信头像</text>
+      <view class="avatar-action">更换头像 <text>›</text></view>
+    </button>
+
+    <view class="form-card">
+      <text class="label">昵称 <text class="required">*</text></text>
+      <input class="nickname-input {{fieldError ? 'invalid' : ''}}" type="nickname" value="{{nickname}}" maxlength="30" placeholder="请输入昵称" bindinput="handleNickname" />
+      <text wx:if="{{fieldError}}" class="field-error">{{fieldError}}</text>
+      <text wx:else class="hint">默认使用你的微信昵称，注册后仍可修改</text>
+      <view class="divider"></view>
+      <text class="label phone-label">手机号</text>
+      <input class="mobile-input" type="number" maxlength="11" value="{{mobile}}" placeholder="请输入手机号" bindinput="handleMobile" />
+      <view class="sms-row">
+        <input class="sms-input" type="number" maxlength="6" value="{{smsCode}}" placeholder="请输入验证码" bindinput="handleSmsCode" />
+        <button class="sms-button {{smsCountdown > 0 ? 'disabled' : ''}}" loading="{{smsSending}}" disabled="{{smsSending || smsCountdown > 0}}" bindtap="sendSmsCode">
+          {{smsCountdown > 0 ? smsCountdown + '秒后重发' : '获取验证码'}}
+        </button>
+      </view>
+      <text class="hint">验证码5分钟内有效，注册后手机号不可修改</text>
+    </view>
+
+    <view class="info-strip"><text class="info-icon">i</text><text>其他个人资料可在注册后补充</text></view>
+
+    <view class="bottom-area">
+      <view class="consent-row">
+        <view class="checkbox {{privacyAccepted ? 'checked' : ''}}" bindtap="togglePrivacy"><text wx:if="{{privacyAccepted}}">✓</text></view>
+        <text class="consent-copy" bindtap="togglePrivacy">我已阅读并同意</text>
+        <text class="link" catchtap="openAgreement">用户协议</text><text class="consent-copy">和</text><text class="link" catchtap="openPrivacy">隐私政策</text>
+      </view>
+      <text wx:if="{{errorMessage}}" class="error-message">{{errorMessage}}</text>
+      <button class="submit-button {{canSubmit ? 'enabled' : ''}}" disabled="{{!canSubmit}}" loading="{{loading}}" bindtap="submit">{{loading ? '正在注册…' : '完成注册'}}</button>
+    </view>
+  </view>
+</view>

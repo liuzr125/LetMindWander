@@ -1,0 +1,36 @@
+page { background:#f6f9ff; }
+.register-page { min-height:100vh; color:#07122f; background:radial-gradient(circle at 20% 4%,rgba(45,126,255,.08),transparent 29%),radial-gradient(circle at 88% 47%,rgba(45,126,255,.045),transparent 32%),#f8faff; }
+.custom-nav { height:88rpx; }
+.nav-content { height:88rpx; display:flex; align-items:center; padding:0 46rpx; }
+.back { width:42rpx; margin-right:18rpx; font-size:62rpx; font-weight:300; line-height:1; }
+.nav-title { font-size:30rpx; font-weight:600; }
+.content { padding:54rpx 52rpx calc(42rpx + env(safe-area-inset-bottom)); }
+.title { display:block; font-size:43rpx; font-weight:750; line-height:1.35; letter-spacing:1rpx; }
+.subtitle { display:block; margin-top:16rpx; color:#8a92a8; font-size:27rpx; }
+.avatar-card,.form-card { background:rgba(255,255,255,.94); border:2rpx solid rgba(230,235,246,.8); box-shadow:0 15rpx 42rpx rgba(43,83,145,.065); }
+.avatar-card { width:100%; min-height:150rpx; display:flex; align-items:center; margin-top:46rpx; padding:34rpx 44rpx; border-radius:25rpx; text-align:left; }
+.avatar { width:110rpx; height:110rpx; overflow:hidden; border-radius:50%; background:#e8f1ff; }
+.avatar image { width:100%; height:100%; }
+.person { position:relative; width:100%; height:100%; }
+.person::before { content:''; position:absolute; left:37rpx; top:22rpx; width:36rpx; height:36rpx; border-radius:50%; background:#0874fa; }
+.person::after { content:''; position:absolute; left:22rpx; bottom:16rpx; width:66rpx; height:38rpx; border-radius:40rpx 40rpx 8rpx 8rpx; background:#0874fa; }
+.avatar-label { margin-left:30rpx; font-size:29rpx; font-weight:650; }
+button { margin:0; padding:0; line-height:1; } button::after { border:0; }
+.avatar-action { margin-left:auto; background:transparent; color:#0871f8; font-size:25rpx; }.avatar-action text { margin-left:8rpx; font-size:38rpx; vertical-align:-3rpx; }
+.form-card { margin-top:26rpx; padding:38rpx 30rpx 34rpx; border-radius:25rpx; }
+.label { display:block; margin-bottom:16rpx; font-size:27rpx; font-weight:650; }.required { color:#ed2839; }
+.nickname-input { height:80rpx; padding:0 22rpx; border:2rpx solid #dbe2ee; border-radius:10rpx; background:#fff; font-size:28rpx; }.nickname-input.invalid { border-color:#eb5a62; }
+.hint { display:block; margin-top:14rpx; color:#9199ad; font-size:22rpx; }.field-error { display:block; margin-top:12rpx; color:#e44954; font-size:22rpx; }
+.divider { height:2rpx; margin:38rpx 0 32rpx; background:#edf0f5; }.phone-label { margin-bottom:18rpx; }
+.mobile-input,.sms-input { box-sizing:border-box; height:80rpx; padding:0 22rpx; border:2rpx solid #dbe2ee; border-radius:10rpx; background:#fff; font-size:27rpx; }
+.mobile-input { width:100%; }
+.sms-row { display:flex; align-items:center; margin-top:18rpx; }
+.sms-input { flex:1; min-width:0; }
+.sms-button { flex:0 0 210rpx; height:80rpx; margin-left:16rpx; border-radius:10rpx; background:#eaf3ff; color:#0871f8; font-size:24rpx; line-height:80rpx; text-align:center; }
+.sms-button.disabled { background:#f1f3f7; color:#9aa3b6; }
+.info-strip { height:76rpx; display:flex; align-items:center; margin-top:32rpx; padding:0 24rpx; border:2rpx solid #dbe8ff; border-radius:18rpx; background:#f0f6ff; color:#7d89a2; font-size:23rpx; }
+.info-icon { width:28rpx; height:28rpx; margin-right:14rpx; border:3rpx solid #0873fa; border-radius:50%; color:#0873fa; font-size:20rpx; font-weight:700; line-height:25rpx; text-align:center; }
+.bottom-area { margin-top:88rpx; }
+.consent-row { display:flex; align-items:center; justify-content:center; min-height:36rpx; font-size:22rpx; }.checkbox { width:29rpx; height:29rpx; margin-right:11rpx; border:2rpx solid #b9c3d4; border-radius:5rpx; color:#fff; text-align:center; line-height:27rpx; }.checkbox.checked { border-color:#0b73f8; background:#0b73f8; }.consent-copy { color:#8790a6; }.link { margin:0 8rpx; color:#0871f8; }
+.error-message { display:block; margin:14rpx 0 -8rpx; color:#e34a56; font-size:22rpx; text-align:center; }
+.submit-button { height:96rpx; margin-top:28rpx; border-radius:16rpx; background:#dce9fd; color:#95b6e8; font-size:31rpx; font-weight:650; }.submit-button.enabled { background:linear-gradient(90deg,#167aff,#0664ee); color:#fff; box-shadow:0 14rpx 34rpx rgba(10,104,241,.20); }

@@ -1,0 +1,61 @@
+<view class="plan-page">
+  <view class="content" wx:if="{{loaded}}">
+    <view class="section">
+      <text class="section-title">每日时间</text>
+      <view class="budget-list">
+        <view wx:for="{{budgets}}" wx:key="*this" class="budget {{form.dailyBudgetMin === item ? 'selected' : ''}}" data-value="{{item}}" bindtap="selectBudget">{{item}} 分钟</view>
+      </view>
+    </view>
+
+    <view class="section weekdays-section">
+      <text class="section-title">学习日</text>
+      <view class="week-list">
+        <view wx:for="{{weekdays}}" wx:key="value" class="week {{isWeekdaySelected[item.value] ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="toggleWeekday">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="divider"></view>
+    <view class="section">
+      <text class="section-title">技术主题</text>
+      <text class="section-subtitle">可多选，也可添加自定义主题</text>
+      <view class="topic-list">
+        <view wx:for="{{topics}}" wx:key="id" class="topic {{selectedTopicIds[item.id] ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="toggleTopic">{{item.name}}</view>
+      </view>
+      <view class="topic-input-row">
+        <input class="topic-input" placeholder="输入新的技术主题" value="{{newTopicName}}" bindinput="inputTopic" maxlength="50" />
+        <button class="add-button" bindtap="addTopic" loading="{{addingTopic}}">添加</button>
+      </view>
+      <text class="topic-hint">添加后可直接选用</text>
+    </view>
+
+    <view class="section difficulty-section">
+      <text class="section-title">难度</text>
+      <view class="difficulty-list">
+        <view class="difficulty {{form.difficulty === 'intro' ? 'selected' : ''}}" data-value="intro" bindtap="selectDifficulty">入门</view>
+        <view class="difficulty {{form.difficulty === 'advanced' ? 'selected' : ''}}" data-value="advanced" bindtap="selectDifficulty">进阶</view>
+      </view>
+    </view>
+
+    <view class="divider"></view>
+    <view class="task-row">
+      <text class="row-title">技术新学 <text class="question">?</text></text>
+      <view class="stepper"><view class="step" data-key="techCount" data-delta="-1" bindtap="changeCount">−</view><view class="count-entry"><input type="number" value="{{form.techCount}}" data-key="techCount" bindinput="inputCount" /><text>条</text></view><view class="step" data-key="techCount" data-delta="1" bindtap="changeCount">＋</view></view>
+    </view>
+    <view class="task-row">
+      <text class="row-title">英语新词 <text class="question">?</text></text>
+      <view class="stepper"><view class="step" data-key="newWordCount" data-delta="-1" bindtap="changeCount">−</view><view class="count-entry"><input type="number" value="{{form.newWordCount}}" data-key="newWordCount" bindinput="inputCount" /><text>个</text></view><view class="step" data-key="newWordCount" data-delta="1" bindtap="changeCount">＋</view></view>
+    </view>
+    <view class="toggle-row"><text class="row-title">复盘 <text class="row-note">(每日一次)</text></text><switch color="#0869f7" checked="{{form.journalEnabled}}" bindchange="toggleJournal" /></view>
+    <view class="toggle-row"><text class="row-title">复习 <text class="row-note">(巩固所学)</text></text><switch color="#0869f7" checked="{{form.reviewEnabled}}" bindchange="toggleReview" /></view>
+    <view class="limit-row" wx:if="{{form.reviewEnabled}}"><text class="limit-label">每日上限</text><picker mode="selector" range="{{reviewLimits}}" value="{{reviewLimitIndex}}" bindchange="changeReviewLimit"><view class="limit-picker">{{form.reviewLimit}} 项　⌄</view></picker></view>
+
+    <view class="preview-card">
+      <text class="calendar">▣</text><view><text class="preview-title">今日预览</text><text class="preview-detail">{{todayText}} · {{previewText}}</text></view>
+    </view>
+    <view class="notice"><text>ⓘ　保存后今日生效，已激活任务保留原计划。</text><text class="pause" bindtap="togglePause">{{form.paused ? '恢复计划' : '暂停计划'}}</text></view>
+    <text wx:if="{{errorMessage}}" class="error">{{errorMessage}}</text>
+    <view class="actions"><button class="adjust" bindtap="adjustToday">调整今日</button><button class="save" bindtap="savePlan" loading="{{saving}}">保存计划</button></view>
+  </view>
+  <view wx:else class="loading">正在加载计划…</view>
+  <view wx:if="{{successMessage}}" class="success-toast"><text class="success-icon">✓</text><text>{{successMessage}}</text></view>
+</view>

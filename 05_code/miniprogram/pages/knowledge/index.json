@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "知识库",
+  "usingComponents": {
+    "state-panel": "/components/state-panel/index"
+  }
+}

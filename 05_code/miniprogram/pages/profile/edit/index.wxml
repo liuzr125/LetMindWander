@@ -1,0 +1,36 @@
+<view class="profile-page">
+  <view class="navigation" style="padding-top: {{statusBarHeight}}px;">
+    <view class="navigation-content" style="height: {{navHeight}}px;"><view class="back" bindtap="leave" aria-label="返回">‹</view><text>个人资料</text></view>
+  </view>
+  <view class="page-content">
+    <view wx:if="{{loading}}" class="hint">正在加载资料…</view>
+    <block wx:elif="{{shortId}}">
+      <view class="section avatar-row" bindtap="changeAvatar">
+        <image wx:if="{{avatarPreview}}" class="avatar" src="{{avatarPreview}}" mode="aspectFill" />
+        <view wx:else class="avatar default-avatar"><view class="person-head"></view><view class="person-body"></view></view>
+        <view class="avatar-meta"><text class="row-label">头像</text><text class="muted id">ID：{{shortId}}</text></view>
+        <text class="row-action">更换头像 ›</text>
+      </view>
+      <view class="section phone-row">
+        <view><text class="row-label">手机号</text><text class="muted phone-note">{{mobileMasked ? '微信授权绑定' : '尚未授权绑定'}}</text></view>
+        <view class="readonly-cell"><text class="phone-number">{{mobileMasked || '未绑定'}}</text><text class="muted readonly"><text class="lock-icon"></text>只读</text></view>
+      </view>
+      <view class="section basic-section">
+        <view class="nickname-row"><view class="field-row"><text class="row-label">昵称 <text class="required">*</text></text><input class="text-input" type="nickname" data-field="nickname" value="{{form.nickname}}" maxlength="{{rules.nickname || 30}}" bindinput="onField" placeholder="请填写昵称" /></view><text class="muted nickname-note">默认使用注册时的微信昵称，可修改</text></view>
+        <view class="field-row"><text class="row-label">真实姓名</text><input class="text-input" data-field="realName" value="{{form.realName}}" maxlength="{{rules.realName || 50}}" bindinput="onField" placeholder="未填写" /></view>
+        <view class="field-row"><text class="row-label">英语名字</text><input class="text-input" data-field="englishName" value="{{form.englishName}}" maxlength="{{rules.englishName || 100}}" bindinput="onField" placeholder="未填写" /></view>
+        <view class="field-row"><text class="row-label">生日</text><view class="readonly-cell"><text wx:if="{{form.birthday}}" class="clear-date" bindtap="clearBirthday" aria-label="清空生日">×</text><picker mode="date" value="{{form.birthday || today}}" end="{{today}}" bindchange="onBirthday"><view class="readonly-cell"><text>{{form.birthday || '未设置'}}</text><text class="calendar-icon">▦</text></view></picker></view></view>
+        <picker mode="selector" range="{{genderOptions}}" value="{{form.gender}}" bindchange="onGender"><view class="field-row last"><text class="row-label">性别</text><view class="readonly-cell"><text>{{genderOptions[form.gender]}}</text><text class="chevron">⌄</text></view></view></picker>
+      </view>
+      <view class="section hobby-section"><text class="row-label">爱好</text><view class="hobby-list"><view class="hobby-tag" wx:for="{{form.hobbies}}" wx:key="*this"><text>{{item}}</text><text class="hobby-remove" data-index="{{index}}" bindtap="removeHobby" aria-label="移除爱好">×</text></view></view><view class="hobby-entry"><input class="hobby-input" value="{{hobbyInput}}" placeholder="添加爱好" maxlength="{{rules.hobbyLength || 20}}" bindinput="onHobbyInput" bindconfirm="addHobby" /><button class="hobby-add" bindtap="addHobby">添加</button></view></view>
+      <view class="section intro-section"><text class="row-label">自我介绍</text><view class="intro-box"><textarea class="intro-textarea" value="{{form.introduction}}" data-field="introduction" maxlength="{{rules.introduction || 500}}" placeholder="介绍一下自己吧" bindinput="onField" /><text class="intro-count">{{introLength}}/{{rules.introduction}}</text></view></view>
+      <view class="section visibility-row" bindtap="openVisibility"><text class="row-label">资料可见范围</text><view class="readonly-cell muted"><text>{{visibilityLabel}}</text><text>›</text></view></view>
+    </block>
+    <text wx:if="{{errorMessage}}" class="error-message">{{errorMessage}}</text>
+    <button wx:if="{{!shortId || conflict}}" class="retry" bindtap="loadProfile">重新加载</button>
+    <button wx:if="{{shortId}}" class="save-button" disabled="{{!canSubmit}}" loading="{{saving}}" bindtap="save">保存资料</button>
+  </view>
+  <view wx:if="{{avatarSheet}}" class="overlay" catchtouchmove="noop" bindtap="closeAvatar"><view class="sheet" catchtap="noop"><text class="sheet-title">更换头像</text><view class="sheet-item" data-source="camera" bindtap="chooseAvatar"><text class="sheet-icon camera-icon">◎</text><text>拍照</text></view><view class="sheet-item" data-source="album" bindtap="chooseAvatar"><text class="sheet-icon album-icon">⌁</text><text>从相册选择</text></view><view class="sheet-item" data-source="default" bindtap="chooseAvatar"><view class="sheet-person"><view></view></view><text>使用默认头像</text></view><button class="cancel-button" bindtap="closeAvatar">取消</button></view></view>
+  <view wx:if="{{confirmAvatar}}" class="overlay" catchtouchmove="noop"><view class="sheet preview-sheet"><text class="sheet-title">确认头像</text><image wx:if="{{candidate}}" class="avatar candidate" src="{{candidate}}" mode="aspectFill"/><view wx:else class="avatar default-avatar candidate"><view class="person-head"></view><view class="person-body"></view></view><text class="hint">保存资料后生效</text><button class="save-button" loading="{{uploading}}" disabled="{{uploading}}" bindtap="confirmAvatar">使用此头像</button><button class="cancel-button" disabled="{{uploading}}" bindtap="closeAvatar">取消</button></view></view>
+  <view wx:if="{{visibilitySheet}}" class="overlay" catchtouchmove="noop"><view class="sheet"><text class="sheet-title">资料权限设置</text><text class="hint">手机号始终不对外展示</text><picker wx:for="{{visibilityRows}}" wx:key="key" data-field="{{item.key}}" mode="selector" range="{{visibilityOptions}}" value="{{item.index}}" bindchange="onVisibility"><view class="field-row"><text>{{item.label}}</text><text class="muted">{{visibilityOptions[item.index]}} ›</text></view></picker><button class="save-button" bindtap="confirmVisibility">确认范围</button><button class="cancel-button" bindtap="cancelVisibility">取消</button></view></view>
+</view>

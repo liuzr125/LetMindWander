@@ -1,0 +1,6 @@
+<view class="page-shell">
+  <text class="eyebrow">LEARN</text>
+  <text class="page-title">学习</text>
+  <text class="page-subtitle">专注于此刻需要理解和记住的内容。</text>
+  <state-panel title="{{title}}" description="{{description}}" />
+</view>

@@ -1,0 +1,39 @@
+page {
+  box-sizing: border-box;
+  min-height: 100%;
+  background: #f7f8f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  color: #1f2923;
+  font-size: 28rpx;
+}
+
+view,
+text {
+  box-sizing: border-box;
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 48rpx 32rpx 80rpx;
+}
+
+.eyebrow {
+  color: #728077;
+  font-size: 24rpx;
+  letter-spacing: 4rpx;
+}
+
+.page-title {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 52rpx;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.page-subtitle {
+  display: block;
+  margin-top: 16rpx;
+  color: #68736c;
+  line-height: 1.7;
+}

@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    # 不配置 driver-class-name：Spring Boot 会根据 DB_URL 自动选择 H2 或 MySQL 驱动。
+    url: jdbc:mysql://localhost:3306/letMindWander?useAffectedRows=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: Liu123456
+  sql:
+    init:
+      mode: never
+      encoding: UTF-8
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+logging:
+  level:
+    com.zhixing: INFO
+
+app:
+  sms:
+    # 个人主体小程序开发阶段：验证码仅写入控制台及日志文件。
+    mock-enabled: ${SMS_MOCK_ENABLED:true}

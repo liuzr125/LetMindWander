@@ -1,0 +1,6 @@
+<view class="page-shell">
+  <text class="eyebrow">GROWTH</text>
+  <text class="page-title">成长</text>
+  <text class="page-subtitle">向后看见轨迹，向前找到下一步。</text>
+  <state-panel title="{{title}}" description="{{description}}" />
+</view>

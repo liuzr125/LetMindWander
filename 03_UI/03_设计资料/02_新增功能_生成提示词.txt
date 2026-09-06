@@ -1,0 +1,129 @@
+新增功能 UI设计提示词
+生成方式：内置image_gen工具，独立单页PNG，无项目代码。
+范围：小程序定时任务、资源与摄影；Web定时任务、独立英语单词管理、上传与导入校验、技术知识管理。
+本组为用户后续提出的新增功能设计，不表示已部署采集或定时任务；图中内容与运行数据为示例。
+
+25_定时任务.png
+Use case: ui-mockup. Create a high fidelity Chinese interface screenshot for 知行日课. Reference image is STYLE reference only, not an edit target; create this NEW feature page in exactly the same product design family. Soft pale blue-white #F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary buttons, navy#172B4D text, readable slate secondary labels, thin line icons, gentle subtle shadows, generous but efficient spacing. Success#10B981 with check icon, warning#F59E0B with triangle and text, error#EF4444 with error icon and text. Chinese PingFang-like sans serif, extremely crisp correct simplified Chinese. Large enough body text and controls. Flat front view with no physical phone, no perspective, no poster, no collage, no multiple pages, no decorative captions around the screen, no cropped controls. Design values warm and calm. Content is fictional sample UI, not factual live news. Only the requested screen. This is an extension concept for scheduled discovery of online resources and photography; not a real scheduled automation.
+IMPORTANT: Exactly ONE complete vertical mini-program page, standalone image in portrait around1024x2048. Full-bleed screenshot UI fills entire image, no board margins or title outside screen. WeChat statusbar9:41 and mini-program top-right capsule. Back arrow in appnavbar. Main body and bottom buttons wholly visible, never chopped off. No bottom5tab nav on these nested pages, keep back navigation. Preserve reference's blue white rounded style but use 1screen only.
+Page title 定时任务 with backarrow. Warm pale-blue compact header 今日的新发现，替你整理好了, subtitle 按你设定的节奏，收集值得看的内容. Show tiny line sun/book, no hugeillustration. Summary row 2个运行中 / 今日更新8条 / 今日待看8条. Filterpills 全部 运行中 已暂停, 全部 selected.
+Three stacked taskcards:
+1 bluebookicon 每日技术资源, toggleon. Chips 技术资讯 AI 开源工具. Clock 每天07:00 · 北京时间. Latest 今日07:02 · 新增5条 · green已完成. Footer 查看今日资源 primarytinted and 编辑 small.
+2 outlinecameraicon 热门摄影灵感 toggleon, topics 风光 街拍 构图. 每天07:30 · 北京时间. 今日07:32 · 新增3条 · green已完成. Footer 查看摄影精选 blue and 编辑 small.
+3 toolboxicon 效率工具精选 toggleoff, neutral 已暂停. 每周一08:00. Footercopy 暂停期间不收集新内容; 恢复任务 secondary link.
+Bottom full-widthblue + 新建定时任务. Tinyfooter 仅整理公开来源，保留原文入口. Compact no excessive repetition, no creatingcode.
+
+26_新建定时任务.png
+Use case: ui-mockup. Create a high fidelity Chinese interface screenshot for 知行日课. Reference image is STYLE reference only, not an edit target; create this NEW feature page in exactly the same product design family. Soft pale blue-white #F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary buttons, navy#172B4D text, readable slate secondary labels, thin line icons, gentle subtle shadows, generous but efficient spacing. Success#10B981 with check icon, warning#F59E0B with triangle and text, error#EF4444 with error icon and text. Chinese PingFang-like sans serif, extremely crisp correct simplified Chinese. Large enough body text and controls. Flat front view with no physical phone, no perspective, no poster, no collage, no multiple pages, no decorative captions around the screen, no cropped controls. Design values warm and calm. Content is fictional sample UI, not factual live news. Only the requested screen. This is an extension concept for scheduled discovery of online resources and photography; not a real scheduled automation.
+IMPORTANT: Exactly ONE complete vertical mini-program page, standalone image in portrait around1024x2048. Full-bleed screenshot UI fills entire image, no board margins or title outside screen. WeChat statusbar9:41 and mini-program top-right capsule. Back arrow in appnavbar. Main body and bottom buttons wholly visible, never chopped off. No bottom5tab nav on these nested pages, keep back navigation. Preserve reference's blue white rounded style but use 1screen only.
+Page title 新建定时任务. Use concise form with allcontent fits. Introcard 想发现什么？ and 选好主题，剩下的按时整理。.
+Task name field 每日技术资源.
+Group 关注内容 pillmultiselect 技术资讯 selected AI selected 开源工具 selected 摄影 unselected 效率工具 unselected.
+Group 关键词 optional input RAG、开发工具、学习方法.
+Group 来源范围 dropdown 已选3个公开来源 >, subtitle 官方文档、开源社区、技术博客.
+Group 执行计划: frequency segmented 每天(selected) 工作日 每周; timepicker 07:00 > with 北京时间.
+Group 每次收集上限 stepper - 5条 +.
+Two switchrows 自动过滤重复内容 ON and 生成简短摘要 ON with explanatory 只整理要点，保留来源.
+Notification choice 更新方式 selected 站内查看, no WeChat push promise.
+Preview bluecard 每天07:00，收集最多5条新资源。 / 下次运行：9月5日07:00.
+Bottom fullwidth strong 保存并启用, secondarytext 也可先保存为暂停. Avoid any model parameters or cron, no enabled submit without required title.
+
+27_每日资源.png
+Use case: ui-mockup. Create a high fidelity Chinese interface screenshot for 知行日课. Reference image is STYLE reference only, not an edit target; create this NEW feature page in exactly the same product design family. Soft pale blue-white #F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary buttons, navy#172B4D text, readable slate secondary labels, thin line icons, gentle subtle shadows, generous but efficient spacing. Success#10B981 with check icon, warning#F59E0B with triangle and text, error#EF4444 with error icon and text. Chinese PingFang-like sans serif, extremely crisp correct simplified Chinese. Large enough body text and controls. Flat front view with no physical phone, no perspective, no poster, no collage, no multiple pages, no decorative captions around the screen, no cropped controls. Design values warm and calm. Content is fictional sample UI, not factual live news. Only the requested screen. This is an extension concept for scheduled discovery of online resources and photography; not a real scheduled automation.
+IMPORTANT: Exactly ONE complete vertical mini-program page, standalone image in portrait around1024x2048. Full-bleed screenshot UI fills entire image, no board margins or title outside screen. WeChat statusbar9:41 and mini-program top-right capsule. Back arrow in appnavbar. Main body and bottom buttons wholly visible, never chopped off. No bottom5tab nav on these nested pages, keep back navigation. Preserve reference's blue white rounded style but use 1screen only.
+Page title 每日资源. Topdate 9月4日 周五 with 历史 >; small 所属任务：每日技术资源. Softblue summarycard 今天为你整理了5条资源, text 07:02更新 · 来源链接已保留. Filterpills 全部 AI 开源工具 学习方法. Three readable resourcecards in view, other2 implied by counttext 共5条，继续下滑查看.
+Card1 categoryAI, title 理解RAG的检索流程, two-linesummary 从检索、上下文到回答，梳理关键步骤。, source 官方文档 · 示例, two separatedates 发布09-03 / 收集09-04; action 查看原文 and outlinebookmark收藏.
+Card2 category开源工具, title 让知识整理更轻松的工具, two-linesummary 了解资料归档与检索的不同方式。, source 开源社区 · 示例; 发布09-04 / 收集09-04; 查看原文 收藏.
+Card3 category学习方法, title 把零散阅读变成可复用笔记, summary 用问题、要点和实践记录连接知识。, source 技术博客 · 示例; 发布09-02 / 收集09-04; 查看原文 收藏.
+Small info note 摘要由AI辅助整理，请以原文为准. Bottom secondary outline 调整关注内容. Do not show realgithubstars or fabricatedrank. No wallpaperart.
+
+28_热门摄影.png
+Use case: ui-mockup. Create a high fidelity Chinese interface screenshot for 知行日课. Reference image is STYLE reference only, not an edit target; create this NEW feature page in exactly the same product design family. Soft pale blue-white #F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary buttons, navy#172B4D text, readable slate secondary labels, thin line icons, gentle subtle shadows, generous but efficient spacing. Success#10B981 with check icon, warning#F59E0B with triangle and text, error#EF4444 with error icon and text. Chinese PingFang-like sans serif, extremely crisp correct simplified Chinese. Large enough body text and controls. Flat front view with no physical phone, no perspective, no poster, no collage, no multiple pages, no decorative captions around the screen, no cropped controls. Design values warm and calm. Content is fictional sample UI, not factual live news. Only the requested screen. This is an extension concept for scheduled discovery of online resources and photography; not a real scheduled automation.
+IMPORTANT: Exactly ONE complete vertical mini-program page, standalone image in portrait around1024x2048. Full-bleed screenshot UI fills entire image, no board margins or title outside screen. WeChat statusbar9:41 and mini-program top-right capsule. Back arrow in appnavbar. Main body and bottom buttons wholly visible, never chopped off. No bottom5tab nav on these nested pages, keep back navigation. Preserve reference's blue white rounded style but use 1screen only.
+Page title 摄影精选. Warm shortsubheading 为今天，留一点观察世界的时间。 Top small任务 热门摄影灵感 · 07:32更新, date9月4日. Tabs 近期热门 selected / 最新发布 / 我的收藏. Filterpills 全部 风光 街拍 人像 构图, 全部selected. Use photography focused but SAME soft blue card system; rich photographic thumbnails genuinely beautiful, not generic ui placeholder icons.
+Top large rounded imagecard with photoreal landscape sunrise mist coastal mountains, pale gold glancing light and coolteal sea, cinematic butnatural. Underimage title 晨光里的海岸线, category风光 · 光线层次. Metadata 摄影社区 · 示例, 发布09-03 / 收集09-04. Footer 查看原作 and bookmark 收藏灵感.
+Next row two equal width compact imagecards with actualphotos: elegant rainystreet reflection with yellowumbrella distant adult figure, caption 雨后街角 / 街拍 · 色彩; other minimalist architectural curvedstairwell sunlight andshadow, caption 光影的秩序 / 构图 · 线条. Both show 来源示例 and smallbookmark.
+Small bottom info strip 热门参考：来源站近7日互动，非全网排名. Link 调整摄影偏好. Do not invent likes, rankingnumbers, awards, currentactualnews, authorsnames. Originalsource links rather than download button. No oversizedheader, let imagery occupy~45percent ofpage. Each image authored for fictional UI samples, no watermark.
+
+29_Web_定时发现管理.png
+Use case: ui-mockup. Create a high fidelity Chinese interface screenshot for 知行日课. Reference image is STYLE reference only, not an edit target; create this NEW feature page in exactly the same product design family. Soft pale blue-white #F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary buttons, navy#172B4D text, readable slate secondary labels, thin line icons, gentle subtle shadows, generous but efficient spacing. Success#10B981 with check icon, warning#F59E0B with triangle and text, error#EF4444 with error icon and text. Chinese PingFang-like sans serif, extremely crisp correct simplified Chinese. Large enough body text and controls. Flat front view with no physical phone, no perspective, no poster, no collage, no multiple pages, no decorative captions around the screen, no cropped controls. Design values warm and calm. Content is fictional sample UI, not factual live news. Only the requested screen. This is an extension concept for scheduled discovery of online resources and photography; not a real scheduled automation.
+
+Exactly ONE desktop webadmin screenshot around1920x1200, flat screenshotedge toedge, no boards/no mobiles. Match reference sidebar leftwith4navitems 概览 内容与来源 用户状态 任务与运行, 任务与运行selected. Logo知行日课/管理端. Topbreadcrumb 任务与运行 / 定时发现, topdate 北京时间2026-09-04 09:41, 管理员 avatar.
+Mainheading 定时发现, subtitle 按时收集新内容，把每次更新整理清楚. Topright outlined 查看运行记录 and blue 新建任务. Tabs 定时任务 selected / 采集记录 / 来源管理. 4 compactstatcards 已启用2 / 已暂停1 / 今日新增8 / 异常来源1.
+Wide main layout 65percent tasktable and35percent selectedtask configdetail onright.
+Table filters 搜索任务名称, 状态全部, 内容类型全部. Tablecolumns 任务/执行计划/最近结果/状态/操作 with3rows:
+每日技术资源 / 每天07:00 / 新增5条 / 已启用 green / 查看 编辑 暂停
+热门摄影灵感 / 每天07:30 / 新增3条 / 已启用 green / 查看 编辑 暂停
+效率工具精选 / 每周一08:00 / — / 已暂停 neutral / 查看 编辑 启用.
+Right detail card每日技术资源, chipsAI 技术资讯 开源工具, 来源3个公开来源 >, 每次上限5条, 自动去重on, AI摘要on, timezone北京时间, 下次09-05 07:00, actions查看结果 strong blue and立即运行 outline.
+Belowtable wide section 最近采集 whitecard two rows 07:02 每日技术资源 green成功 / 新增5 · 去重2 · 待审核5 / 查看; 07:32 热门摄影灵感 amber部分成功 / 新增3 · 来源失败1 · 待审核3 / 查看. Make second table main最近结果 forphotography 新增3条 · 1来源失败 amber rather than misleading allsuccess.
+Bottomright compact ambercard 来源暂时不可用 / 摄影来源B / 本次已跳过，其余来源正常完成。 / 重试失败来源.
+Small blue notice 公共内容经审核后发布，采集结果先进入待审核。. Admincan managepublicsource metadataonly,no privatebody. Footer 示例数据 · 新增功能设计. Keep readable table, no developercronorAPIkeyorcode.
+
+30_Web_英语单词管理.png
+Use case: ui-mockup. Create ONE high-fidelity Chinese desktop web admin UI screenshot, full-bleed landscape1920x1200, no collage, no multiple screens, no monitor hardware, no external board labels. Reference image style only. Product 知行日课 管理端, same soft pale-blue#F3F7FD background, white rounded20px cards, fine borders and diffuse shadows, primaryblue#3B82F6, textnavy#172B4D, legibleslate, PingFang SC-like clear Chinese. Successgreen#10B981, warningamber#F59E0B, errorred#EF4444 always paired with icon and text. Professional compact readable desktop spacing. NEW standalone English-vocabulary management feature, separate from scheduled discovery. Sidebar entries 概览 / 内容与来源 / 英语单词 / 用户状态 / 任务与运行, 英语单词 selected pale-bluepill with Aa icon. Logo matchesreference. Topbar breadcrumb 英语单词 / 词库管理 and 北京时间2026-09-04 09:41. Single administratoraccount. Word inventory is public learningcontent, not usersprivate vocabulary lists. Fictional UI demonstration. Do not produce code, audio buttons, translation chat, voice, paidplan, or browse real news. Footer 示例数据 · 新增功能设计.
+Main title 英语单词管理, subtitle 从导入到查词，建立自己的学习词库. Topright 导入词条 outline/uploadicon and 手动添加 blue. Tabs 词库管理 selected / 在线查询 / 导入记录. Compact statrow 全部词条36 / 已发布30 / 待完善4 / 草稿2.
+Leftmain65percent: search 搜索英文词或中文释义, filters 难度全部, 状态全部, 来源全部. Tablecolumns 单词 / 中文释义 / 难度 / 状态 / 操作. Sixrows:
+retrieval 检索 入门 已发布 green 查看
+context 上下文 入门 已发布 green 查看
+inference 推理 进阶 草稿 neutral 编辑
+embedding 嵌入表示 进阶 待完善 amber 完善
+latency 延迟 入门 已发布 green 查看
+throughput 吞吐量 进阶 已发布 green 查看.
+tablecheckboxes and button 批量归类 lowkey. Bottompagination共36条 /10条每页 /1234.
+Beneathtable pale-bluecallout 支持CSV、JSON批量导入 / 先预览并校验，确认后写入草稿。 action下载模板.
+Right35percent fixed card 在线查询添加 withglobeicon. Searchfield grounding and blue查询button, sourceselector 公开词典 >. Resultslarge 'grounding', type n., Chinese释义 依据建立；使回答关联可靠信息。; 例句 Grounding connects an answer to supporting sources.; 译文 依据建立让回答与支持来源关联。; 来源 公开词典 · 示例 with 查看原始页面. Greencheckstatus 词库中暂无该词，可以添加. Fields 标签 AI and 难度 入门. Bottom solidblue 编辑并加入词库. Smallcaption 以草稿保存，审核后发布. Small duplicatehelp 同词再次添加时会提示已有记录. Only one grounding result, no conflictingduplicatebanner. No audio buttons.
+
+31_Web_词条导入预览.png
+Use case: ui-mockup. Create ONE high-fidelity Chinese desktop web admin UI screenshot, full-bleed landscape1920x1200, no collage, no multiple screens, no monitor hardware, no external board labels. Reference image style only. Product 知行日课 管理端, same soft pale-blue#F3F7FD background, white rounded20px cards, fine borders and diffuse shadows, primaryblue#3B82F6, textnavy#172B4D, legibleslate, PingFang SC-like clear Chinese. Successgreen#10B981, warningamber#F59E0B, errorred#EF4444 always paired with icon and text. Professional compact readable desktop spacing. NEW standalone English-vocabulary management feature, separate from scheduled discovery. Sidebar entries 概览 / 内容与来源 / 英语单词 / 用户状态 / 任务与运行, 英语单词 selected pale-bluepill with Aa icon. Logo matchesreference. Topbar breadcrumb 英语单词 / 词库管理 and 北京时间2026-09-04 09:41. Single administratoraccount. Word inventory is public learningcontent, not usersprivate vocabulary lists. Fictional UI demonstration. Do not produce code, audio buttons, translation chat, voice, paidplan, or browse real news. Footer 示例数据 · 新增功能设计.
+Main title 导入英语词条, breadcrumb英语单词 / 导入词条. Stepper 1上传文件 completed / 2预览校验 activeblue / 3确认导入 inactive. File card vocabulary.csv · 8条记录 · 12KB, small 更换文件 and 下载模板. Guidance 支持CSV、JSON，确认后仅导入可用的新词。
+Statcards 总计8 / 可导入5green / 重复2amber / 错误1red, all clear.
+Large white previewtable columns 行号 / 单词 / 中文释义 / 例句 / 校验结果. 8rows:
+1 grounding 依据建立 Grounding connects answers to sources. 可导入green
+2 token 词元 A token is a unit of text. 可导入green
+3 prompt 提示词 Write a clear prompt. 可导入green
+4 workflow 工作流程 Keep the workflow simple. 可导入green
+5 benchmark 基准测试 Run the benchmark again. 可导入green
+6 context 上下文 The model uses context. 已存在·跳过 amber
+7 retrieval 检索 Start with retrieval. 文件内重复? here not filedup sinceonlyonce say 已存在·跳过 amber
+8 embedding blankdash Embedding represents meaning. 缺少中文释义red.
+Belowtable amberhelp 错误行与重复行不会导入，可修改文件后重新上传。 link下载校验报告.
+Bottomleft checkbox 跳过重复词 checked; note本次新增5条草稿，已发布词条保持不变.
+Bottomright 取消 outline / 确认导入5条 primaryblue.
+No automaticpublishing, no arbitrary privateownerdata, no source claimed rights. A compact collapsed panel 字段映射 > displays 英文词→term / 释义→definition but technical fields avoid userflow useEnglish? simply 单词列已匹配 / 释义列已匹配. Keep clear and readable.
+
+32_Web_技术知识管理.png
+Use case: ui-mockup. Reference image is STYLE reference only. Generate exactly ONE standalone desktopwebadmin UI screenshot1920x1200, edge-to-edge, no computer frame, no multi-screen collage. Product知行日课管理端. Soft pale-blue#F3F7FD canvas, white rounded20px cards, blue#3B82F6 primary, navy#172B4D text, slatesecondary, fine lineicons, gentle shadows, clearChinese PingFang sans serif. Green#10B981success, amber#F59E0Bwarning, red#EF4444error with icontext. Match reference professionalism and practical table density, no marketingart.
+Leftsidebar logo知行日课/管理端; sixnaventries 概览 / 内容与来源 / 技术知识 / 英语单词 / 用户状态 / 任务与运行. 技术知识 selected pale-bluepill. Footer 管理员 · 已启用二次验证. Topbar 技术知识 / 知识管理, 北京时间2026-09-04 09:41.
+Main title 技术知识管理, subtitle 让技术内容有分类、有来源，也有清晰的版本。. Topright 编辑分类 outline and +新建知识 blue.
+Tabs 知识列表selected / 分类与标签 / 待审核 / 纠错反馈. 4compactstats 全部知识24 / 已发布18 / 待审核4 / 草稿2.
+Mainbody horizontal split knowledge list60percent and publicknowledge preview40percent. Leftfilters 搜索标题、标签, 主题全部, 难度全部, 状态全部.
+Tablecolumns 知识标题 / 分类 / 状态 / 更新 / 操作; fiveclearrows:
+理解RAG：让回答有所依据 / AI基础 / 待审核 amber / 09-04 / 查看
+JVM内存的三个关键区域 / 计算机基础 / 已发布 green / 09-03 / 编辑
+向量检索与关键词检索 / AI基础 / 草稿 gray / 09-03 / 编辑
+容器内存排查入门 / 工程实践 / 已发布 green / 09-02 / 编辑
+HTTP缓存基础 / 计算机基础 / 已发布 green / 09-01 / 编辑.
+Each firstrow bluehighlight. Belowlist compactline 共24条 withpagination1,2,3. Beneathlist secondarycard 分类概览 / AI基础10 / 计算机基础8 / 工程实践6 with proportional thinbars and counts; sums24. note此处维护公共学习内容，个人知识笔记仅本人可见.
+Rightdetailwhitecard title 知识预览 · v2 with X; tabs 预览 / 编辑. Contentheading 理解RAG：让回答有所依据; tags AI基础 入门 预计3分钟. 2shortparagraphs under知识要点: 先检索与问题相关的材料，再结合上下文组织回答。 / 检索质量会影响可引用的信息范围。. Small3node diagram检索→上下文→回答. Foldoutsourceblock 来源信息 / 自编内容 · 项目负责人 / 使用依据：原创 / 发布时间：待发布. Separateblueinfostrip 已发布v1保持可见，v2确认后更新。. Footeractions 驳回修改 outline / 确认发布 blue.
+No personalnotes orprivatelearningdiaryshown,noAIautoapproval. Allcontent fictionalUIexamples, footercaption 示例数据 · 新增功能设计. No code, no excess controls.
+
+33_Web_英语词条上传.png
+Use case: ui-mockup. Create exactlyONE desktopweb UI screenshot, no collage, no hardwareframe, landscape1920x1200. STYLE reference from attachedimage only. 知行日课管理端 softpale-blue#F3F7FD canvas,white20pxroundcards,gentleshadows,blue#3B82F6controls,navytext,ChinesePingFang readable. Fullviewport allactions visible. Leftwhite sidebar6entries 概览 / 内容与来源 / 技术知识 / 英语单词 / 用户状态 / 任务与运行 with 英语单词selected. footer管理员·已启用二次验证. Topbreadcrumb英语单词/导入词条,北京时间2026-09-04 09:41.
+Mainheading 导入英语词条, subtitle 一次整理，批量加入你的公共词库. Stepper1上传文件 activeblue /2预览校验gray /3确认导入gray.
+Main65percentlargewhitecard label上传文件. Formatselecttabs CSV文件 active / JSON文件. Large rounded dashed lightblue draganddrop area with simpleuploadicon, text 将文件拖到这里，或点击选择; blue选择文件 button. Underarea text 支持UTF-8编码，单次最多100条，文件不超过2MB.
+Lower smalltemplatecard 不确定怎么整理？先下载模板。, buttons 下载CSV模板 outline and 查看JSON示例 text.
+Next card exampleheader 模板示例, small humanlabelcolumns 单词 / 中文释义 / 英文例句 / 例句译文. Oneexample row context /上下文 /The model uses context. /模型使用上下文. Table is readable not code.
+Right35percent helpercard 导入前准备, checklist 1准备英文词与中文释义 2可补充音标、例句与来源 3上传后检查重复和错误 4确认后新增为草稿. smallnotice 已发布词条不会被自动覆盖.
+Rightsecondcard 字段说明 with rows 单词 必填·1–80字符 /中文释义 必填·1–500字符 /英文例句 选填 /例句译文 选填 /音标 选填 /来源链接 选填. Lastnote 发布前仍需完善来源信息.
+Bottomfooterbuttons 取消outline and 下一步：预览校验 disabled palegrayblue because nofilechosen, with tiny 选择文件后继续. NoAPIcode, no privateusernotes, noautopublish. Footer 示例数据·新增功能设计.
+
+最终修正
+extension29
+Edit this screenshot only in left sidebar: use six navigation entries in this exact order 概览 / 内容与来源 / 技术知识 / 英语单词 / 用户状态 / 任务与运行. Keep 任务与运行 selected. Use existing icon style with openbookicon for技术知识 and Aa for英语单词. Preserve entire main page unchanged. In tasktable 热门摄影灵感 row add smallamber '1来源失败' under 新增3条 to match recentrun below. No other changes.
+
+extension30
+Edit only left sidebar, keep all other UI exactlyunchanged. Six entries in order 概览 / 内容与来源 / 技术知识 / 英语单词 / 用户状态 / 任务与运行. Add 技术知识 with same lineopenbookicon style. 英语单词 stays selected. Sidebarfooter replace 超级管理员 with 已启用二次验证, keep管理员name. Preserve rightlookup result and entiretable andcounts exactly.
+
+extension31
+Make targeted corrections only, preserve screenshotlayout. Leftsidebar sixentries exactly 概览 / 内容与来源 / 技术知识 / 英语单词 / 用户状态 / 任务与运行; add技术知识, 英语单词 selected. Footer replace超级管理员 with已启用二次验证. In rightside校验规则, replace line中文释义至少1个字符，最多200字 with '中文释义：1—500字符'. Replace restrictive英文词仅允许字母数字连字符撇号 rule with '英文词或短语：1—80字符'. Leave all othertabledata, counts8/5/2/1, buttons andcontent unchanged.

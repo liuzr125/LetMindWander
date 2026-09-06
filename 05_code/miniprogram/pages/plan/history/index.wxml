@@ -1,0 +1,13 @@
+<view class="history-page">
+  <view wx:if="{{plans.length}}" class="content">
+    <text class="page-tip">已保存的计划配置。每次调整都会生成一个版本，历史记录不会被覆盖。</text>
+    <view wx:for="{{plans}}" wx:key="id" class="plan-card">
+      <view class="card-head"><text class="version">计划版本 {{item.versionNo}}</text><text class="effective">{{item.effectiveDate}} 生效</text></view>
+      <text class="summary">每天 {{item.dailyBudgetMin}} 分钟 · {{item.weekdaysText}} · {{item.difficultyText}}</text>
+      <text class="topics">主题：{{item.topicsText}}</text>
+      <text class="tasks">技术新学 {{item.techCount}} 条　英语新词 {{item.newWordCount}} 个　{{item.reviewText}}</text>
+      <text wx:if="{{item.paused}}" class="paused">已暂停{{item.pauseUntil ? '，截至 ' + item.pauseUntil : ''}}</text>
+    </view>
+  </view>
+  <view wx:else class="empty"><text class="empty-title">还没有计划记录</text><text class="empty-text">保存计划后，可在这里查看历史版本。</text></view>
+</view>

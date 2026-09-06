@@ -1,0 +1,8 @@
+.page-shell {
+  background: linear-gradient(180deg, #eef4ed 0, #f7f8f5 440rpx);
+}
+.hint,.empty-card,.progress-card,.task,.gap { background:#fff; border-radius:24rpx; padding:28rpx; margin-top:28rpx; box-shadow:0 8rpx 28rpx rgba(49,92,69,.08); }
+.empty-title,.task-title { display:block; font-size:34rpx; font-weight:600; }.empty-copy,.task-meta,.gap { display:block; margin-top:14rpx; color:#728077; font-size:26rpx; }
+.primary-button { margin:28rpx 0 0; background:#315c45; color:#fff; border-radius:999rpx; }
+.progress-card { display:flex; align-items:center; justify-content:space-between; }.progress-number { font-size:48rpx; font-weight:650; }.progress-label { color:#68736c; }.rate { color:#315c45; font-size:32rpx; font-weight:600; }
+.task-list { margin-top:24rpx; }.task { display:flex; align-items:center; margin-top:16rpx; }.status { width:48rpx; height:48rpx; line-height:44rpx; border:2rpx solid #b8c8bb; border-radius:50%; text-align:center; color:#728077; }.status.DONE { background:#315c45; border-color:#315c45; color:#fff; }.status.DOING { border-color:#315c45; color:#315c45; font-size:44rpx; }.task-copy { margin-left:20rpx; }.gap text { margin-right:12rpx; }

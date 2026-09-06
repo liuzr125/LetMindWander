@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/auth/invite/index",
+    "pages/auth/register/index",
+    "pages/today/index",
+    "pages/learn/index",
+    "pages/knowledge/index",
+    "pages/growth/index",
+    "pages/mine/index",
+    "pages/profile/edit/index",
+    "pages/plan/index",
+    "pages/plan/history/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F7F9FF",
+    "navigationBarTitleText": "脑袋开小灶",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F7F9FF",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#747A73",
+    "selectedColor": "#315C45",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/today/index",
+        "text": "今日"
+      },
+      {
+        "pagePath": "pages/learn/index",
+        "text": "学习"
+      },
+      {
+        "pagePath": "pages/knowledge/index",
+        "text": "知识库"
+      },
+      {
+        "pagePath": "pages/growth/index",
+        "text": "成长"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "今日",
+  "usingComponents": {
+    "state-panel": "/components/state-panel/index"
+  }
+}

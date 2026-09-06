@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "学习",
+  "usingComponents": {
+    "state-panel": "/components/state-panel/index"
+  }
+}

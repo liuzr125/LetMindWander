@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "成长",
+  "usingComponents": {
+    "state-panel": "/components/state-panel/index"
+  }
+}

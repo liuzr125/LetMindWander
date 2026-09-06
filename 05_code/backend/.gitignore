@@ -1,0 +1,4 @@
+/target/
+/data/
+/logs/
+/src/main/resources/application-local.yml

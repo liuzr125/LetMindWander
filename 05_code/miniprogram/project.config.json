@@ -1,0 +1,20 @@
+{
+  "description": "脑袋开小灶原生微信小程序",
+  "miniprogramRoot": "./",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "urlCheck": false,
+    "checkSiteMap": true
+  },
+  "compileType": "miniprogram",
+  "packOptions": {
+    "ignore": []
+  },
+  "appid": "wx8c989345e46d7066",
+  "projectname": "let-mind-wander-miniprogram",
+  "condition": {},
+  "simulatorPluginLibVersion": {}
+}

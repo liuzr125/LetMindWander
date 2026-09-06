@@ -1,0 +1,173 @@
+.mine-page {
+  min-height: 100vh;
+  padding: 24rpx 32rpx 80rpx;
+  background: #f3f7ff;
+}
+
+.session-tip {
+  display: block;
+  margin-top: 8rpx;
+  color: #d46b08;
+  font-size: 21rpx;
+}
+
+/* ---------- 用户区 ---------- */
+.user-block {
+  background: #f3f7ff;
+  padding: 16rpx 8rpx 0;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx 0;
+}
+
+.avatar {
+  width: 116rpx;
+  height: 116rpx;
+  border-radius: 50%;
+  background: #e7efff;
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.nickname {
+  font-size: 38rpx;
+  font-weight: 650;
+  color: #1c2430;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: #0a70f5;
+  background: #e7efff;
+  border-radius: 8rpx;
+  padding: 4rpx 14rpx;
+}
+
+.profile-link {
+  display: inline-block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #7b8ba6;
+}
+
+/* ---------- 计划卡片 ---------- */
+.plan-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-top: 16rpx;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.plan-minutes {
+  font-size: 30rpx;
+  font-weight: 650;
+  color: #1c2430;
+}
+
+.plan-meta {
+  font-size: 24rpx;
+  color: #7b8ba6;
+}
+
+.plan-adjust {
+  font-size: 26rpx;
+  color: #0a70f5;
+}
+
+/* ---------- 菜单 ---------- */
+.menu-card {
+  margin-top: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 34rpx 32rpx;
+  border-bottom: 1rpx solid #f2f4f8;
+}
+
+.menu-item.last { border-bottom: none; }
+
+.menu-label {
+  flex: 1;
+  font-size: 30rpx;
+  color: #1c2430;
+}
+
+.arrow {
+  color: #c3cbdb;
+  font-size: 34rpx;
+}
+
+/* ---------- AI 用量 ---------- */
+.usage-card {
+  margin-top: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+
+.usage-row { display: block; }
+
+.usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.usage-title {
+  font-size: 30rpx;
+  font-weight: 650;
+  color: #1c2430;
+}
+
+.usage-note { font-size: 24rpx; color: #7b8ba6; }
+
+.usage-body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 28rpx;
+}
+
+.usage-label { font-size: 26rpx; color: #7b8ba6; }
+
+.usage-value { font-size: 44rpx; font-weight: 650; color: #0a70f5; }
+
+.usage-tip {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 22rpx;
+  color: #b3bccb;
+}

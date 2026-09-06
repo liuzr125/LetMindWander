@@ -1,0 +1,6 @@
+<view class="page-shell">
+  <text class="eyebrow">KNOWLEDGE</text>
+  <text class="page-title">知识库</text>
+  <text class="page-subtitle">保留思考的线索，让知识慢慢长出联系。</text>
+  <state-panel title="{{title}}" description="{{description}}" />
+</view>

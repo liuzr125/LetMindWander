@@ -1,0 +1,40 @@
+<view class="invite-page" style="padding-top: {{topInset}}px;">
+  <view class="brand">
+    <view class="brand-logo" aria-label="脑袋开小灶标志">
+      <view class="stem"></view><view class="leaf leaf-left"></view><view class="leaf leaf-right"></view>
+    </view>
+    <text class="brand-name">脑袋开小灶</text>
+    <text class="brand-slogan">每天学一点，让知识留得住</text>
+  </view>
+
+  <view class="features">
+    <view class="feature"><view class="feature-icon icon-book"><i></i></view><text class="feature-title">学习</text><text class="feature-copy">每天学一点</text></view>
+    <view class="feature"><view class="feature-icon icon-note"><i></i></view><text class="feature-title">复盘</text><text class="feature-copy">总结与检索</text></view>
+    <view class="feature"><view class="feature-icon icon-review"><i></i></view><text class="feature-title">复习</text><text class="feature-copy">巩固记得住</text></view>
+    <view class="feature"><view class="feature-icon icon-calendar"><i></i></view><text class="feature-title">周总结</text><text class="feature-copy">看见成长</text></view>
+  </view>
+
+  <view class="invite-card">
+    <text class="card-title">受邀试用</text>
+    <text class="card-subtitle">首轮面向受邀的学习伙伴。</text>
+    <view class="field">
+      <text class="field-label">邀请码</text>
+      <input class="invite-input" value="{{inviteCode}}" maxlength="20" placeholder="请输入邀请码" placeholder-class="placeholder" bindinput="handleInviteInput" />
+      <text class="field-tip">仅首次加入需要。</text>
+    </view>
+  </view>
+
+  <view class="consent-row">
+    <view class="checkbox {{privacyAccepted ? 'checked' : ''}}" bindtap="togglePrivacy"><text wx:if="{{privacyAccepted}}">✓</text></view>
+    <text class="consent-copy" bindtap="togglePrivacy">我已阅读并同意</text>
+    <text class="link" catchtap="openAgreement">用户协议</text>
+    <text class="consent-copy">与</text>
+    <text class="link" catchtap="openPrivacy">隐私说明</text>
+  </view>
+
+  <text wx:if="{{errorMessage}}" class="error-message">{{errorMessage}}</text>
+  <button class="wechat-button {{canSubmit ? 'enabled' : ''}}" disabled="{{!canSubmit}}" loading="{{loading}}" bindtap="submit">
+    <text wx:if="{{!loading}}" class="wechat-mark">●●</text>
+    <text>{{loading ? '正在登录…' : '微信登录并加入'}}</text>
+  </button>
+</view>

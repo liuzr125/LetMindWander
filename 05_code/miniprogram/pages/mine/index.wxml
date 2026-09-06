@@ -1,0 +1,72 @@
+<view class="mine-page">
+  <!-- 用户区：头像 + 昵称 + 受邀试用 + 个人资料入口 -->
+  <view class="user-block">
+    <view class="user-row" bindtap="goProfile">
+      <image class="avatar" src="{{profile.avatarUrl || defaultAvatar}}" mode="aspectFill" />
+      <view class="user-info">
+        <view class="name-row">
+          <text class="nickname">{{profile.nickname || '学习者'}}</text>
+          <text class="badge">受邀试用</text>
+        </view>
+        <text class="profile-link">个人资料 ›</text>
+        <text wx:if="{{sessionExpired}}" class="session-tip">登录状态已失效，点击重新登录</text>
+      </view>
+    </view>
+
+    <!-- 计划卡片 -->
+    <view class="plan-card" bindtap="goPlan">
+      <view class="plan-info">
+        <text class="plan-minutes">每天预计10分钟</text>
+        <text class="plan-meta">周一至周五 · AI · 入门</text>
+      </view>
+      <text class="plan-adjust">调整计划 ›</text>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <view class="menu-card">
+    <view class="menu-item" bindtap="goPlan">
+      <text class="menu-label">我的计划</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goHistory">
+      <text class="menu-label">复盘历史</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goFavorites">
+      <text class="menu-label">我的收藏</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goFriends">
+      <text class="menu-label">好友与共享</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goWordbook">
+      <text class="menu-label">生词本</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goPrivacy">
+      <text class="menu-label">隐私与数据</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item last" bindtap="goFeedback">
+      <text class="menu-label">问题反馈</text>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <!-- AI 用量 -->
+  <view class="usage-card">
+    <view class="usage-row" bindtap="goUsage">
+      <view class="usage-head">
+        <text class="usage-title">AI 用量</text>
+        <text class="usage-note">由你主动使用 ›</text>
+      </view>
+      <view class="usage-body">
+        <text class="usage-label">今日已用</text>
+        <text class="usage-value">{{aiUsed}}/{{aiLimit}}次</text>
+      </view>
+    </view>
+    <text class="usage-tip">时间按北京时间</text>
+  </view>
+</view>
