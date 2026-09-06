@@ -36,7 +36,7 @@ Page({
     if (task.taskType === 'word') return wx.navigateTo({ url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}` });
     if (task.taskType === 'review') return wx.navigateTo({ url: `/pages/review/index?date=${this.data.today}` });
     if (task.taskType === 'journal') return wx.navigateTo({ url: `/pages/journal/edit/index?date=${this.data.today}` });
-    wx.showModal({ title: '今日行动', content: task.title, showCancel: false });
+    if (task.taskType === 'action') return wx.navigateTo({ url: `/pages/action/detail/index?id=${task.actionId}&taskId=${task.id}&taskVersion=${task.versionNo}&taskStatus=${task.status}` });
   },
   adjustToday() { wx.navigateTo({ url: '/pages/plan/index?mode=today' }); },
   openLearn() { wx.switchTab({ url: '/pages/learn/index' }); },

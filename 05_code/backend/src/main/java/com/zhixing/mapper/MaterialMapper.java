@@ -33,8 +33,8 @@ public interface MaterialMapper {
 
     /** 行动素材：V3.0 周行动，取本人已确认(confirmed)且未完成的，预估耗时 estimated_minutes 转秒。 */
     @Select("SELECT a.id, a.title, a.estimated_minutes*60 AS estimated_seconds FROM weekly_action a " +
-            "WHERE a.owner_id=#{ownerId} AND a.state='confirmed' " +
+            "WHERE a.owner_id=#{ownerId} AND a.state='confirmed' AND a.scheduled_date=#{date} " +
             "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.action_id=a.id AND t.status='DONE') " +
             "ORDER BY a.scheduled_date, a.action_no, a.id LIMIT #{limit}")
-    List<MaterialCandidate> selectActions(@Param("ownerId") String ownerId, @Param("limit") int limit);
+    List<MaterialCandidate> selectActions(@Param("ownerId") String ownerId, @Param("date") LocalDate date, @Param("limit") int limit);
 }

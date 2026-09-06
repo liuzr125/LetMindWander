@@ -1,0 +1,12 @@
+const { actionService, dailyTaskService } = require('../../../services/index');
+
+Page({
+  data: { loading: true, saving: false, completing: false, error: '', actionId: '', taskId: '', taskVersion: 1, taskStatus: 'TODO', action: null, title: '', note: '', estimatedMinutes: 1 },
+  onLoad(options) { this.setData({ actionId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.taskVersion) || 1, taskStatus: options.taskStatus || 'TODO' }); this.load(); },
+  load() { actionService.get(this.data.actionId).then(action => this.setData({ action, title: action.title, note: action.note || '', estimatedMinutes: action.estimatedMinutes, loading: false, error: '' })).catch(error => this.setData({ loading: false, error: error.message || '行动加载失败' })); },
+  inputTitle(event) { this.setData({ title: event.detail.value }); },
+  inputNote(event) { this.setData({ note: event.detail.value }); },
+  inputMinutes(event) { const value = Number(event.detail.value); this.setData({ estimatedMinutes: Number.isFinite(value) ? Math.max(1, Math.min(30, Math.floor(value))) : 1 }); },
+  save() { if (this.data.saving) return; this.setData({ saving: true }); actionService.update(this.data.actionId, { title: this.data.title, note: this.data.note, estimatedMinutes: this.data.estimatedMinutes, expectedVersion: this.data.action.versionNo }).then(action => { this.setData({ action, taskVersion: this.data.taskStatus === 'TODO' ? this.data.taskVersion + 1 : this.data.taskVersion }); wx.showToast({ title: '行动已保存', icon: 'success' }); }).catch(error => { if (error.code === 'ACTION_VERSION_CONFLICT') this.load(); wx.showToast({ title: error.message || '保存失败', icon: 'none' }); }).finally(() => this.setData({ saving: false })); },
+  complete() { if (!this.data.taskId || this.data.taskStatus === 'DONE' || this.data.completing) return; this.setData({ completing: true }); const finish = task => dailyTaskService.event(this.data.taskId, { eventType: 'complete', expectedVersion: task.versionNo }); const operation = this.data.taskStatus === 'DOING' ? finish({ versionNo: this.data.taskVersion }) : dailyTaskService.event(this.data.taskId, { eventType: 'start', expectedVersion: this.data.taskVersion }).then(finish); operation.then(() => { this.setData({ taskStatus: 'DONE' }); wx.showToast({ title: '行动已完成', icon: 'success' }); setTimeout(() => wx.navigateBack(), 700); }).catch(error => wx.showToast({ title: error.message || '完成失败', icon: 'none' })).finally(() => this.setData({ completing: false })); }
+});

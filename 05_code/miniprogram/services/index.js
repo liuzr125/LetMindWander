@@ -104,4 +104,9 @@ const reviewService = {
   feedback(scheduleId, payload) { return request({ url: `/reviews/${encodeURIComponent(scheduleId)}/feedback`, method: 'POST', data: payload }); }
 };
 
-module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, journalService, reviewService };
+const actionService = {
+  get(id) { return request({ url: `/actions/${encodeURIComponent(id)}` }); },
+  update(id, payload) { return request({ url: `/actions/${encodeURIComponent(id)}`, method: 'PUT', data: payload }); }
+};
+
+module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, journalService, reviewService, actionService };

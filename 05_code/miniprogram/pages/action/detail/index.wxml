@@ -1,0 +1,11 @@
+<view class="action-page">
+  <view wx:if="{{loading}}" class="state">正在加载行动…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <text class="eyebrow">今日行动</text><text class="headline">先做好一件事</text>
+    <view class="date-card"><text>目标日期</text><text>{{action.scheduledDate}}</text></view>
+    <view class="form-card"><text class="label">行动标题</text><input maxlength="100" value="{{title}}" bindinput="inputTitle" placeholder="输入一个可执行的动作"/><text class="label">备注</text><textarea maxlength="1000" value="{{note}}" bindinput="inputNote" placeholder="记下完成标准或下一步"/><text class="label">预计时长（分钟）</text><input type="number" value="{{estimatedMinutes}}" bindinput="inputMinutes"/></view>
+    <view class="hint">仅同步更新未开始的今日任务；已开始和已完成的事实不会被覆盖。</view>
+    <button class="save" bindtap="save" loading="{{saving}}">保存行动</button><button class="complete" bindtap="complete" loading="{{completing}}" disabled="{{taskStatus === 'DONE'}}">{{taskStatus === 'DONE' ? '今日已完成' : '标记今日完成'}}</button>
+  </block>
+</view>

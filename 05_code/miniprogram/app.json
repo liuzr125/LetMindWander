@@ -14,7 +14,8 @@
     "pages/word/detail/index",
     "pages/journal/edit/index",
     "pages/journal/history/index",
-    "pages/review/index"
+    "pages/review/index",
+    "pages/action/detail/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F9FF",
