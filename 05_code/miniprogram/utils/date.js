@@ -5,4 +5,9 @@ function formatDate(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-module.exports = { formatDate };
+function formatChineseDate(date = new Date()) {
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  return `${date.getMonth() + 1}月${date.getDate()}日 周${weekdays[date.getDay()]}`;
+}
+
+module.exports = { formatDate, formatChineseDate };

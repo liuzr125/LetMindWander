@@ -83,7 +83,7 @@ public class PlanService {
                 plans.insertPlanTopic(relation);
             }
             plans.updateCurrentPlan(ownerId, next.getId());
-            dailyTasks.syncToday(ownerId, next);
+            if (Boolean.TRUE.equals(request.getAdjustToday())) dailyTasks.syncToday(ownerId, next);
         } catch (DuplicateKeyException exception) {
             throw new ApiException(HttpStatus.CONFLICT, "PLAN_VERSION_CONFLICT", "计划已变更，请重新加载后保存");
         }
@@ -137,8 +137,9 @@ public class PlanService {
 
         LearningPlanEntity plan = new LearningPlanEntity();
         plan.setId(CryptoUtils.randomId()); plan.setOwnerId(ownerId); plan.setVersionNo(latest.getVersionNo() + 1);
-        // 未激活今日任务包时，今日页会据此计划即时生成任务；已激活任务包保留原计划快照。
-        plan.setEffectiveDate(today()); plan.setDailyBudgetMin(r.getDailyBudgetMin()); plan.setWeekdaysMask(r.getWeekdaysMask());
+        // 普通保存默认次日生效；只有用户明确选择“调整今日”才创建当日版本并同步未开始任务。
+        plan.setEffectiveDate(Boolean.TRUE.equals(r.getAdjustToday()) ? today() : tomorrow());
+        plan.setDailyBudgetMin(r.getDailyBudgetMin()); plan.setWeekdaysMask(r.getWeekdaysMask());
         plan.setDifficulty(difficulty); plan.setTechCount(r.getTechCount()); plan.setNewWordCount(r.getNewWordCount());
         plan.setJournalEnabled(bool(r.getJournalEnabled())); plan.setReviewEnabled(bool(r.getReviewEnabled())); plan.setReviewLimit(r.getReviewLimit());
         plan.setIsPaused(bool(r.getPaused())); plan.setPauseUntil(pauseUntil);

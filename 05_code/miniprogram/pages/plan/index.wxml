@@ -50,9 +50,9 @@
     <view class="limit-row" wx:if="{{form.reviewEnabled}}"><text class="limit-label">每日上限</text><picker mode="selector" range="{{reviewLimits}}" value="{{reviewLimitIndex}}" bindchange="changeReviewLimit"><view class="limit-picker">{{form.reviewLimit}} 项　⌄</view></picker></view>
 
     <view class="preview-card">
-      <text class="calendar">▣</text><view><text class="preview-title">今日预览</text><text class="preview-detail">{{todayText}} · {{previewText}}</text></view>
+      <text class="calendar">▣</text><view><text class="preview-title">{{mode === 'today' ? '今日预览' : '明日预览'}}</text><text class="preview-detail">{{previewDateText}} · {{previewText}}</text></view>
     </view>
-    <view class="notice"><text>ⓘ　保存后今日生效，已激活任务保留原计划。</text><text class="pause" bindtap="togglePause">{{form.paused ? '恢复计划' : '暂停计划'}}</text></view>
+    <view class="notice"><text>ⓘ　普通保存默认次日生效，调整今日只替换未开始任务。</text><text class="pause" bindtap="togglePause">{{form.paused ? '恢复计划' : '暂停计划'}}</text></view>
     <text wx:if="{{errorMessage}}" class="error">{{errorMessage}}</text>
     <view class="actions"><button class="adjust" bindtap="adjustToday">调整今日</button><button class="save" bindtap="savePlan" loading="{{saving}}">保存计划</button></view>
   </view>

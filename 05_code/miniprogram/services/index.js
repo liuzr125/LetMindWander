@@ -84,4 +84,24 @@ const dailyTaskService = {
   event(taskId, payload) { return request({ url: `/tasks/${encodeURIComponent(taskId)}/events`, method: 'POST', data: payload }); }
 };
 
-module.exports = { systemService, authService, profileService, planService, dailyTaskService };
+const contentService = {
+  get(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}` }); },
+  understood(id, payload) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/understood`, method: 'POST', data: payload }); },
+  favorite(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/favorite`, method: 'POST', data: { active } }); },
+  review(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/review`, method: 'POST', data: { active } }); },
+  wordBook(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/word-book`, method: 'POST', data: { active } }); }
+};
+
+const journalService = {
+  get(date) { return request({ url: `/journals/${encodeURIComponent(date)}` }); },
+  history() { return request({ url: '/journals' }); },
+  save(date, payload) { return request({ url: `/journals/${encodeURIComponent(date)}`, method: 'PUT', data: payload }); },
+  submit(date, payload) { return request({ url: `/journals/${encodeURIComponent(date)}/submit`, method: 'POST', data: payload }); }
+};
+
+const reviewService = {
+  queue(date) { return request({ url: `/reviews/queue?date=${encodeURIComponent(date)}` }); },
+  feedback(scheduleId, payload) { return request({ url: `/reviews/${encodeURIComponent(scheduleId)}/feedback`, method: 'POST', data: payload }); }
+};
+
+module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, journalService, reviewService };

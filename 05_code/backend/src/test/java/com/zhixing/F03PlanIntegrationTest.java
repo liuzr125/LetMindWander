@@ -9,6 +9,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -32,7 +35,14 @@ class F03PlanIntegrationTest {
         int version = objectMapper.readTree(plan).path("versionNo").asInt();
         String payload = "{\"versionNo\":" + version + ",\"dailyBudgetMin\":15,\"weekdaysMask\":31,\"topicIds\":[\"" + topicId + "\"],\"difficulty\":\"advanced\",\"techCount\":2,\"newWordCount\":4,\"journalEnabled\":true,\"reviewEnabled\":true,\"reviewLimit\":5,\"paused\":false}";
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(payload))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(2)).andExpect(jsonPath("$.dailyBudgetMin").value(15)).andExpect(jsonPath("$.topics[0].name").value("AI"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(2)).andExpect(jsonPath("$.dailyBudgetMin").value(15))
+                .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1).toString()))
+                .andExpect(jsonPath("$.topics[0].name").value("AI"));
+        String todayPayload = payload.replace("\"versionNo\":" + version, "\"versionNo\":2")
+                .replace("\"paused\":false", "\"paused\":false,\"adjustToday\":true");
+        mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(todayPayload))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(3))
+                .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).toString()));
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PLAN_VERSION_CONFLICT"));
     }

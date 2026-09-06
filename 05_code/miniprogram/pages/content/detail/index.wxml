@@ -1,0 +1,20 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="state">正在加载内容…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <text class="title">{{detail.title}}</text>
+    <view class="tags"><text wx:for="{{detail.topics}}" wx:key="*this">{{item}}</text><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text>预计 {{detail.estimatedSeconds / 60}} 分钟</text></view>
+    <text class="summary">{{detail.summary}}</text>
+    <view class="source"><text>{{detail.originAuthor || '公开资料整理'}}</text><text class="source-link" bindtap="copySource">查看来源</text></view>
+    <view class="divider"></view>
+    <text class="body">{{detail.body}}</text>
+    <view class="principle"><text class="quote">“</text><text>先理解概念与边界，再把它放回真实问题中使用。</text></view>
+    <button class="ai" bindtap="explain">✦ 解释这段内容</button>
+    <text class="license">来源与许可：{{detail.licenseSnapshot}}</text>
+    <view class="bottom-actions">
+      <button bindtap="toggleFavorite">{{detail.favorite ? '★ 已收藏' : '☆ 收藏'}}</button>
+      <button bindtap="toggleReview">{{detail.inReview ? '✓ 复习中' : '＋ 加入复习'}}</button>
+      <button class="primary" bindtap="understood">{{detail.understood ? '已理解' : '我已理解'}}</button>
+    </view>
+  </block>
+</view>

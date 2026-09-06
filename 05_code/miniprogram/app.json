@@ -9,7 +9,12 @@
     "pages/mine/index",
     "pages/profile/edit/index",
     "pages/plan/index",
-    "pages/plan/history/index"
+    "pages/plan/history/index",
+    "pages/content/detail/index",
+    "pages/word/detail/index",
+    "pages/journal/edit/index",
+    "pages/journal/history/index",
+    "pages/review/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F9FF",

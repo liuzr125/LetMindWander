@@ -125,42 +125,165 @@ CREATE TABLE IF NOT EXISTS learning_plan_topic (
   CONSTRAINT uk_learning_plan_topic UNIQUE (plan_id, topic_id)
 );
 
-CREATE TABLE IF NOT EXISTS learning_content (
+CREATE TABLE IF NOT EXISTS content_source (
   id CHAR(32) NOT NULL PRIMARY KEY,
-  content_type VARCHAR(16) NOT NULL,
-  topic_id CHAR(32),
-  title VARCHAR(100) NOT NULL,
-  difficulty VARCHAR(32) NOT NULL DEFAULT 'intro',
-  estimated_seconds INT NOT NULL,
-  state VARCHAR(16) NOT NULL DEFAULT 'published',
-  sort_no INT NOT NULL DEFAULT 0,
+  name VARCHAR(100) NOT NULL,
+  source_type VARCHAR(32) NOT NULL DEFAULT 'manual',
+  url VARCHAR(2048), license_note VARCHAR(1000) NOT NULL,
+  enabled SMALLINT NOT NULL DEFAULT 1,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_learning_content_pick ON learning_content (content_type, state, difficulty, sort_no);
+
+-- 测试库与生产 V3.0 保持同一内容版本口径，避免 Mapper 在 H2 通过、MySQL 失败或反之。
+CREATE TABLE IF NOT EXISTS learning_content (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_type VARCHAR(32) NOT NULL,
+  source_id CHAR(32) NOT NULL,
+  dedup_hash BINARY(32) NOT NULL,
+  origin_url_hash BINARY(32),
+  word_key_hash BINARY(32),
+  stage VARCHAR(32),
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  current_version_id CHAR(32),
+  published_version_id CHAR(32),
+  published_at TIMESTAMP(3),
+  withdrawn_at TIMESTAMP(3),
+  withdraw_reason VARCHAR(1000),
+  row_version INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_learning_content_dedup UNIQUE (dedup_hash),
+  CONSTRAINT uk_learning_content_word UNIQUE (word_key_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_content_pick ON learning_content (content_type, state, published_at);
+CREATE INDEX IF NOT EXISTS idx_learning_content_stage ON learning_content (content_type, stage, state, published_at);
+
+CREATE TABLE IF NOT EXISTS content_version (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_id CHAR(32) NOT NULL,
+  version_no INT NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  summary VARCHAR(500), body CLOB,
+  difficulty VARCHAR(32) NOT NULL DEFAULT 'intro',
+  estimated_seconds INT NOT NULL DEFAULT 180,
+  word_term VARCHAR(80), phonetic VARCHAR(200), meaning VARCHAR(500),
+  example_text VARCHAR(1000), example_translation VARCHAR(1000),
+  origin_url VARCHAR(2048), origin_author VARCHAR(200), origin_published_at TIMESTAMP(3),
+  license_snapshot VARCHAR(1000) NOT NULL,
+  body_hash BINARY(32) NOT NULL,
+  review_status VARCHAR(32) NOT NULL DEFAULT 'draft',
+  created_by CHAR(32) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_content_version UNIQUE (content_id, version_no)
+);
+
+CREATE TABLE IF NOT EXISTS content_topic (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_version_id CHAR(32) NOT NULL,
+  topic_id CHAR(32) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_content_topic UNIQUE (content_version_id, topic_id)
+);
+
+CREATE TABLE IF NOT EXISTS learning_record (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  content_id CHAR(32) NOT NULL,
+  learning_key VARCHAR(96) NOT NULL,
+  last_version_id CHAR(32) NOT NULL,
+  learning_status VARCHAR(32) NOT NULL DEFAULT 'learning',
+  first_completed_at TIMESTAMP(3), last_feedback_at TIMESTAMP(3),
+  review_opt_out SMALLINT NOT NULL DEFAULT 0,
+  version_no INT NOT NULL DEFAULT 1,
+  familiarity_percent SMALLINT,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_learning_record UNIQUE (owner_id, learning_key)
+);
+
+CREATE TABLE IF NOT EXISTS user_favorite (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL, target_type VARCHAR(32) NOT NULL, target_id CHAR(32) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'active', title_snapshot VARCHAR(200) NOT NULL,
+  favorited_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_user_favorite UNIQUE (owner_id,target_type,target_id)
+);
 
 CREATE TABLE IF NOT EXISTS knowledge_item (
   id CHAR(32) NOT NULL PRIMARY KEY,
-  title VARCHAR(100) NOT NULL,
-  estimated_seconds INT NOT NULL,
-  next_review_date DATE NOT NULL,
-  state VARCHAR(16) NOT NULL DEFAULT 'active',
-  sort_no INT NOT NULL DEFAULT 0,
+  owner_id CHAR(32) NOT NULL,
+  item_type VARCHAR(32) NOT NULL,
+  title VARCHAR(100) NOT NULL, body CLOB NOT NULL, search_text CLOB NOT NULL,
+  learning_status VARCHAR(32) NOT NULL DEFAULT 'unlearned',
+  verification_status VARCHAR(32) NOT NULL DEFAULT 'unverified',
+  source_content_id CHAR(32), source_content_version_id CHAR(32),
+  bookmark_content_id CHAR(32), word_key_hash BINARY(32),
+  version_no INT NOT NULL DEFAULT 1,
+  visibility VARCHAR(32) NOT NULL DEFAULT 'private',
+  state VARCHAR(32) NOT NULL DEFAULT 'active',
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_knowledge_bookmark UNIQUE (owner_id,bookmark_content_id),
+  CONSTRAINT uk_knowledge_word UNIQUE (owner_id,word_key_hash)
 );
-CREATE INDEX IF NOT EXISTS idx_knowledge_item_review ON knowledge_item (state, next_review_date, sort_no);
+
+CREATE TABLE IF NOT EXISTS review_schedule (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL, knowledge_id CHAR(32) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'active', stage SMALLINT NOT NULL DEFAULT 0,
+  due_date DATE, last_feedback_id CHAR(32), version_no INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_review_schedule UNIQUE (owner_id,knowledge_id)
+);
+
+CREATE TABLE IF NOT EXISTS review_feedback (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL, knowledge_id CHAR(32) NOT NULL, schedule_id CHAR(32) NOT NULL,
+  business_date DATE NOT NULL, feedback VARCHAR(32) NOT NULL,
+  before_stage SMALLINT NOT NULL, before_state VARCHAR(32) NOT NULL, before_due_date DATE,
+  after_stage SMALLINT NOT NULL, after_state VARCHAR(32) NOT NULL, after_due_date DATE,
+  revision_no INT NOT NULL DEFAULT 1, task_id CHAR(32), effective_at TIMESTAMP(3) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_review_feedback_day UNIQUE (owner_id,knowledge_id,business_date)
+);
+
+CREATE TABLE IF NOT EXISTS word_sense (
+  id CHAR(32) NOT NULL PRIMARY KEY, content_version_id CHAR(32) NOT NULL,
+  part_of_speech VARCHAR(32) NOT NULL, meaning VARCHAR(1000) NOT NULL, sort_no INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_word_sense UNIQUE (content_version_id,sort_no)
+);
+CREATE TABLE IF NOT EXISTS word_example (
+  id CHAR(32) NOT NULL PRIMARY KEY, sense_id CHAR(32) NOT NULL,
+  sentence VARCHAR(1000) NOT NULL, translation VARCHAR(1000) NOT NULL, sort_no INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_word_example UNIQUE (sense_id,sort_no)
+);
+CREATE TABLE IF NOT EXISTS word_notebook (
+  id CHAR(32) NOT NULL PRIMARY KEY, owner_id CHAR(32) NOT NULL, content_id CHAR(32) NOT NULL,
+  word_key_hash BINARY(32) NOT NULL, state VARCHAR(32) NOT NULL DEFAULT 'active',
+  added_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_word_notebook UNIQUE (owner_id,word_key_hash)
+);
 
 CREATE TABLE IF NOT EXISTS weekly_action (
   id CHAR(32) NOT NULL PRIMARY KEY,
-  title VARCHAR(100) NOT NULL,
-  estimated_seconds INT NOT NULL,
-  state VARCHAR(16) NOT NULL DEFAULT 'active',
-  sort_no INT NOT NULL DEFAULT 0,
+  owner_id CHAR(32) NOT NULL, summary_id CHAR(32) NOT NULL, action_no SMALLINT NOT NULL,
+  title VARCHAR(100) NOT NULL, note VARCHAR(1000), scheduled_date DATE NOT NULL,
+  estimated_minutes SMALLINT NOT NULL, state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  version_no INT NOT NULL DEFAULT 1,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_weekly_action UNIQUE (summary_id,action_no)
 );
-CREATE INDEX IF NOT EXISTS idx_weekly_action_pick ON weekly_action (state, sort_no);
+CREATE INDEX IF NOT EXISTS idx_weekly_action_pick ON weekly_action (owner_id,scheduled_date,state);
 
 CREATE TABLE IF NOT EXISTS daily_package (
   id CHAR(32) NOT NULL PRIMARY KEY,
@@ -236,6 +359,27 @@ CREATE TABLE IF NOT EXISTS task_event (
   CONSTRAINT uk_task_event_version UNIQUE (task_id, task_version)
 );
 CREATE INDEX IF NOT EXISTS idx_task_event_owner_time ON task_event (owner_id, occurred_at);
+
+CREATE TABLE IF NOT EXISTS daily_journal (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL, business_date DATE NOT NULL,
+  current_revision_id CHAR(32), submitted_revision_id CHAR(32),
+  version_no INT NOT NULL DEFAULT 1, state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  first_submitted_at TIMESTAMP(3), last_submitted_at TIMESTAMP(3),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_daily_journal UNIQUE (owner_id,business_date)
+);
+
+CREATE TABLE IF NOT EXISTS journal_revision (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL, journal_id CHAR(32) NOT NULL, revision_no INT NOT NULL,
+  done_text CLOB, blocker_text CLOB, learned_text CLOB, next_step_text CLOB,
+  ai_summary CLOB, summary_source_revision INT, summary_ai_job_id CHAR(32),
+  content_hash BINARY(32) NOT NULL, save_kind VARCHAR(32) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_journal_revision UNIQUE (journal_id,revision_no)
+);
 
 CREATE TABLE IF NOT EXISTS media_asset (
   id CHAR(32) NOT NULL PRIMARY KEY,

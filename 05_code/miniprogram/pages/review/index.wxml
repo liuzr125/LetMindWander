@@ -1,0 +1,12 @@
+<view class="review-page">
+  <view wx:if="{{loading}}" class="state">正在准备复习内容…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:elif="{{current}}">
+    <view class="progress-head"><text>今日复习 {{completed + 1}} / {{total}}</text><text>{{completed}}/{{total}}</text></view><view class="track"><view class="bar" style="width: {{progress}}%;"></view></view>
+    <view class="card"><view class="badge-row"><text class="type">{{current.wordTerm ? 'Aa 技术英语' : '知识复习'}}</text><text class="stage">本轮第 {{current.stage + 1}} 阶段</text></view><text class="word">{{current.wordTerm || current.title}}</text><text wx:if="{{current.wordTerm}}" class="meaning">{{current.meaning}}</text><text class="question">还记得它的含义吗？</text><view class="divider"></view><text class="body">{{current.body}}</text><text wx:if="{{current.exampleText}}" class="example">例句　{{current.exampleText}}</text></view>
+    <text class="hint">凭真实感受选择</text>
+    <view class="feedbacks"><button class="unclear" data-value="unclear" bindtap="feedback">？<text>没懂</text></button><button class="fuzzy" data-value="fuzzy" bindtap="feedback">～<text>模糊</text></button><button class="remember" data-value="remember" bindtap="feedback">✓<text>记住</text></button></view>
+    <text class="remaining">还有 {{queue.length}} 项待复习</text>
+  </block>
+  <view wx:else class="done"><text class="done-icon">✓</text><text class="done-title">今日复习完成</text><text class="done-copy">真实反馈会决定下一次复习日期。</text><button bindtap="load">刷新队列</button></view>
+</view>

@@ -17,6 +17,8 @@ public class UpdatePlanRequest {
     private Boolean paused;
     private String pauseUntil;
     private String changeReason;
+    /** true 仅用于用户明确点击“调整今日”；普通保存默认次日生效。 */
+    private Boolean adjustToday;
 
     public Integer getVersionNo() { return versionNo; } public void setVersionNo(Integer versionNo) { this.versionNo = versionNo; }
     public Integer getDailyBudgetMin() { return dailyBudgetMin; } public void setDailyBudgetMin(Integer dailyBudgetMin) { this.dailyBudgetMin = dailyBudgetMin; }
@@ -31,4 +33,5 @@ public class UpdatePlanRequest {
     public Boolean getPaused() { return paused; } public void setPaused(Boolean paused) { this.paused = paused; }
     public String getPauseUntil() { return pauseUntil; } public void setPauseUntil(String pauseUntil) { this.pauseUntil = pauseUntil; }
     public String getChangeReason() { return changeReason; } public void setChangeReason(String changeReason) { this.changeReason = changeReason; }
+    public Boolean getAdjustToday() { return adjustToday; } public void setAdjustToday(Boolean adjustToday) { this.adjustToday = adjustToday; }
 }

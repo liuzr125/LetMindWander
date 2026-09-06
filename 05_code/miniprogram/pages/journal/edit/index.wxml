@@ -1,0 +1,14 @@
+<view class="journal-page">
+  <view wx:if="{{loading}}" class="loading">正在加载复盘…</view>
+  <block wx:else>
+    <text class="date">{{dateText}}</text>
+    <view class="intro"><view class="intro-icon">✎</view><view><text class="intro-title">写下今天的一点收获</text><text class="intro-copy">不必写满，真实的一点就很好。</text></view></view>
+    <text class="save-state">草稿 · {{saveState}}</text>
+    <view class="question"><text class="label">今天完成了什么？</text><textarea data-key="doneText" value="{{form.doneText}}" bindinput="input" maxlength="3000" placeholder="记录完成的学习或行动…"/><text class="count">{{counts.doneText}}/3000</text></view>
+    <view class="question"><text class="label">卡在哪里？</text><textarea data-key="blockerText" value="{{form.blockerText}}" bindinput="input" maxlength="3000" placeholder="记录尚未解决的问题…"/><text class="count">{{counts.blockerText}}/3000</text></view>
+    <view class="question"><text class="label">学到了什么？</text><textarea data-key="learnedText" value="{{form.learnedText}}" bindinput="input" maxlength="3000" placeholder="写下新的理解…"/><text class="count">{{counts.learnedText}}/3000</text></view>
+    <view class="question"><text class="label">明天先做哪件事？</text><textarea data-key="nextStepText" value="{{form.nextStepText}}" bindinput="input" maxlength="3000" placeholder="给明天一个清晰起点…"/><text class="count">{{counts.nextStepText}}/3000</text></view>
+    <view class="ai-row"><button bindtap="manualSave" loading="{{saving}}">存草稿</button><button disabled>✦ AI 精炼</button><button disabled>▣ 提取问题卡</button></view>
+    <button class="submit" bindtap="submit" loading="{{submitting}}">{{state === 'submitted' ? '更新复盘' : '提交复盘'}}</button>
+  </block>
+</view>

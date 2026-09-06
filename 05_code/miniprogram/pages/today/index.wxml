@@ -1,8 +1,34 @@
-<view class="page-shell">
-  <text class="eyebrow">TODAY · {{today}}</text>
-  <text class="page-title">今日任务</text>
-  <view wx:if="{{loading}}" class="hint">正在准备今天的任务…</view>
-  <view wx:elif="{{error}}" class="hint"><text>{{error}}</text><button size="mini" bindtap="load">重试</button></view>
-  <block wx:elif="{{!pack.active}}"><view class="empty-card"><text class="empty-title">{{pack.message || '暂无任务'}}</text><text class="empty-copy">自由浏览不会计入今日进度。</text><button wx:if="{{pack.nonActiveDay}}" class="primary-button" bindtap="activate">今天也学习</button></view></block>
-  <block wx:else><view class="progress-card"><view><text class="progress-number">{{pack.doneCount}}/{{pack.currentCount}}</text><text class="progress-label"> 已完成</text></view><text wx:if="{{pack.completionRate != null}}" class="rate">{{pack.completionRate}}%</text><text wx:else class="rate">暂无任务</text></view><view wx:if="{{pack.tasks.length}}" class="task-list"><view wx:for="{{pack.tasks}}" wx:key="id" class="task" bindtap="changeTask" data-task="{{item}}"><view class="status {{item.status}}">{{item.status === 'DONE' ? '✓' : item.status === 'DOING' ? '·' : '○'}}</view><view class="task-copy"><text class="task-title">{{item.title}}</text><text class="task-meta">{{item.estimatedSeconds / 60}} 分钟 · {{item.status}}</text></view></view></view><view wx:else class="empty-card"><text class="empty-title">暂无任务</text><text class="empty-copy">内容不足时不会凭空安排任务。</text></view><view wx:if="{{pack.gaps.length}}" class="gap"><text>今日缺项</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.taskType}}：{{item.reason}} </text></view></block>
+<view class="today-page">
+  <view class="hero">
+    <text class="date">{{dateText}}</text>
+    <text class="title">{{packActive ? '今天，向前一点点' : '今天，按自己的节奏来'}}</text>
+    <text class="subtitle">{{packActive ? '每一点投入，都在积累。' : '专注学习，持续进步。'}}</text>
+  </view>
+  <view wx:if="{{loading}}" class="state-card">正在准备今天的任务…</view>
+  <view wx:elif="{{error}}" class="state-card"><text>{{error}}</text><button class="outline-small" bindtap="load">重试</button></view>
+  <block wx:elif="{{!pack.active || !pack.currentCount}}">
+    <view class="empty-card">
+      <view class="empty-icon">✓</view><text class="empty-title">暂无计划任务</text>
+      <text class="empty-copy">{{pack.message || '今天不在你的计划内。'}}</text>
+      <button class="primary-button" bindtap="activate">今天也学习</button>
+      <button class="secondary-button" bindtap="openLearn">去学习页看看</button>
+    </view>
+  </block>
+  <block wx:else>
+    <view class="progress-card">
+      <view class="progress-head"><text>已完成 {{pack.doneCount}} / {{pack.currentCount}}</text><text class="adjust" bindtap="adjustToday">调整今日 ›</text></view>
+      <text class="rate">{{pack.completionRate}}<text class="percent">%</text></text>
+      <view class="track"><view class="bar" style="width: {{pack.completionRate}}%;"></view></view>
+      <view class="progress-foot"><text>原计划 {{pack.originalCount || pack.currentCount}} 项</text><text>剩余预计 {{remainingMinutes}} 分钟</text></view>
+    </view>
+    <view class="group-list">
+      <view wx:for="{{groups}}" wx:key="type" class="task-group" bindtap="openGroup" data-type="{{item.type}}">
+        <view class="group-icon {{item.color}}">{{item.done === item.total ? '✓' : item.icon}}</view>
+        <view class="group-main"><text class="group-title">{{item.title}}</text><text class="group-status {{item.done === item.total ? 'complete' : ''}}">{{item.statusText}}</text></view>
+        <text class="group-action">{{item.done === item.total ? '查看' : (item.type === 'review' ? '去复习' : '继续学习')}}</text><text class="chevron">›</text>
+      </view>
+    </view>
+    <view wx:if="{{hasGaps}}" class="gap-card"><text class="gap-title">今日缺项</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.taskType}}：{{item.reason}}（{{item.gapCount}}）</text></view>
+  </block>
+  <view class="history-card" bindtap="openJournalHistory"><text>复盘历史</text><text>›</text></view>
 </view>

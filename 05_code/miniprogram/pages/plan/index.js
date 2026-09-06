@@ -6,10 +6,10 @@ Page({
   data: {
     loaded: false, saving: false, addingTopic: false, errorMessage: '', successMessage: '', newTopicName: '',
     budgets: [5, 10, 15, 20, 30], weekdays: WEEKDAYS, reviewLimits: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], reviewLimitIndex: 5,
-    topics: [], selectedTopicIds: {}, isWeekdaySelected: {}, todayText: '', previewText: '',
+    topics: [], selectedTopicIds: {}, isWeekdaySelected: {}, previewDateText: '', previewText: '', mode: 'plan',
     form: { versionNo: null, dailyBudgetMin: 10, weekdaysMask: 31, difficulty: 'intro', techCount: 1, newWordCount: 3, journalEnabled: true, reviewEnabled: true, reviewLimit: 5, paused: false, pauseUntil: null }
   },
-  onLoad() { this.load(); },
+  onLoad(options) { this.setData({ mode: options && options.mode === 'today' ? 'today' : 'plan' }); this.load(); },
   load() {
     Promise.all([planService.get(), planService.topics()]).then(([plan, topics]) => {
       const selected = {}; (plan.topics || []).forEach((topic) => { selected[topic.id] = true; });
@@ -47,15 +47,16 @@ Page({
   toggleReview(e) { this.setData({ 'form.reviewEnabled': e.detail.value }); },
   changeReviewLimit(e) { const value = this.data.reviewLimits[e.detail.value]; this.setData({ 'form.reviewLimit': value, reviewLimitIndex: e.detail.value }); },
   togglePause() { this.setData({ 'form.paused': !this.data.form.paused }); this.refreshPreview(); },
-  refreshPreview() { const d = new Date(); const mask = this.data.form.weekdaysMask; const active = !this.data.form.paused && (mask & (1 << ((d.getDay() + 6) % 7))); this.setData({ isWeekdaySelected: this.weekdayMap(mask), todayText: `${d.getMonth() + 1}月${d.getDate()}日`, previewText: active ? '活动日' : '非活动日(不自动安排任务)' }); },
+  refreshPreview() { const d = new Date(); if (this.data.mode !== 'today') d.setDate(d.getDate() + 1); const mask = this.data.form.weekdaysMask; const active = !this.data.form.paused && (mask & (1 << ((d.getDay() + 6) % 7))); this.setData({ isWeekdaySelected: this.weekdayMap(mask), previewDateText: `${d.getMonth() + 1}月${d.getDate()}日`, previewText: active ? '活动日' : '非活动日(不自动安排任务)' }); },
   weekdayMap(mask) { const result = {}; WEEKDAYS.forEach((day) => { result[day.value] = !!(mask & (1 << day.value)); }); return result; },
-  adjustToday() { wx.showModal({ title: '暂不可调整今日', content: '今日任务包模块尚未接入，无法安全地只替换未开始任务。', showCancel: false }); },
-  savePlan() {
-    const form = this.data.form; const topicIds = Object.keys(this.data.selectedTopicIds).filter((id) => this.data.selectedTopicIds[id]); const payload = Object.assign({}, form, { topicIds });
+  adjustToday() { this.submit(true); },
+  savePlan() { this.submit(false); },
+  submit(adjustToday) {
+    const form = this.data.form; const topicIds = Object.keys(this.data.selectedTopicIds).filter((id) => this.data.selectedTopicIds[id]); const payload = Object.assign({}, form, { topicIds, adjustToday, changeReason: adjustToday ? '用户明确调整今日' : '计划设置保存' });
     this.setData({ saving: true, errorMessage: '', successMessage: '' }); planService.update(payload).then((plan) => {
-      this.setData({ form: Object.assign({}, form, { versionNo: plan.versionNo, paused: plan.paused, pauseUntil: plan.pauseUntil }), reviewLimitIndex: plan.reviewLimit, successMessage: '计划已保存，今日生效' });
+      this.setData({ form: Object.assign({}, form, { versionNo: plan.versionNo, paused: plan.paused, pauseUntil: plan.pauseUntil }), reviewLimitIndex: plan.reviewLimit, successMessage: adjustToday ? '今日未开始任务已更新' : '计划已保存，明日生效' });
       this.refreshPreview();
-      setTimeout(() => this.setData({ successMessage: '' }), 2200);
+      setTimeout(() => { this.setData({ successMessage: '' }); if (adjustToday && getCurrentPages().length > 1) wx.navigateBack(); }, 1200);
     }).catch((error) => { if (error.code === 'PLAN_VERSION_CONFLICT') { this.load(); wx.showToast({ title: '计划已更新，已为你刷新最新内容', icon: 'none' }); } else { this.setData({ errorMessage: error.message || '保存失败，请重试' }); } }).finally(() => this.setData({ saving: false }));
   }
 });

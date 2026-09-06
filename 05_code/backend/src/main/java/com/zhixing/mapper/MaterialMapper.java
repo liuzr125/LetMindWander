@@ -11,12 +11,17 @@ import java.util.List;
 @Mapper
 public interface MaterialMapper {
     /** 技术/单词素材：V3.0 结构，标题/难度/预估耗时都在 content_version，经 published_version_id 关联。 */
-    @Select("SELECT lc.id, cv.title, cv.estimated_seconds FROM learning_content lc " +
+    @Select("SELECT lc.id, cv.id AS version_id, cv.title, cv.estimated_seconds FROM learning_content lc " +
             "JOIN content_version cv ON cv.id = lc.published_version_id " +
             "WHERE lc.content_type=#{type} AND lc.state='published' AND cv.difficulty=#{difficulty} " +
+            "AND (#{type}='word' OR NOT EXISTS (SELECT 1 FROM learning_plan_topic lpt WHERE lpt.plan_id=#{planId}) " +
+            "OR EXISTS (SELECT 1 FROM content_topic ct JOIN learning_plan_topic lpt ON lpt.topic_id=ct.topic_id " +
+            "WHERE ct.content_version_id=cv.id AND lpt.plan_id=#{planId})) " +
             "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE') " +
             "ORDER BY lc.published_at, lc.id LIMIT #{limit}")
-    List<MaterialCandidate> selectContent(@Param("ownerId") String ownerId, @Param("type") String type, @Param("difficulty") String difficulty, @Param("limit") int limit);
+    List<MaterialCandidate> selectContent(@Param("ownerId") String ownerId, @Param("planId") String planId,
+                                          @Param("type") String type, @Param("difficulty") String difficulty,
+                                          @Param("limit") int limit);
 
     /** 复习素材：V3.0 复习队列在 review_schedule（state=active 且 due_date 到期），标题取 knowledge_item。 */
     @Select("SELECT k.id, k.title, 30 AS estimated_seconds FROM review_schedule rs " +
