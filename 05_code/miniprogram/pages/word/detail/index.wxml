@@ -3,12 +3,20 @@
   <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
   <block wx:else>
     <text class="word">{{detail.wordTerm || detail.title}}</text>
-    <view class="pronounce"><text class="phonetic">{{detail.phonetic || '暂无音标'}}</text><button bindtap="play">🔊 英式 UK</button><button bindtap="play">🔊 美式 US</button></view>
+    <view class="pronounce">
+      <text wx:if="{{phoneticText}}" class="phonetic">{{phoneticText}}</text>
+      <view class="play-row">
+        <button class="play-btn" bindtap="play" data-accent="uk"><text class="play-icon"></text>英式发音</button>
+        <button class="play-btn" bindtap="play" data-accent="us"><text class="play-icon"></text>美式发音</button>
+      </view>
+    </view>
     <text class="translation">{{detail.meaning}}</text>
     <view class="tags"><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text>{{detail.stage === 'primary' ? '小学' : detail.stage === 'junior' ? '初中' : detail.stage === 'senior' ? '高中' : '通用'}}</text></view>
     <view class="card">
       <text class="card-title">释义</text>
-      <block wx:if="{{detail.senses.length}}"><view wx:for="{{detail.senses}}" wx:key="id" class="sense"><text class="pos">{{item.partOfSpeech}}</text><text>{{item.meaning}}</text></view></block>
+      <block wx:if="{{detail.senses.length}}">
+        <view wx:for="{{detail.senses}}" wx:key="id" class="sense"><text class="pos">{{item.partOfSpeech}}</text><text>{{item.meaning}}</text></view>
+      </block>
       <text wx:else class="meaning">{{detail.meaning}}</text>
     </view>
     <view class="card">
@@ -17,8 +25,15 @@
       <text class="example-translation">{{displayExampleTranslation}}</text>
     </view>
     <view class="card source"><text class="card-title">来源</text><text>{{detail.originAuthor || '课程词表整理'}}</text></view>
-    <view class="card action" bindtap="explain"><view><text class="card-title">解释当前内容</text><text>AI 辅助</text></view><text>›</text></view>
-    <view class="familiarity"><text>熟悉度　自评</text><text class="percent">{{familiarityText}}</text><view class="track"><view class="bar" style="width: {{detail.familiarityPercent || 0}}%;"></view></view></view>
-    <view class="bottom-actions"><button bindtap="toggleWordBook">{{detail.inWordBook ? '✓ 已在生词本' : '▣ 加入生词本'}}</button><button class="primary" bindtap="understood">{{detail.understood ? '已理解' : '我已理解'}}</button><button class="review" bindtap="toggleReview">{{detail.inReview ? '✓ 复习中' : '＋ 加入复习'}}</button></view>
+    <view class="card action" bindtap="explain" wx:if="{{false}}">
+      <view><text class="card-title">解释当前内容</text><text>AI 辅助</text></view><text>›</text>
+    </view>
+    <!-- <view class="familiarity"><text>熟悉度　自评</text><text class="percent">{{familiarityText}}</text>
+      <view class="track">
+        <view class="bar" style="width: {{detail.familiarityPercent || 0}}%;">
+        </view>
+      </view>
+    </view> -->
+    <view class="bottom-actions"><button bindtap="toggleWordBook">{{detail.inWordBook ? '✓ 已在生词本' : '▣ 加入生词本'}}</button><button class="primary" bindtap="understood" disabled="{{detail.understood}}">{{detail.understood ? '熟悉' : '认识'}}</button><button class="review" bindtap="toggleReview">{{detail.inReview ? '✓ 复习中' : '＋ 加入复习'}}</button></view>
   </block>
 </view>

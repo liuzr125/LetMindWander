@@ -35,6 +35,9 @@ public interface ContentMapper {
     @Select("SELECT id, sentence, translation, sort_no FROM word_example WHERE sense_id=#{senseId} ORDER BY sort_no,id")
     List<ContentDetailView.WordExampleView> selectExamples(@Param("senseId") String senseId);
 
+    @Select("SELECT sense_id, example_id, accent, phonetic, asset_id FROM pronunciation WHERE content_version_id=#{versionId} AND state='ready' ORDER BY accent, sense_id, example_id")
+    List<com.zhixing.model.PronunciationRow> selectPronunciations(@Param("versionId") String versionId);
+
     @Insert("INSERT INTO learning_record (id,owner_id,content_id,learning_key,last_version_id,learning_status,first_completed_at,last_feedback_at,version_no) " +
             "VALUES (#{id},#{ownerId},#{contentId},#{learningKey},#{versionId},'understood',#{now},#{now},1) " +
             "ON DUPLICATE KEY UPDATE last_version_id=VALUES(last_version_id),learning_status='understood'," +

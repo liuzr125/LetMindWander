@@ -86,25 +86,37 @@ public class MediaService {
         return new UploadResult(id, url, signedUrl(id, ownerId), actualMime, bytes.length);
     }
 
-    /** 供图片代理访问：返回 OSS object 的签名 URL（短时有效）。 */
+    /** 供媒体代理访问：返回 OSS object 的签名 URL（短时有效）。头像需归属校验，学习音频公开可读。 */
     public String signedUrl(String mediaId, String viewerId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT object_key, state, owner_id FROM media_asset WHERE id = ? AND purpose = 'avatar'", mediaId);
+                "SELECT object_key, state, owner_id, purpose FROM media_asset WHERE id = ?", mediaId);
         if (rows.isEmpty()) return null;
         Map<String, Object> row = rows.get(0);
         if (!"ready".equals(String.valueOf(raw(row, "state")))) return null;
+        String purpose = String.valueOf(raw(row, "purpose"));
+        String objectKey = String.valueOf(raw(row, "object_key"));
+
+        // 学习词条/例句音频为公开内容，无需归属校验。
+        if ("word_audio".equals(purpose) || "example_audio".equals(purpose)) {
+            return presign(objectKey);
+        }
+        if (!"avatar".equals(purpose)) return null;
+
         boolean owner = viewerId != null && viewerId.equals(String.valueOf(raw(row, "owner_id")));
         // Only avatars currently selected by an active user are public. Pending uploads remain private.
         if (!owner && jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM app_user WHERE avatar_url = ? AND status = 'active'",
                 Integer.class, referenceUrl(mediaId)) == 0) return null;
-        String objectKey = String.valueOf(raw(row, "object_key"));
+        return presign(objectKey);
+    }
+
+    private String presign(String objectKey) {
         OSS client = buildClient();
         try {
             return client.generatePresignedUrl(ossBucket, objectKey,
                     java.util.Date.from(Instant.now().plusSeconds(300))).toString();
         } catch (Exception exception) {
-            LOGGER.warn("OSS presign failed: mediaId={}, {}", mediaId, exception.getMessage());
+            LOGGER.warn("OSS presign failed: objectKey={}, {}", objectKey, exception.getMessage());
             return null;
         } finally {
             client.shutdown();

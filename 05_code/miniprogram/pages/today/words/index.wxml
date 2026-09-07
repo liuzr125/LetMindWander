@@ -1,0 +1,21 @@
+<view class="words-page">
+  <view class="head">
+    <text class="date">{{title}}</text>
+    <text class="count">{{words.length}} 个单词</text>
+  </view>
+  <view wx:if="{{loading}}" class="state">正在加载…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button class="retry" bindtap="load">重试</button></view>
+  <view wx:elif="{{!words.length}}" class="state"><text>今天还没有学习单词</text><button class="retry" bindtap="load">刷新</button></view>
+  <view wx:else class="list">
+    <view wx:for="{{words}}" wx:key="id" class="row" hover-class="row-hover" bindtap="openWord"
+          data-id="{{item.contentId}}" data-taskid="{{item.id}}" data-version="{{item.versionNo}}">
+      <view class="badge">{{index + 1}}</view>
+      <view class="main">
+        <text class="word">{{item.title}}</text>
+        <text class="meaning">{{item.meaning}}</text>
+      </view>
+      <text class="status" wx:if="{{item.status === 'DONE'}}">✓ 已学</text>
+      <text class="chevron">›</text>
+    </view>
+  </view>
+</view>

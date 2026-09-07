@@ -5,6 +5,8 @@ import com.zhixing.common.CryptoUtils;
 import com.zhixing.dto.ContentActionRequest;
 import com.zhixing.mapper.ContentMapper;
 import com.zhixing.model.ContentDetailView;
+import com.zhixing.model.PronunciationRow;
+import com.zhixing.model.PronunciationView;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,13 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 public class ContentService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private final ContentMapper contents;
     private final DailyTaskService dailyTasks;
-    public ContentService(ContentMapper contents, DailyTaskService dailyTasks) { this.contents=contents; this.dailyTasks=dailyTasks; }
+    private final MediaService media;
+    public ContentService(ContentMapper contents, DailyTaskService dailyTasks, MediaService media) { this.contents=contents; this.dailyTasks=dailyTasks; this.media=media; }
 
     public ContentDetailView get(String ownerId, String contentId) {
         ContentDetailView view = required(ownerId, contentId);
@@ -26,8 +30,32 @@ public class ContentService {
         if ("word".equals(view.getContentType())) {
             view.setSenses(contents.selectSenses(view.getVersionId()));
             for (ContentDetailView.WordSenseView sense : view.getSenses()) sense.setExamples(contents.selectExamples(sense.getId()));
+            attachPronunciations(view);
         }
         return view;
+    }
+
+    private void attachPronunciations(ContentDetailView view) {
+        List<PronunciationRow> rows = contents.selectPronunciations(view.getVersionId());
+        if (rows == null || rows.isEmpty()) return;
+        for (PronunciationRow row : rows) {
+            String url = row.getAssetId() == null ? null : media.referenceUrl(row.getAssetId());
+            PronunciationView p = new PronunciationView();
+            p.setAccent(row.getAccent());
+            p.setPhonetic(row.getPhonetic());
+            p.setAudioUrl(url);
+            if (row.getSenseId() != null) {
+                for (ContentDetailView.WordSenseView sense : view.getSenses()) {
+                    if (row.getSenseId().equals(sense.getId())) { sense.getPronunciations().add(p); break; }
+                }
+            } else if (row.getExampleId() != null) {
+                for (ContentDetailView.WordSenseView sense : view.getSenses()) {
+                    for (ContentDetailView.WordExampleView ex : sense.getExamples()) {
+                        if (row.getExampleId().equals(ex.getId())) { ex.getPronunciations().add(p); break; }
+                    }
+                }
+            }
+        }
     }
 
     @Transactional

@@ -3,6 +3,7 @@
     "pages/auth/invite/index",
     "pages/auth/register/index",
     "pages/today/index",
+    "pages/today/words/index",
     "pages/learn/index",
     "pages/knowledge/index",
     "pages/growth/index",

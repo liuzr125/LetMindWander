@@ -43,19 +43,23 @@ public class ContentDetailView {
         private String id, partOfSpeech, meaning;
         private Integer sortNo;
         private List<WordExampleView> examples = new ArrayList<WordExampleView>();
+        private List<PronunciationView> pronunciations = new ArrayList<PronunciationView>();
         public String getId(){return id;} public void setId(String v){id=v;}
         public String getPartOfSpeech(){return partOfSpeech;} public void setPartOfSpeech(String v){partOfSpeech=v;}
         public String getMeaning(){return meaning;} public void setMeaning(String v){meaning=v;}
         public Integer getSortNo(){return sortNo;} public void setSortNo(Integer v){sortNo=v;}
         public List<WordExampleView> getExamples(){return examples;} public void setExamples(List<WordExampleView> v){examples=v;}
+        public List<PronunciationView> getPronunciations(){return pronunciations;} public void setPronunciations(List<PronunciationView> v){pronunciations=v;}
     }
 
     public static class WordExampleView {
         private String id, sentence, translation;
         private Integer sortNo;
+        private List<PronunciationView> pronunciations = new ArrayList<PronunciationView>();
         public String getId(){return id;} public void setId(String v){id=v;}
         public String getSentence(){return sentence;} public void setSentence(String v){sentence=v;}
         public String getTranslation(){return translation;} public void setTranslation(String v){translation=v;}
         public Integer getSortNo(){return sortNo;} public void setSortNo(Integer v){sortNo=v;}
+        public List<PronunciationView> getPronunciations(){return pronunciations;} public void setPronunciations(List<PronunciationView> v){pronunciations=v;}
     }
 }

@@ -47,7 +47,7 @@
     </view>
     <view class="toggle-row"><text class="row-title">复盘 <text class="row-note">(每日一次)</text></text><switch color="#0869f7" checked="{{form.journalEnabled}}" bindchange="toggleJournal" /></view>
     <view class="toggle-row"><text class="row-title">复习 <text class="row-note">(巩固所学)</text></text><switch color="#0869f7" checked="{{form.reviewEnabled}}" bindchange="toggleReview" /></view>
-    <view class="limit-row" wx:if="{{form.reviewEnabled}}"><text class="limit-label">每日上限</text><picker mode="selector" range="{{reviewLimits}}" value="{{reviewLimitIndex}}" bindchange="changeReviewLimit"><view class="limit-picker">{{form.reviewLimit}} 项　⌄</view></picker></view>
+    <view class="limit-row" wx:if="{{form.reviewEnabled}}"><text class="limit-label">每日上限</text><view class="stepper"><view class="step" data-key="reviewLimit" data-delta="-1" bindtap="changeCount">−</view><view class="count-entry"><input type="number" value="{{form.reviewLimit}}" data-key="reviewLimit" bindinput="inputCount" /><text>项</text></view><view class="step" data-key="reviewLimit" data-delta="1" bindtap="changeCount">＋</view></view></view>
 
     <view class="preview-card">
       <text class="calendar">▣</text><view><text class="preview-title">{{mode === 'today' ? '今日预览' : '明日预览'}}</text><text class="preview-detail">{{previewDateText}} · {{previewText}}</text></view>

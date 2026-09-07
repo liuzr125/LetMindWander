@@ -1,0 +1,18 @@
+page{background:#f7f9ff;color:#0b164e}
+.words-page{min-height:100vh;padding:34rpx 42rpx 72rpx;background:linear-gradient(180deg,#f9fbff,#f4f7fc)}
+.head{padding:12rpx 2rpx 24rpx}
+.date,.count{display:block}
+.date{font-size:28rpx;color:#657393}
+.count{margin-top:14rpx;font-size:46rpx;font-weight:750;letter-spacing:1rpx}
+.state{padding:90rpx 30rpx;text-align:center;color:#657393;font-size:28rpx}
+.state text{display:block}
+.state .retry{margin:26rpx auto 0;width:200rpx;height:64rpx;line-height:64rpx;padding:0;color:#fff;font-size:26rpx;background:#0869f7;border-radius:14rpx}
+.list{margin-top:10rpx}
+.row{display:flex;align-items:center;background:#fff;border:1rpx solid #e4eaf4;border-radius:22rpx;margin-top:18rpx;padding:22rpx 26rpx;box-shadow:0 10rpx 30rpx rgba(24,66,130,.05)}
+.row-hover{background:#f2f6fd}
+.badge{display:flex;align-items:center;justify-content:center;width:58rpx;height:58rpx;border-radius:18rpx;color:#fff;font-size:26rpx;font-weight:700;background:#287df2;flex-shrink:0}
+.main{flex:1;min-width:0;margin-left:24rpx}
+.word{display:block;font-size:36rpx;font-weight:700}
+.meaning{display:block;margin-top:4rpx;color:#657393;font-size:26rpx}
+.status{color:#25a877;font-size:24rpx;font-weight:600;margin-right:6rpx;flex-shrink:0}
+.chevron{margin-left:4rpx;color:#8b96aa;font-size:42rpx}

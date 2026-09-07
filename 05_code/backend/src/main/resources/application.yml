@@ -33,9 +33,15 @@ app:
     resend-interval: ${SMS_RESEND_INTERVAL:PT60S}
     max-attempts: ${SMS_MAX_ATTEMPTS:5}
     fixed-code: ${SMS_FIXED_CODE:}
+  plan:
+    # 计划数量上限的兜底默认值；app_parameter 表有同名参数时以表为准（plan.tech_count_max 等）。
+    limits:
+      tech-count-max: ${PLAN_TECH_COUNT_MAX:255}
+      new-word-count-max: ${PLAN_NEW_WORD_COUNT_MAX:255}
+      review-limit-max: ${PLAN_REVIEW_LIMIT_MAX:255}
   media:
     # 阿里云 OSS：密钥仅从环境变量读取，不写入仓库。
     oss-endpoint: https://oss-cn-beijing.aliyuncs.com
     oss-bucket: let-mind-wander
     # 头像等私有图片的公网访问域名（bucket 公读时可等于 endpoint 域名）。
-    public-base-url: ${MEDIA_BASE_URL:https://13f59739.r7.vip.cpolar.cn/api/media}
+    public-base-url: ${MEDIA_BASE_URL:https://44f0224c.r25.cpolar.top/api/media}

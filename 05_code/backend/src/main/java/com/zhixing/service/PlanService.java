@@ -9,6 +9,7 @@ import com.zhixing.entity.LearningPlanTopicEntity;
 import com.zhixing.entity.LearningTopicEntity;
 import com.zhixing.mapper.LearningPlanMapper;
 import com.zhixing.model.PlanView;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -36,8 +37,14 @@ public class PlanService {
     private static final Set<String> DIFFICULTIES = new HashSet<String>(Arrays.asList("intro", "advanced"));
     private final LearningPlanMapper plans;
     private final DailyTaskService dailyTasks;
+    private final AppParameterService parameters;
 
-    public PlanService(LearningPlanMapper plans, DailyTaskService dailyTasks) { this.plans = plans; this.dailyTasks = dailyTasks; }
+    /** 数量上限的 yml 兜底默认；app_parameter 命中同名 key 时以参数表为准。 */
+    @Value("${app.plan.limits.tech-count-max}") private int techMaxDefault;
+    @Value("${app.plan.limits.new-word-count-max}") private int wordMaxDefault;
+    @Value("${app.plan.limits.review-limit-max}") private int reviewMaxDefault;
+
+    public PlanService(LearningPlanMapper plans, DailyTaskService dailyTasks, AppParameterService parameters) { this.plans = plans; this.dailyTasks = dailyTasks; this.parameters = parameters; }
 
     public PlanView get(String ownerId) {
         LearningPlanEntity plan = plans.selectLatest(ownerId);
@@ -122,12 +129,21 @@ public class PlanService {
         return plan;
     }
 
+    private int paramLimit(String key, int fallback) {
+        String raw = parameters.optional(key, null);
+        if (raw == null) return fallback;
+        try { return Integer.parseInt(raw.trim()); } catch (NumberFormatException ignored) { return fallback; }
+    }
+
     private LearningPlanEntity copyValidated(String ownerId, LearningPlanEntity latest, UpdatePlanRequest r) {
         if (r.getDailyBudgetMin() == null || !BUDGETS.contains(r.getDailyBudgetMin())) bad("INVALID_DAILY_BUDGET", "每日时间仅支持 5、10、15、20、30 分钟");
         if (r.getWeekdaysMask() == null || r.getWeekdaysMask() < 0 || r.getWeekdaysMask() > 127) bad("INVALID_WEEKDAYS", "学习日设置不合法");
-        if (r.getTechCount() == null || r.getTechCount() < 0 || r.getTechCount() > 2) bad("INVALID_TECH_COUNT", "技术新学数量应为 0 至 2");
-        if (r.getNewWordCount() == null || r.getNewWordCount() < 0 || r.getNewWordCount() > 10) bad("INVALID_WORD_COUNT", "英语新词数量应为 0 至 10");
-        if (r.getReviewLimit() == null || r.getReviewLimit() < 0 || r.getReviewLimit() > 10) bad("INVALID_REVIEW_LIMIT", "复习上限应为 0 至 10");
+        int techMax = paramLimit("plan.tech_count_max", techMaxDefault);
+        int wordMax = paramLimit("plan.new_word_count_max", wordMaxDefault);
+        int reviewMax = paramLimit("plan.review_limit_max", reviewMaxDefault);
+        if (r.getTechCount() == null || r.getTechCount() < 0 || r.getTechCount() > techMax) bad("INVALID_TECH_COUNT", "技术新学数量应为 0 至 " + techMax);
+        if (r.getNewWordCount() == null || r.getNewWordCount() < 0 || r.getNewWordCount() > wordMax) bad("INVALID_WORD_COUNT", "英语新词数量应为 0 至 " + wordMax);
+        if (r.getReviewLimit() == null || r.getReviewLimit() < 0 || r.getReviewLimit() > reviewMax) bad("INVALID_REVIEW_LIMIT", "复习上限应为 0 至 " + reviewMax);
         String difficulty = r.getDifficulty() == null ? "" : r.getDifficulty().trim().toLowerCase(Locale.ROOT);
         if (!DIFFICULTIES.contains(difficulty)) bad("INVALID_DIFFICULTY", "难度仅支持入门或进阶");
         if (r.getJournalEnabled() == null || r.getReviewEnabled() == null || r.getPaused() == null) bad("INVALID_PLAN", "计划开关不能为空");

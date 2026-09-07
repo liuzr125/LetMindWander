@@ -31,6 +31,9 @@ Page({
   openGroup(event) {
     const group = this.data.groups.find((item) => item.type === event.currentTarget.dataset.type);
     if (!group) return;
+    if (group.type === 'word' && group.done === group.total) {
+      return wx.navigateTo({ url: `/pages/today/words/index?date=${this.data.today}` });
+    }
     const task = group.items.find((item) => item.status !== 'DONE' && item.status !== 'SKIPPED') || group.items[0];
     if (task.taskType === 'tech') return wx.navigateTo({ url: `/pages/content/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}` });
     if (task.taskType === 'word') return wx.navigateTo({ url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}` });
