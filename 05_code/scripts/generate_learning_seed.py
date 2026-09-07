@@ -351,11 +351,9 @@ def generate():
         "START TRANSACTION;",
         "",
     ]
-    topic_ids = {}
     for topic, (source_name, author, url, cards) in TOPICS.items():
         assert len(cards) >= 25, topic
         source_id, topic_id = ident("source", topic), ident("topic", topic)
-        topic_ids[topic] = topic_id
         lines.append(emit_insert("content_source", ["id", "name", "source_type", "url", "license_note", "enabled"],
             [q(source_id), q(source_name), q("manual"), q(url), q("原创结构化摘要；原文版权归来源方，链接用于延伸阅读"), "1"], ["name", "url", "license_note", "enabled"]))
         lines.append(emit_insert("learning_topic", ["id", "scope_key", "owner_id", "name", "normalized_name", "state"],
@@ -368,7 +366,17 @@ def generate():
             lines.append(emit_insert("content_version", ["id", "content_id", "version_no", "title", "summary", "body", "difficulty", "estimated_seconds", "origin_url", "origin_author", "origin_published_at", "license_snapshot", "body_hash", "review_status", "reviewed_at", "created_by"],
                 [q(version_id), q(content_id), "1", q(title), q(summary), q(body), q("intro" if n <= 17 else "advanced"), "180", q(url), q(author), "NULL", q("原创结构化摘要；延伸阅读请访问来源链接"), "UNHEX(%s)" % q(digest(body)), q("approved"), "NOW(3)", q(ADMIN_ID)], ["title", "summary", "body", "difficulty", "estimated_seconds", "origin_url", "license_snapshot", "review_status"]))
             relation_id = ident("content-topic", version_id, topic_id)
-            lines.append(emit_insert("content_topic", ["id", "content_version_id", "topic_id"], [q(relation_id), q(version_id), q(topic_id)], ["topic_id"]))
+            # A system topic may already exist under a legacy ID. Resolve it by its
+            # unique business key so rerunning the seed repairs, rather than creates,
+            # orphan content_topic rows.
+            lines.append(
+                "INSERT INTO `content_topic` (`id`,`content_version_id`,`topic_id`) "
+                "SELECT {relation_id},{version_id},t.`id` FROM `learning_topic` t "
+                "WHERE t.`scope_key`='system' AND t.`normalized_name`={normalized} "
+                "ON DUPLICATE KEY UPDATE `topic_id`=VALUES(`topic_id`);".format(
+                    relation_id=q(relation_id), version_id=q(version_id), normalized=q(topic.lower())
+                )
+            )
         lines.append("")
 
     word_source = ident("source", "english-curriculum")
@@ -390,7 +398,7 @@ def generate():
         "COMMIT;",
         "",
         "-- Coverage checks: every technical topic and English stage must be at least 25.",
-        "SELECT t.name AS knowledge_type, COUNT(DISTINCT lc.id) AS item_count FROM learning_topic t JOIN content_topic ct ON ct.topic_id=t.id JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.published_version_id=cv.id WHERE t.id IN (%s) AND lc.state='published' GROUP BY t.id,t.name ORDER BY t.name;" % ",".join(q(v) for v in topic_ids.values()),
+        "SELECT t.name AS knowledge_type, COUNT(DISTINCT lc.id) AS item_count FROM learning_topic t JOIN content_topic ct ON ct.topic_id=t.id JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.published_version_id=cv.id WHERE t.scope_key='system' AND t.normalized_name IN (%s) AND lc.state='published' GROUP BY t.id,t.name ORDER BY t.name;" % ",".join(q(v.lower()) for v in TOPICS),
         "SELECT stage,COUNT(*) AS item_count FROM learning_content WHERE content_type='word' AND state='published' AND stage IN ('primary','junior','senior') GROUP BY stage ORDER BY stage;",
         "",
     ]
