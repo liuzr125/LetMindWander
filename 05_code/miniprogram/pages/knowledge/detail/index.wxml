@@ -19,7 +19,7 @@
     <view wx:if="{{detail.tags.length}}" class="tag-section"><text class="section-title">标签</text><view class="tags"><text wx:for="{{detail.tags}}" wx:key="*this">{{item}}</text></view></view>
     <view class="note-entry" bindtap="makeNote"><view><text class="section-title">我的笔记</text><text class="muted">记录你的理解、实践和补充。</text></view><text>〉</text></view>
     <view class="review-row"><view><text class="section-title">加入复习</text><text class="muted">将这条知识加入轻复习计划</text></view><switch checked="{{detail.inReview}}" bindchange="toggleReview" color="#1475f7" /></view>
-    <text class="visibility">▢ {{detail.visibilityName}}</text>
+    <view class="vis-readonly"><text class="section-title">可见范围</text><text class="vis-value">{{detail.visibilityName}}</text></view>
     <view class="bottom-actions">
       <button bindtap="makeNote">做笔记</button>
       <button wx:if="{{detail.itemType === 'problem'}}" bindtap="verify">标记验证</button>

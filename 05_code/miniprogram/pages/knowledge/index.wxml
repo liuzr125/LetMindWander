@@ -1,7 +1,7 @@
 <view class="knowledge-page">
   <view class="page-head">
     <text class="page-title">知识库</text>
-    <button class="add-button" bindtap="createKnowledge" aria-label="新建知识">＋</button>
+    <text class="page-slogan">记录•整理•持续成长</text>
   </view>
   <view class="search-box">
     <text class="search-icon">⌕</text>
@@ -44,4 +44,5 @@
       <view class="card-foot"><text>{{item.updatedLabel}}</text><text>▢ {{item.visibilityName}}</text></view>
     </view>
   </view>
+  <button wx:if="{{!loading && !error && items.length}}" class="fab" bindtap="createKnowledge" aria-label="新建知识">＋</button>
 </view>

@@ -55,8 +55,9 @@ Page({
   },
   more() {
     wx.showActionSheet({ itemList: ['编辑可见范围', '删除知识'], success: ({ tapIndex }) => {
-      if (tapIndex === 0) wx.navigateTo({ url: `/pages/knowledge/share/index?id=${encodeURIComponent(this.data.id)}` });
+      if (tapIndex === 0) this.editVisibility();
       else wx.navigateTo({ url: `/pages/knowledge/delete/index?id=${encodeURIComponent(this.data.id)}` });
     } });
-  }
+  },
+  editVisibility() { wx.navigateTo({ url: `/pages/knowledge/share/index?id=${encodeURIComponent(this.data.id)}` }); }
 });
