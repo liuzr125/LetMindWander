@@ -1,0 +1,11 @@
+<view class="delete-page">
+  <view wx:if="{{loading}}" class="state">正在确认知识状态…</view>
+  <view wx:else class="dialog">
+    <view class="danger-icon">!</view>
+    <text class="title">确认删除这条知识？</text>
+    <text class="name">{{detail.title}}</text>
+    <text class="warning">删除后无法恢复。关联复习会暂停，共享访问会立即撤销；独立保存的个人笔记不会被连带删除。</text>
+    <view class="impacts"><text>• 当前知识将不再出现在知识库</text><text>• 已打开的分享入口会失效</text><text>• 复习计划与待执行操作会停止</text></view>
+    <view class="actions"><button bindtap="cancel">取消</button><button class="danger" bindtap="remove" loading="{{deleting}}">确认删除</button></view>
+  </view>
+</view>

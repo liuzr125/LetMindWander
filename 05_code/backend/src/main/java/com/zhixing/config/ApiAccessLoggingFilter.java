@@ -70,13 +70,15 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
         while (names.hasMoreElements()) {
             String name = names.nextElement();
             String[] raw = request.getParameterValues(name);
-            String value = isSensitive(name) ? "***" : truncate(raw == null ? "" : Arrays.toString(raw), 300);
+            boolean privateKnowledgeQuery = request.getRequestURI().startsWith("/api/knowledge") && "query".equalsIgnoreCase(name);
+            String value = isSensitive(name) || privateKnowledgeQuery ? "***" : truncate(raw == null ? "" : Arrays.toString(raw), 300);
             values.add(name + "=" + value);
         }
         return values.toString();
     }
 
     private String requestBody(ContentCachingRequestWrapper request) {
+        if (request.getRequestURI().startsWith("/api/knowledge")) return "[private knowledge body omitted]";
         String contentType = request.getContentType();
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).contains(MediaType.APPLICATION_JSON_VALUE)) {
             return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("multipart/") ? "[multipart omitted]" : "";

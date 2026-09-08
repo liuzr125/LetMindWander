@@ -1,0 +1,35 @@
+<view class="editor-page">
+  <view wx:if="{{loading}}" class="state">正在加载…</view>
+  <block wx:else>
+    <text class="lead">{{parentId ? '笔记独立保存，原文保持不变。' : '记录理解，让知识留下来'}}</text>
+    <view wx:if="{{source}}" class="source-card"><text class="source-label">▢ 原文知识 · 只读</text><text class="source-title">{{source.title}}</text><text class="source-summary">{{source.summary}}</text></view>
+    <view class="form-card">
+      <text class="label">知识类型</text>
+      <view class="type-picker">
+        <view class="type-option {{form.itemType === 'note' ? 'selected' : ''}}" data-type="note" bindtap="selectType">▤ 笔记</view>
+        <view class="type-option {{form.itemType === 'problem' ? 'selected' : ''}}" data-type="problem" bindtap="selectType">? 问题卡</view>
+      </view>
+      <text class="label gap">标题 <text class="required">*</text></text>
+      <input class="input" maxlength="100" value="{{form.title}}" data-field="title" bindinput="onFieldInput" placeholder="给这条知识一个清晰标题" />
+      <block wx:if="{{form.itemType === 'note'}}">
+        <view class="label-row"><text class="label gap">内容 <text class="required">*</text></text><text class="count">{{form.body.length}} / 10000</text></view>
+        <textarea class="textarea" maxlength="10000" auto-height value="{{form.body}}" data-field="body" bindinput="onFieldInput" placeholder="写下你的理解、步骤或结论" />
+      </block>
+      <block wx:else>
+        <text class="problem-hint">问题卡用于记录现象、环境、原因、处理步骤与验证结果。</text>
+        <text class="small-label">现象</text><textarea class="small-area" maxlength="2000" value="{{form.problem.phenomenon}}" data-field="phenomenon" bindinput="onProblemInput" placeholder="发生了什么" />
+        <text class="small-label">环境 / 版本</text><textarea class="small-area" maxlength="2000" value="{{form.problem.environment}}" data-field="environment" bindinput="onProblemInput" placeholder="系统、语言或版本信息" />
+        <text class="small-label">原因</text><textarea class="small-area" maxlength="2000" value="{{form.problem.cause}}" data-field="cause" bindinput="onProblemInput" placeholder="已确认或待验证的原因" />
+        <text class="small-label">处理步骤</text><textarea class="small-area large" maxlength="2000" value="{{form.problem.solution}}" data-field="solution" bindinput="onProblemInput" placeholder="按顺序记录处理方式" />
+        <text class="small-label">验证说明</text><textarea class="small-area" maxlength="2000" value="{{form.problem.verification}}" data-field="verification" bindinput="onProblemInput" placeholder="尚未验证时可以留空" />
+      </block>
+      <text class="label gap">知识标签</text>
+      <view class="tags"><text wx:for="{{form.tags}}" wx:key="*this" data-index="{{index}}" bindtap="removeTag">{{item}} ×</text></view>
+      <view class="tag-input"><input value="{{tagInput}}" maxlength="20" bindinput="onTagInput" bindconfirm="addTag" confirm-type="done" placeholder="输入新的标签"/><button bindtap="addTag">添加</button></view>
+      <text class="hint">可选择已有标签，也可添加自定义标签</text>
+      <view class="suggestions"><text wx:for="{{suggestions}}" wx:key="*this" data-tag="{{item}}" bindtap="addSuggestion">{{item}}</text></view>
+    </view>
+    <view class="share-card" bindtap="openShare"><view><text class="share-title">▢ 可见范围</text><text class="hint">好友只能阅读，不能修改原文</text></view><text>{{visibilityName}} 〉</text></view>
+    <view class="bottom-actions"><button data-state="draft" bindtap="save" loading="{{saving}}">保存草稿</button><button class="primary" data-state="active" bindtap="save" loading="{{saving}}">保存知识</button></view>
+  </block>
+</view>

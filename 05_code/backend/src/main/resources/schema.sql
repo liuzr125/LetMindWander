@@ -218,19 +218,49 @@ CREATE TABLE IF NOT EXISTS knowledge_item (
   id CHAR(32) NOT NULL PRIMARY KEY,
   owner_id CHAR(32) NOT NULL,
   item_type VARCHAR(32) NOT NULL,
-  title VARCHAR(100) NOT NULL, body CLOB NOT NULL, search_text CLOB NOT NULL,
+  title VARCHAR(100) NOT NULL, body CLOB NOT NULL, problem_json CLOB, search_text CLOB NOT NULL,
   learning_status VARCHAR(32) NOT NULL DEFAULT 'unlearned',
   verification_status VARCHAR(32) NOT NULL DEFAULT 'unverified',
+  last_verified_date DATE,
+  mastered_at TIMESTAMP(3),
+  reuse_count INT NOT NULL DEFAULT 0,
+  last_reused_at TIMESTAMP(3),
   source_content_id CHAR(32), source_content_version_id CHAR(32),
+  source_journal_id CHAR(32), source_journal_revision INT, source_ai_job_id CHAR(32),
   bookmark_content_id CHAR(32), word_key_hash BINARY(32),
   version_no INT NOT NULL DEFAULT 1,
   visibility VARCHAR(32) NOT NULL DEFAULT 'private',
   state VARCHAR(32) NOT NULL DEFAULT 'active',
+  note_parent_id CHAR(32),
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_knowledge_bookmark UNIQUE (owner_id,bookmark_content_id),
   CONSTRAINT uk_knowledge_word UNIQUE (owner_id,word_key_hash)
 );
+
+CREATE TABLE IF NOT EXISTS knowledge_revision (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  knowledge_id CHAR(32) NOT NULL,
+  revision_no INT NOT NULL,
+  snapshot_json CLOB NOT NULL,
+  change_kind VARCHAR(32) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_knowledge_revision UNIQUE (knowledge_id, revision_no)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_revision_owner ON knowledge_revision (owner_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_tag (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  knowledge_id CHAR(32) NOT NULL,
+  tag_name VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_knowledge_tag UNIQUE (knowledge_id, tag_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_tag_owner_name ON knowledge_tag (owner_id, tag_name);
 
 CREATE TABLE IF NOT EXISTS review_schedule (
   id CHAR(32) NOT NULL PRIMARY KEY,
@@ -264,6 +294,16 @@ CREATE TABLE IF NOT EXISTS word_example (
   sentence VARCHAR(1000) NOT NULL, translation VARCHAR(1000) NOT NULL, sort_no INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_word_example UNIQUE (sense_id,sort_no)
+);
+CREATE TABLE IF NOT EXISTS pronunciation (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_version_id CHAR(32) NOT NULL,
+  sense_id CHAR(32), example_id CHAR(32), target_key VARCHAR(40) NOT NULL,
+  accent VARCHAR(32) NOT NULL, phonetic VARCHAR(200), asset_id CHAR(32) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'ready',
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_pronunciation_target UNIQUE (content_version_id,target_key,accent)
 );
 CREATE TABLE IF NOT EXISTS word_notebook (
   id CHAR(32) NOT NULL PRIMARY KEY, owner_id CHAR(32) NOT NULL, content_id CHAR(32) NOT NULL,
@@ -424,3 +464,18 @@ CREATE TABLE IF NOT EXISTS friend_relation (
  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT uk_friend_pair UNIQUE(user_low_id, user_high_id)
 );
+
+CREATE TABLE IF NOT EXISTS knowledge_share_rule (
+ id CHAR(32) NOT NULL PRIMARY KEY,
+ knowledge_id CHAR(32) NOT NULL,
+ friend_id CHAR(32) NOT NULL,
+ relation_id CHAR(32) NOT NULL,
+ relation_generation INT NOT NULL,
+ effect VARCHAR(32) NOT NULL,
+ version_no INT NOT NULL DEFAULT 1,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT uk_knowledge_share_friend UNIQUE(knowledge_id, friend_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_share_friend_effect ON knowledge_share_rule (friend_id, effect);

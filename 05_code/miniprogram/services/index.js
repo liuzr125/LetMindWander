@@ -109,4 +109,23 @@ const actionService = {
   update(id, payload) { return request({ url: `/actions/${encodeURIComponent(id)}`, method: 'PUT', data: payload }); }
 };
 
-module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, journalService, reviewService, actionService };
+const knowledgeService = {
+  list(params = {}) {
+    const query = Object.keys(params)
+      .filter((key) => params[key] !== '' && params[key] !== null && params[key] !== undefined)
+      .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+      .join('&');
+    return request({ url: `/knowledge${query ? `?${query}` : ''}` });
+  },
+  tags() { return request({ url: '/knowledge/tags' }); },
+  friends() { return request({ url: '/knowledge/friends' }); },
+  get(id) { return request({ url: `/knowledge/${encodeURIComponent(id)}` }); },
+  create(payload) { return request({ url: '/knowledge', method: 'POST', data: payload }); },
+  update(id, payload) { return request({ url: `/knowledge/${encodeURIComponent(id)}`, method: 'PUT', data: payload }); },
+  verify(id, payload) { return request({ url: `/knowledge/${encodeURIComponent(id)}/verification`, method: 'PUT', data: payload }); },
+  visibility(id, payload) { return request({ url: `/knowledge/${encodeURIComponent(id)}/visibility`, method: 'PUT', data: payload }); },
+  review(id, active) { return request({ url: `/knowledge/${encodeURIComponent(id)}/review`, method: 'POST', data: { active } }); },
+  remove(id, expectedVersion) { return request({ url: `/knowledge/${encodeURIComponent(id)}?expectedVersion=${encodeURIComponent(expectedVersion)}`, method: 'DELETE' }); }
+};
+
+module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, journalService, reviewService, actionService, knowledgeService };

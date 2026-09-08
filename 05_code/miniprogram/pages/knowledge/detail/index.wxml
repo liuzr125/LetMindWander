@@ -1,0 +1,30 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="state">正在加载知识…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <view class="title-row"><text class="title">{{detail.title || '未命名草稿'}}</text><text wx:if="{{detail.state === 'draft'}}" class="draft">草稿</text></view>
+    <view class="status-row"><text wx:if="{{detail.itemType === 'problem'}}" class="{{detail.verificationStatus === 'verified' ? 'learning' : 'verification'}}">{{detail.verificationStatus === 'verified' ? '✓' : '!'}} {{detail.statusName}}</text><text wx:else class="learning">✓ {{detail.statusName}}</text></view>
+    <view wx:if="{{detail.sourceTitle}}" class="source-card" bindtap="openSource">
+      <text class="source-label">▢ 原文知识 · 只读</text><text class="source-title">{{detail.sourceTitle}}</text><text class="source-summary">{{detail.sourceSummary}}</text><text wx:if="{{detail.sourceContentId}}" class="source-link">查看完整原文 〉</text>
+    </view>
+    <view wx:if="{{detail.itemType === 'problem'}}" class="problem-card">
+      <text class="section-label">原文知识</text>
+      <view class="problem-row"><text class="field-label">现象</text><text>{{detail.problem.phenomenon || '未填写'}}</text></view>
+      <view class="problem-row"><text class="field-label">环境 / 版本</text><text>{{detail.problem.environment || '未填写'}}</text></view>
+      <view class="problem-row"><text class="field-label">原因</text><text>{{detail.problem.cause || '未填写'}}</text></view>
+      <view class="problem-row"><text class="field-label">处理步骤</text><text>{{detail.problem.solution || '未填写'}}</text></view>
+      <view class="problem-row"><text class="field-label">验证说明</text><text>{{detail.problem.verification || '尚未验证'}}</text></view>
+    </view>
+    <view wx:else class="note-card"><text class="section-label">笔记内容</text><text class="body">{{detail.body}}</text></view>
+    <view wx:if="{{detail.tags.length}}" class="tag-section"><text class="section-title">标签</text><view class="tags"><text wx:for="{{detail.tags}}" wx:key="*this">{{item}}</text></view></view>
+    <view class="note-entry" bindtap="makeNote"><view><text class="section-title">我的笔记</text><text class="muted">记录你的理解、实践和补充。</text></view><text>〉</text></view>
+    <view class="review-row"><view><text class="section-title">加入复习</text><text class="muted">将这条知识加入轻复习计划</text></view><switch checked="{{detail.inReview}}" bindchange="toggleReview" color="#1475f7" /></view>
+    <text class="visibility">▢ {{detail.visibilityName}}</text>
+    <view class="bottom-actions">
+      <button bindtap="makeNote">做笔记</button>
+      <button wx:if="{{detail.itemType === 'problem'}}" bindtap="verify">标记验证</button>
+      <button wx:else bindtap="edit">编辑</button>
+      <button bindtap="more">更多</button>
+    </view>
+  </block>
+</view>

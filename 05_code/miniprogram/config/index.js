@@ -1,6 +1,6 @@
 const ENVIRONMENTS = {
   develop: {
-    apiBaseUrl: 'https://44f0224c.r25.cpolar.top/api'
+    apiBaseUrl: 'https://7773ead3.r7.vip.cpolar.cn/api'
   },
   trial: {
     apiBaseUrl: 'https://trial-api.example.com/api'

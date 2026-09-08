@@ -1,0 +1,22 @@
+<view class="share-page">
+  <view wx:if="{{loading}}" class="state">正在加载好友…</view>
+  <block wx:else>
+    <view wx:if="{{title}}" class="current-card"><text class="current-label">▤ 当前知识</text><text class="current-title">{{title}}</text></view>
+    <view class="visibility-card">
+      <view class="option" data-value="private" bindtap="selectVisibility"><text class="radio {{visibility === 'private' ? 'selected' : ''}}"></text><view><text class="option-title">仅自己</text><text class="option-copy">只有你可以查看</text></view></view>
+      <view class="option" data-value="friends" bindtap="selectVisibility"><text class="radio {{visibility === 'friends' ? 'selected' : ''}}"></text><view><text class="option-title">所有好友</text><text class="option-copy">当前及以后添加的好友均可阅读</text></view></view>
+      <view class="option" data-value="selected" bindtap="selectVisibility"><text class="radio {{visibility === 'selected' ? 'selected' : ''}}"></text><view><text class="option-title">指定好友</text><text class="option-copy">选中的当前好友可以阅读</text></view></view>
+    </view>
+    <view wx:if="{{visibility === 'selected'}}" class="friends-card">
+      <view class="friends-head"><text>选择好友</text><text class="count">已选 {{selectedFriendIds.length}} 人</text></view>
+      <view class="search"><text>⌕</text><input bindinput="onSearch" placeholder="搜索好友" /></view>
+      <checkbox-group bindchange="onFriendChange">
+        <label wx:for="{{visibleFriends}}" wx:key="id" class="friend-row"><checkbox value="{{item.id}}" checked="{{item.checked}}" color="#1475f7"/><image wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" mode="aspectFill"/><view wx:else class="avatar">{{item.initial}}</view><text>{{item.nickname}}</text></label>
+      </checkbox-group>
+      <view wx:if="{{!visibleFriends.length}}" class="empty">{{friends.length ? '没有匹配的好友' : '暂无好友，可先使用“仅自己”或“所有好友”'}}</view>
+      <text class="safety">◇ 好友可阅读，你的原文不会被修改</text>
+    </view>
+    <text class="save-hint">{{id ? '确认后立即生效' : '保存知识后，共享设置才会生效'}}</text>
+    <button class="confirm" bindtap="confirm" loading="{{saving}}">确认范围{{visibility === 'selected' ? ' · ' + selectedFriendIds.length + ' 人' : ''}}</button>
+  </block>
+</view>
