@@ -9,6 +9,14 @@ const GROUPS = {
   action: { title: '今日行动', icon: '✓', color: 'cyan' }
 };
 
+const GAP_LABELS = {
+  tech: '技术学习',
+  word: '英语新词',
+  review: '到期复习',
+  journal: '今日复盘',
+  action: '今日行动'
+};
+
 Page({
   data: { loading: true, today: '', dateText: '', pack: null, packActive: false, hasGaps: false, groups: [], remainingMinutes: 0, error: '' },
   onShow() { this.load(); },
@@ -24,7 +32,8 @@ Page({
         return Object.assign({ type, items, done, total: items.length, statusText: done === items.length ? '已完成' : `已完成 ${done}/${items.length}` }, GROUPS[type]);
       }).filter(Boolean);
       const remainingMinutes = Math.ceil(tasks.filter((task) => task.status !== 'DONE' && task.status !== 'SKIPPED').reduce((sum, task) => sum + (task.estimatedSeconds || 0), 0) / 60);
-      this.setData({ pack, packActive: !!pack.active, hasGaps: !!(pack.gaps || []).length, groups, remainingMinutes, loading: false });
+      const gaps = (pack.gaps || []).map((gap) => Object.assign({}, gap, { label: GAP_LABELS[gap.taskType] || '计划任务' }));
+      this.setData({ pack: Object.assign({}, pack, { gaps }), packActive: !!pack.active, hasGaps: !!gaps.length, groups, remainingMinutes, loading: false });
     }).catch(error => this.setData({ error: error.message || '加载今日任务失败', loading: false }));
   },
   activate() { wx.showLoading({ title: '正在激活' }); dailyTaskService.activate(this.data.today).then(() => { wx.showToast({ title: '今日任务已激活', icon: 'success' }); return this.load(); }).catch(error => wx.showToast({ title: error.message || '激活失败', icon: 'none' })).finally(() => wx.hideLoading()); },

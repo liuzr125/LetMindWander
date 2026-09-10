@@ -15,6 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.when;
 class DailyTaskServiceAllocationTest {
     @Test
     @SuppressWarnings("unchecked")
-    void keepsBothConfiguredLearningTypesVisibleUnderACompactBudget() {
+    void followsPrdPriorityUnderACompactBudget() {
         MaterialMapper materials = mock(MaterialMapper.class);
         when(materials.selectContent(anyString(), anyString(), anyString(), anyString(), anyInt()))
                 .thenAnswer(invocation -> "tech".equals(invocation.getArgument(2))
@@ -35,7 +36,7 @@ class DailyTaskServiceAllocationTest {
         when(materials.selectDueReviews(anyString(), any(LocalDate.class), anyInt()))
                 .thenReturn(candidates("review", 5, 30));
         when(materials.selectActions(anyString(), any(LocalDate.class), anyInt()))
-                .thenReturn(candidates("action", 1, 300));
+                .thenReturn(Collections.<MaterialCandidate>emptyList());
 
         DailyTaskService service = new DailyTaskService(mock(DailyPackageMapper.class),
                 mock(DailyTaskMapper.class), mock(LearningPlanMapper.class), materials, new ObjectMapper());
@@ -57,10 +58,7 @@ class DailyTaskServiceAllocationTest {
                 service, "generate", dailyPackage, plan);
 
         assertThat(tasks).extracting(DailyTaskEntity::getTaskType)
-                .contains("tech", "word")
-                .doesNotContain("review", "action");
-        assertThat(tasks).filteredOn(task -> "tech".equals(task.getTaskType())).hasSize(1);
-        assertThat(tasks).filteredOn(task -> "word".equals(task.getTaskType())).hasSize(4);
+                .containsExactly("journal", "review", "review", "review", "review", "review", "word");
         assertThat(tasks.stream().mapToInt(DailyTaskEntity::getEstimatedSeconds).sum()).isEqualTo(300);
     }
 

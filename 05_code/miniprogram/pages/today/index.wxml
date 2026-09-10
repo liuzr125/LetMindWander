@@ -28,7 +28,7 @@
         <text class="group-action">{{item.done === item.total ? '查看' : (item.type === 'review' ? '去复习' : '继续学习')}}</text><text class="chevron">›</text>
       </view>
     </view>
-    <view wx:if="{{hasGaps}}" class="gap-card"><text class="gap-title">今日缺项</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.taskType}}：{{item.reason}}（{{item.gapCount}}）</text></view>
+    <view wx:if="{{hasGaps}}" class="gap-card"><text class="gap-title">今日未安排</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.label}}：{{item.reason}}，少 {{item.gapCount}} 项</text></view>
   </block>
   <view class="history-card" bindtap="openJournalHistory"><text>复盘历史</text><text>›</text></view>
 </view>

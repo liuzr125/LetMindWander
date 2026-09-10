@@ -48,8 +48,15 @@ Page({
   weekdayMap(mask) { const result = {}; WEEKDAYS.forEach((day) => { result[day.value] = !!(mask & (1 << day.value)); }); return result; },
   adjustToday() { this.submit(true); },
   savePlan() { this.submit(false); },
-  submit(adjustToday) {
+  submit(adjustToday, budgetConfirmed) {
     const form = this.data.form; const topicIds = Object.keys(this.data.selectedTopicIds).filter((id) => this.data.selectedTopicIds[id]); const payload = Object.assign({}, form, { topicIds, adjustToday, changeReason: adjustToday ? '用户明确调整今日' : '计划设置保存' });
+    const estimatedSeconds = Number(form.techCount || 0) * 180 + Number(form.newWordCount || 0) * 30
+      + (form.journalEnabled ? 120 : 0) + (form.reviewEnabled ? Number(form.reviewLimit || 0) * 30 : 0);
+    if (!budgetConfirmed && estimatedSeconds > Number(form.dailyBudgetMin || 0) * 60) {
+      const estimatedMinutes = Math.ceil(estimatedSeconds / 60);
+      wx.showModal({ title: '时间预算不足', content: `按当前数量上限预计需要 ${estimatedMinutes} 分钟，你设置了 ${form.dailyBudgetMin} 分钟。系统将按“行动→复盘→到期复习→技术→新词”优先级只安排一部分。`, confirmText: '仍按预算', cancelText: '返回调整', success: (result) => { if (result.confirm) this.submit(adjustToday, true); } });
+      return;
+    }
     this.setData({ saving: true, errorMessage: '', successMessage: '' }); planService.update(payload).then((plan) => {
       this.setData({ form: Object.assign({}, form, { versionNo: plan.versionNo, paused: plan.paused, pauseUntil: plan.pauseUntil }), successMessage: adjustToday ? '今日未开始任务已更新' : '计划已保存，明日生效' });
       this.refreshPreview();
