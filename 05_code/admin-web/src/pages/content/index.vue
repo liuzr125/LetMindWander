@@ -17,7 +17,6 @@ const detailUrl = computed(() => {
 
 const insufficient = computed(() => [
   ...coverage.value.technicalTopics.map(item => ({ ...item, required: 25 })),
-  ...coverage.value.wordStages.map(item => ({ ...item, required: 25 })),
   ...(coverage.value.articleDifficulties || []).map(item => ({ ...item, required: 101 }))
 ].filter(item => item.itemCount < item.required))
 
@@ -60,7 +59,7 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="page-heading"><div><h1>内容与来源</h1><p>核对技术主题与英语学段的初始化覆盖率，发布内容仍需保留来源与许可。</p></div><button class="refresh" @click="load">刷新数据</button></div>
+    <div class="page-heading"><div><h1>内容与来源</h1><p>核对技术主题与英语短文的初始化覆盖率，发布内容仍需保留来源与许可。</p></div><button class="refresh" @click="load">刷新数据</button></div>
     <div v-if="loading" class="panel state">正在读取内容…</div>
     <div v-else-if="error" class="panel state error"><strong>{{ error }}</strong><button class="retry" @click="load">重新加载</button></div>
     <template v-else>
@@ -68,7 +67,6 @@ onMounted(load)
       <div v-if="insufficient.length" class="warning">以下分类未达目标：{{ insufficient.map(item => `${item.name}（${item.itemCount}/${item.required}）`).join('、') }}</div>
       <div class="grids">
         <div class="panel table-panel"><h2>技术知识主题</h2><table><thead><tr><th>主题</th><th>已发布</th><th>状态</th><th></th></tr></thead><tbody><tr v-for="item in coverage.technicalTopics" :key="item.name"><td>{{ item.name }}</td><td>{{ item.itemCount }}</td><td><span :class="item.itemCount >= 25 ? 'ok' : 'bad'">{{ item.itemCount >= 25 ? '达标' : '不足' }}</span></td><td><button class="link" @click="chooseTopic(item.name)">查看内容 ›</button></td></tr></tbody></table></div>
-        <div class="panel table-panel"><h2>英语词汇学段</h2><table><thead><tr><th>学段</th><th>已发布</th><th>状态</th></tr></thead><tbody><tr v-for="item in coverage.wordStages" :key="item.name"><td>{{ item.name }}</td><td>{{ item.itemCount }}</td><td><span :class="item.itemCount >= 25 ? 'ok' : 'bad'">{{ item.itemCount >= 25 ? '达标' : '不足' }}</span></td></tr></tbody></table></div>
         <div class="panel table-panel"><h2>英语短文难度</h2><table><thead><tr><th>难度</th><th>已发布</th><th>目标</th><th>状态</th></tr></thead><tbody><tr v-for="item in coverage.articleDifficulties" :key="item.name"><td>{{ item.name }}</td><td>{{ item.itemCount }}</td><td>101</td><td><span :class="item.itemCount >= 101 ? 'ok' : 'bad'">{{ item.itemCount >= 101 ? '达标' : '不足' }}</span></td></tr><tr v-if="!coverage.articleDifficulties?.length"><td colspan="4" class="muted">暂无已发布短文</td></tr></tbody></table></div>
       </div>
 
