@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -24,18 +25,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class F03PlanIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private JdbcTemplate jdbc;
 
     @Test
     void savesVersionedPlanAndRejectsStaleWrite() throws Exception {
+        seedPlanDictionary();
         String token = register("f03-user");
+        mockMvc.perform(get("/api/plans/settings").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dailyBudgetMin").value(3))
+                .andExpect(jsonPath("$.dailyBudgetMax").value(90)).andExpect(jsonPath("$.dailyBudgetStep").value(2))
+                .andExpect(jsonPath("$.dailyBudgetPresets[1]").value(47));
         String topic = mockMvc.perform(post("/api/plans/topics").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"  AI  \"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("AI")).andReturn().getResponse().getContentAsString();
         String topicId = objectMapper.readTree(topic).path("id").asText();
         String plan = mockMvc.perform(get("/api/plans").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(1)).andReturn().getResponse().getContentAsString();
         int version = objectMapper.readTree(plan).path("versionNo").asInt();
-        String payload = "{\"versionNo\":" + version + ",\"dailyBudgetMin\":15,\"weekdaysMask\":31,\"topicIds\":[\"" + topicId + "\"],\"difficulty\":\"advanced\",\"techCount\":2,\"newWordCount\":4,\"journalEnabled\":true,\"reviewEnabled\":true,\"reviewLimit\":5,\"paused\":false}";
+        String payload = "{\"versionNo\":" + version + ",\"dailyBudgetMin\":47,\"weekdaysMask\":31,\"topicIds\":[\"" + topicId + "\"],\"difficulty\":\"advanced\",\"techCount\":2,\"newWordCount\":4,\"journalEnabled\":true,\"reviewEnabled\":true,\"reviewLimit\":5,\"paused\":false}";
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(payload))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(2)).andExpect(jsonPath("$.dailyBudgetMin").value(15))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(2)).andExpect(jsonPath("$.dailyBudgetMin").value(47))
                 .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1).toString()))
                 .andExpect(jsonPath("$.topics[0].name").value("AI"));
         String todayPayload = payload.replace("\"versionNo\":" + version, "\"versionNo\":2")
@@ -49,9 +56,20 @@ class F03PlanIntegrationTest {
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(nextSavePayload))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(4))
                 .andExpect(jsonPath("$.effectiveDate").value(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1).toString()));
+        String invalidBudget=nextSavePayload.replace("\"dailyBudgetMin\":47","\"dailyBudgetMin\":91").replace("\"versionNo\":3","\"versionNo\":4");
+        mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(invalidBudget))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DAILY_BUDGET"));
         mockMvc.perform(put("/api/plans").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PLAN_VERSION_CONFLICT"));
     }
+
+    private void seedPlanDictionary() {
+        parameter("f030000000000000000000000000001","plan.daily_budget_min","3");
+        parameter("f030000000000000000000000000002","plan.daily_budget_max","90");
+        parameter("f030000000000000000000000000003","plan.daily_budget_step","2");
+        parameter("f030000000000000000000000000004","plan.daily_budget_presets","[7,47,88]");
+    }
+    private void parameter(String id,String key,String value){jdbc.update("INSERT INTO app_parameter(id,param_key,param_value,is_secret,description,state,version_no) VALUES(?,?,?,?,?,?,?)",id,key,value,0,"测试计划字典","active",1);}
 
     private String register(String code) throws Exception {
         String invites = mockMvc.perform(post("/api/admin/invites").header("X-Admin-Token", "dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"count\":1,\"expiresInDays\":7}"))

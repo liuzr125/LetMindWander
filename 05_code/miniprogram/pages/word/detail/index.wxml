@@ -15,25 +15,36 @@
     <view class="card">
       <text class="card-title">释义</text>
       <block wx:if="{{detail.senses.length}}">
-        <view wx:for="{{detail.senses}}" wx:key="id" class="sense"><text class="pos">{{item.partOfSpeech}}</text><text>{{item.meaning}}</text></view>
+        <view wx:for="{{detail.senses}}" wx:for-item="sense" wx:for-index="senseIndex" wx:key="id" class="sense-block">
+          <view class="sense"><text class="pos">{{sense.partOfSpeech}}</text><text>{{sense.meaning}}</text></view>
+          <block wx:for="{{sense.examples}}" wx:for-item="example" wx:for-index="exampleIndex" wx:key="id">
+            <view wx:if="{{example.sentence !== displayExample}}" class="sense-example"><view class="sense-example-copy"><text>{{example.sentence}}</text><text class="example-translation">{{example.translation}}</text></view><view wx:if="{{example.pronunciations.length}}" class="example-play" hover-class="example-play-pressed" data-sense="{{senseIndex}}" data-example="{{exampleIndex}}" bindtap="playExample"><text class="play-icon"></text></view></view>
+          </block>
+        </view>
       </block>
       <text wx:else class="meaning">{{detail.meaning}}</text>
     </view>
     <view class="card">
       <text class="card-title">例句</text>
-      <text class="sentence">{{displayExample}}</text>
-      <text class="example-translation">{{displayExampleTranslation}}</text>
+      <view class="example-card-content">
+        <view class="example-copy"><text class="sentence">{{displayExample}}</text><text class="example-translation">{{displayExampleTranslation}}</text></view>
+        <view class="example-play" hover-class="example-play-pressed" bindtap="playDisplayExample"><text class="play-icon"></text></view>
+      </view>
     </view>
     <view class="card source"><text class="card-title">来源</text><text>{{detail.originAuthor || '课程词表整理'}}</text></view>
-    <view class="card action" bindtap="explain" wx:if="{{false}}">
+    <view wx:if="{{memoryEnabled}}" class="card memory-card">
+      <view class="memory-title" bindtap="toggleMemoryHint"><view><text class="card-title">记忆提示</text><text class="memory-caption">构词依据与自编联想会明确标识</text></view><text>{{memoryHintOpen ? '收起' : '展开'}}</text></view>
+      <block wx:if="{{memoryHintOpen}}">
+        <view wx:for="{{memoryHints}}" wx:key="id" class="memory-hint"><view class="memory-meta"><text>{{item.methodType}}</text><text>{{item.sourceType === 'editorial' ? '人工审核' : item.sourceType}}</text></view><text>{{item.body}}</text></view>
+        <text wx:if="{{!memoryHints.length}}" class="memory-empty">暂无已审核记忆提示</text>
+      </block>
+      <button class="memory-start" bindtap="startMemory">遮住测一测</button>
+      <text class="memory-note">训练完成不等于“已理解”，也不会自动加入复习。</text>
+    </view>
+    <view class="card action" bindtap="explain">
       <view><text class="card-title">解释当前内容</text><text>AI 辅助</text></view><text>›</text>
     </view>
-    <!-- <view class="familiarity"><text>熟悉度　自评</text><text class="percent">{{familiarityText}}</text>
-      <view class="track">
-        <view class="bar" style="width: {{detail.familiarityPercent || 0}}%;">
-        </view>
-      </view>
-    </view> -->
+    <view class="familiarity"><view class="familiarity-head"><text>熟悉度　自评</text><text class="percent">{{familiarityText}}</text></view><slider min="0" max="100" step="5" value="{{detail.familiarityPercent || 0}}" activeColor="#0869f7" backgroundColor="#dce8fa" block-size="18" bindchange="familiarityChanged" /></view>
     <view class="bottom-actions"><button bindtap="toggleWordBook">{{detail.inWordBook ? '✓ 已在生词本' : '▣ 加入生词本'}}</button><button class="primary" bindtap="understood" disabled="{{detail.understood}}">{{detail.understood ? '熟悉' : '认识'}}</button><button class="review" bindtap="toggleReview">{{detail.inReview ? '✓ 复习中' : '＋ 加入复习'}}</button></view>
   </block>
 </view>

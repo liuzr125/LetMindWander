@@ -12,11 +12,12 @@ import java.util.List;
 public interface ReviewMapper {
     @Select("SELECT rs.id AS schedule_id,k.id AS knowledge_id,t.id AS task_id,t.version_no AS task_version,k.item_type,k.title," +
             "COALESCE(NULLIF(k.body,''),cv.summary,cv.body,'') AS body,cv.word_term,cv.meaning,cv.example_text,rs.stage " +
-            "FROM daily_task t JOIN daily_package p ON p.id=t.package_id JOIN knowledge_item k ON k.id=t.knowledge_id " +
-            "JOIN review_schedule rs ON rs.owner_id=t.owner_id AND rs.knowledge_id=k.id " +
+            "FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id " +
+            "LEFT JOIN daily_package p ON p.owner_id=rs.owner_id AND p.business_date=#{date} " +
+            "LEFT JOIN daily_task t ON t.package_id=p.id AND t.knowledge_id=k.id AND t.task_type='review' AND t.status NOT IN ('DONE','CANCELLED') " +
             "LEFT JOIN learning_content lc ON lc.id=k.source_content_id LEFT JOIN content_version cv ON cv.id=lc.published_version_id " +
-            "WHERE t.owner_id=#{ownerId} AND p.business_date=#{date} AND t.task_type='review' " +
-            "AND t.status NOT IN ('DONE','CANCELLED') AND rs.state='active' ORDER BY t.sort_no,t.id")
+            "WHERE rs.owner_id=#{ownerId} AND rs.state='active' AND rs.due_date<=#{date} " +
+            "ORDER BY rs.due_date,COALESCE(t.sort_no,32767),rs.id")
     List<ReviewItemView> selectQueue(@Param("ownerId") String ownerId,@Param("date") LocalDate date);
 
     @Select("SELECT * FROM review_schedule WHERE id=#{id} AND owner_id=#{ownerId} FOR UPDATE")

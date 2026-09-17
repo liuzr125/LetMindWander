@@ -4,6 +4,7 @@ import { request } from '../../services/request.js'
 
 const loading = ref(false)
 const message = ref('')
+const activeTab = ref('invites')
 const status = ref('all')
 const page = ref(1)
 const total = ref(0)
@@ -14,6 +15,9 @@ const generatedOpen = ref(false)
 const createdCodes = ref([])
 const form = reactive({ count: 1, expiresInDays: 7 })
 const limitDraft = ref('')
+const accounts = ref({ total:0, page:1, pageSize:20, totalPages:0, items:[] })
+const accountPage = ref(1), accountPageSize = ref(20), accountStatus = ref('all')
+const accountKeywordInput = ref(''), accountKeyword = ref(''), accountError = ref('')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 10)))
 const hasItems = computed(() => items.value.length > 0)
@@ -27,6 +31,7 @@ function shortId(id) { return id ? `记录 · ${id.slice(-8).toUpperCase()}` : '
 function statusText(value) { return ({ available:'待兑换', redeemed:'已兑换', revoked:'已撤销', expired:'已过期' })[value] || value }
 
 async function load() {
+  if (activeTab.value === 'accounts') return loadAccounts()
   loading.value = true
   message.value = ''
   try {
@@ -42,6 +47,23 @@ async function load() {
     message.value = error.message
   } finally { loading.value = false }
 }
+
+async function loadAccounts() {
+  loading.value = true; accountError.value = ''
+  try {
+    const params = new URLSearchParams({ page:String(accountPage.value), pageSize:String(accountPageSize.value), status:accountStatus.value })
+    if (accountKeyword.value) params.set('keyword', accountKeyword.value)
+    accounts.value = await request(`/admin/users?${params}`); accountPage.value = accounts.value.page
+  } catch (error) { accountError.value = error.message || '账号列表加载失败' }
+  finally { loading.value = false }
+}
+
+function switchTab(tab) { if (activeTab.value === tab) return; activeTab.value = tab; message.value = ''; if (tab === 'accounts') loadAccounts(); else load() }
+function searchAccounts() { accountKeyword.value = accountKeywordInput.value.trim(); accountPage.value = 1; loadAccounts() }
+function clearAccountSearch() { accountKeywordInput.value = ''; accountKeyword.value = ''; accountPage.value = 1; loadAccounts() }
+function filterAccounts() { accountPage.value = 1; loadAccounts() }
+function turnAccounts(target) { if (target < 1 || target > accounts.value.totalPages || target === accountPage.value) return; accountPage.value = target; loadAccounts() }
+function userStatus(value) { return ({active:'正常',disabled:'已停用'}[value]) || value || '未知' }
 
 async function createInvites() {
   loading.value = true
@@ -91,7 +113,8 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
       <button class="refresh-button" :disabled="loading" @click="load">↻ 刷新</button>
     </div>
 
-    <div class="tabs"><button>账号列表</button><button class="active">邀请码</button></div>
+    <div class="tabs"><button :class="{active:activeTab==='accounts'}" @click="switchTab('accounts')">账号列表</button><button :class="{active:activeTab==='invites'}" @click="switchTab('invites')">邀请码</button></div>
+    <template v-if="activeTab==='invites'">
     <div class="notice-line"><span>ⓘ</span><span>邀请码明文仅在生成时显示一次，后续只保留安全摘要和状态。</span></div>
 
     <div class="stat-grid">
@@ -137,6 +160,17 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
         <div class="quota-detail"><span>已加入 <b>{{ stats.invitedUsed }}</b></span><span>可用邀请码 <b>{{ stats.availableCodes }}</b></span><span>已兑换 <b>{{ stats.redeemedCodes }}</b></span></div>
       </aside>
     </div>
+    </template>
+
+    <template v-else>
+      <div class="panel accounts-panel">
+        <div class="accounts-head"><div><h2>账号列表</h2><p>只显示管理所需的账号状态，手机号脱敏，不返回微信 OpenID。</p></div><span>共 {{ accounts.total }} 个账号</span></div>
+        <div class="account-toolbar"><form @submit.prevent="searchAccounts"><input v-model="accountKeywordInput" maxlength="80" placeholder="搜索昵称、短 ID 或手机号"/><button>搜索</button><button v-if="accountKeyword" type="button" class="outline-button" @click="clearAccountSearch">清除</button></form><label>状态 <select v-model="accountStatus" @change="filterAccounts"><option value="all">全部</option><option value="active">正常</option><option value="disabled">已停用</option></select></label><label>每页 <select v-model.number="accountPageSize" @change="filterAccounts"><option :value="10">10</option><option :value="20">20</option><option :value="50">50</option></select> 个</label></div>
+        <div v-if="accountError" class="message-line">{{ accountError }}<button @click="accountError=''">×</button></div>
+        <div class="table-wrap account-table"><table><thead><tr><th>编号</th><th>昵称</th><th>手机号</th><th>AI 授权</th><th>账号状态</th><th>最后登录</th><th>注册时间</th></tr></thead><tbody><tr v-for="item in accounts.items" :key="item.userId"><td><strong>{{ item.shortId || (item.seqNo ? `#${item.seqNo}` : item.userId.slice(-8).toUpperCase()) }}</strong></td><td>{{ item.nickname }}</td><td>{{ item.mobileMasked || '—' }}</td><td><span :class="['status-pill',item.aiConsented?'redeemed':'expired']">{{ item.aiConsented ? '已同意' : '未同意' }}</span></td><td><span :class="['status-pill',item.status==='active'?'redeemed':'revoked']">{{ userStatus(item.status) }}</span></td><td>{{ fmt(item.lastLoginAt) }}</td><td>{{ fmt(item.createdAt) }}</td></tr><tr v-if="loading && !accounts.items.length"><td colspan="7" class="empty">正在读取账号…</td></tr><tr v-else-if="!accounts.items.length"><td colspan="7" class="empty">暂无符合条件的账号</td></tr></tbody></table><div v-if="loading && accounts.items.length" class="account-loading">正在刷新…</div></div>
+        <div class="pagination"><span>{{ accounts.total ? `${(accounts.page-1)*accounts.pageSize+1}–${Math.min(accounts.total,accounts.page*accounts.pageSize)} / ${accounts.total}` : '0 条' }}</span><button :disabled="accountPage<=1" @click="turnAccounts(accountPage-1)">‹</button><span>{{ accountPage }} / {{ accounts.totalPages || 1 }}</span><button :disabled="accountPage>=accounts.totalPages" @click="turnAccounts(accountPage+1)">›</button></div>
+      </div>
+    </template>
   </section>
 
   <div v-if="createOpen" class="modal-mask">
@@ -157,4 +191,5 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
 .quota-panel { padding:20px; }.quota-ring { --progress:0deg; width:132px; height:132px; display:grid; place-items:center; margin:23px auto; border-radius:50%; background:conic-gradient(#1a79f8 var(--progress),#eaf0f8 0); }.quota-ring::before { content:''; width:104px; height:104px; position:absolute; border-radius:50%; background:#fff; }.quota-ring div { z-index:1; text-align:center; }.quota-ring strong,.quota-ring span { display:block; }.quota-ring strong { color:#1674f7; font-size:30px; }.quota-ring span { margin-top:3px; color:#79869c; font-size:11px; }.quota-panel label { display:block; color:#4e5d79; font-size:12px; font-weight:650; }.quota-panel input { width:100%; height:39px; margin-top:8px; padding:0 11px; border:1px solid #dbe2ec; border-radius:8px; outline:none; }.outline-button { height:40px; border:1px solid #cfd9e7; border-radius:8px; background:#fff; color:#42516d; }.quota-panel>.outline-button { width:100%; margin-top:12px; color:#0e6ff5; border-color:#bcd4f8; }.quota-detail { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:18px; padding-top:16px; border-top:1px solid #edf0f5; }.quota-detail span { padding:10px; border-radius:8px; background:#f7f9fc; color:#7a879d; font-size:11px; }.quota-detail b { display:block; margin-top:4px; color:#263550; font-size:16px; }
 .dialog { width:420px; padding:28px; border-radius:16px; background:#fff; box-shadow:0 30px 90px rgba(13,33,72,.22); }.dialog h2 { margin:0; font-size:22px; }.dialog>p { margin:8px 0 22px; color:#78849a; font-size:13px; line-height:1.6; }.dialog label { display:block; margin-top:14px; color:#4a5873; font-size:13px; font-weight:650; }.dialog input { width:100%; height:42px; margin-top:8px; padding:0 11px; border:1px solid #d8e0eb; border-radius:8px; }.dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }.dialog-actions button { width:110px; }.generated-dialog { width:470px; }.success-icon { width:48px; height:48px; display:grid; place-items:center; border-radius:50%; background:#e8f8f1; color:#0bad78; font-size:24px; }.code-list { max-height:280px; overflow:auto; display:flex; flex-direction:column; gap:8px; }.code-list div { display:flex; align-items:center; padding:10px 12px; border:1px solid #dbe4ef; border-radius:9px; background:#f8faff; }.code-list code { flex:1; color:#0d55ba; font-size:16px; font-weight:700; letter-spacing:1px; }.code-list button { border:0; background:transparent; color:#1172f6; }.done-button { width:100%; margin-top:20px; }
 @media (max-width:1280px) { .workspace-grid { grid-template-columns:1fr; }.quota-panel { display:grid; grid-template-columns:1fr 160px 240px; align-items:center; gap:10px 20px; }.quota-panel>p { grid-column:1 }.quota-ring { grid-column:2; grid-row:1/5; }.quota-detail { grid-column:3; grid-row:1/5; }.quota-panel>.outline-button { grid-column:1; } }
+.accounts-panel{margin-top:18px;padding:20px}.accounts-head{display:flex;align-items:center;justify-content:space-between}.accounts-head h2{margin:0}.accounts-head p{margin:6px 0 0;color:#77849b;font-size:12px}.accounts-head>span{color:#65738d;font-size:12px}.account-toolbar{display:flex;align-items:center;gap:14px;margin:18px 0 14px}.account-toolbar form{display:flex;gap:8px;margin-right:auto}.account-toolbar input{width:310px;height:39px;padding:0 12px;border:1px solid #d7dfeb;border-radius:8px}.account-toolbar form button{height:39px;padding:0 17px;border:0;border-radius:8px;color:#fff;background:#0d6ff5}.account-toolbar form .outline-button{color:#55647f;background:#fff}.account-toolbar label{color:#63718b;font-size:12px}.account-toolbar select{height:34px;margin-left:6px;border:1px solid #d8e0eb;border-radius:7px;background:#fff}.account-table{position:relative}.account-table strong{color:#22324f}.account-loading{position:absolute;inset:41px 0 0;display:grid;place-items:center;background:rgba(255,255,255,.82);color:#72809a}
 </style>

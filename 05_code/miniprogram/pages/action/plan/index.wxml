@@ -1,0 +1,17 @@
+<view class="plan-page">
+  <view wx:if="{{loading}}" class="state">正在读取行动计划…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <text class="headline">下周先做好一件事</text><view class="range"><text>{{plan.weekStart}}—{{plan.weekEnd}}</text><text>最多 {{plan.maxActions}} 项</text></view>
+    <view wx:for="{{plan.actions}}" wx:key="id" class="action-card {{item.state}}" data-index="{{index}}" bindtap="edit">
+      <text class="number">{{item.actionNo}}</text><view class="action-copy"><text class="action-title">{{item.title}}</text><text>▣ {{item.scheduledDate}}　◷ {{item.estimatedMinutes}} 分钟</text></view><text class="chevron">{{item.state === 'confirmed' ? '✓' : '›'}}</text><button wx:if="{{item.state === 'draft'}}" catchtap="remove" data-index="{{index}}">移除</button>
+    </view>
+    <button wx:if="{{plan.actions.length < plan.maxActions && !editing}}" class="add" bindtap="add">＋　新增行动</button>
+    <view wx:if="{{editing}}" class="editor">
+      <text class="editor-title">{{editing.id ? '编辑行动' : '新增行动'}}</text><text class="label">行动标题</text><input maxlength="100" value="{{editing.title}}" bindinput="inputTitle" placeholder="例如：整理一条 RAG 笔记"/><text class="label">备注</text><textarea maxlength="1000" value="{{editing.note}}" bindinput="inputNote" placeholder="写下完成标准（可选）"></textarea><view class="field-row"><view><text class="label">安排日期</text><picker mode="date" value="{{editing.scheduledDate}}" start="{{dateMin}}" end="{{dateMax}}" bindchange="changeDate"><view class="picker">{{editing.scheduledDate}}　⌄</view></picker></view><view><text class="label">预计时长</text><picker mode="selector" range="{{minuteOptions}}" bindchange="changeMinutes"><view class="picker">{{editing.estimatedMinutes}} 分钟　⌄</view></picker></view></view><view class="editor-actions"><button bindtap="cancelEdit">取消</button><button class="primary" bindtap="save" loading="{{saving}}">保存</button></view>
+    </view>
+    <view class="budget"><text>目标周行动预计 <text class="budget-number">{{plan.plannedMinutes}}</text> 分钟</text><view class="track"><view class="fill" style="width: {{plan.plannedMinutes > plan.dailyBudgetMinutes ? 100 : plan.plannedMinutes * 100 / plan.dailyBudgetMinutes}}%;"></view></view><view class="budget-row"><text>{{plan.plannedMinutes}} 分钟</text><text>单日基准 {{plan.dailyBudgetMinutes}} 分钟</text></view></view>
+    <view wx:if="{{plan.containsNonActiveDay}}" class="warning">△　包含非学习日，确认时需要显式启用当日临时计划。</view>
+    <button class="confirm" bindtap="confirm" loading="{{saving}}" disabled="{{plan.actions.length === 0}}">确认加入目标日期</button>
+  </block>
+</view>

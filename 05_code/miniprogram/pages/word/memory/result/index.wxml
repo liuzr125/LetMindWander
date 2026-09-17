@@ -1,0 +1,8 @@
+<view class="page"><view wx:if="{{loading}}" class="state">正在统计…</view><view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else><view class="hero"><text class="icon">✓</text><text class="title">{{result.state === 'partial' ? '本轮部分完成' : '本轮训练完成'}}</text><text>数字均来自服务端作答事实</text></view>
+    <view class="grid"><view><text>{{result.practicedWordCount}}</text><text>已练词</text></view><view><text>{{result.validObjectiveCount}}</text><text>有效客观题</text></view><view><text>{{result.independentCorrectCount}}</text><text>无提示首答正确</text></view><view><text>{{result.hintedCorrectCount}}</text><text>提示后答对</text></view><view><text>{{result.firstIncorrectCount}}</text><text>首次错误</text></view><view><text>{{result.untestedCount}}</text><text>未测</text></view></view>
+    <view class="card"><text>待巩固词</text><text class="weak">{{result.weakWordCount}}</text><text class="note">重试答对不会覆盖首答错误；熟悉度自评也不计入客观正确率。</text></view>
+    <view class="card"><text class="card-title">复习安排</text><view wx:for="{{result.reviewPlans}}" wx:key="contentId" class="review-row"><text>{{item.wordTerm}}</text><text>{{item.state === 'not_enrolled' ? '尚未加入复习' : item.state === 'paused' ? '已暂停' : item.dueDate ? '下次 ' + item.dueDate : '本轮已完成'}}</text></view></view>
+    <button wx:if="{{result.weakWordCount}}" class="secondary" bindtap="openWeak">回到英语学习</button><button class="primary" bindtap="returnSource">返回来源</button>
+  </block>
+</view>

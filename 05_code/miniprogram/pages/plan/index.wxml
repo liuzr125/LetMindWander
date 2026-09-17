@@ -2,7 +2,13 @@
   <view class="content" wx:if="{{loaded}}">
     <view class="section">
       <text class="section-title">每日时间</text>
-      <view class="budget-list">
+      <view class="budget-editor">
+        <view class="budget-step" data-delta="-1" bindtap="changeBudget">−</view>
+        <view class="budget-input-wrap"><input class="budget-input" type="number" value="{{dailyBudgetInput}}" bindinput="inputBudget" bindblur="commitBudget" /><text>分钟</text></view>
+        <view class="budget-step" data-delta="1" bindtap="changeBudget">＋</view>
+      </view>
+      <text class="budget-hint">可直接输入 {{settings.dailyBudgetMin}}–{{settings.dailyBudgetMax}} 分钟，快捷选择：</text>
+      <view wx:if="{{budgets.length}}" class="budget-list">
         <view wx:for="{{budgets}}" wx:key="*this" class="budget {{form.dailyBudgetMin === item ? 'selected' : ''}}" data-value="{{item}}" bindtap="selectBudget">{{item}} 分钟</view>
       </view>
     </view>
@@ -15,24 +21,33 @@
     </view>
 
     <view class="divider"></view>
-    <view class="section">
-      <text class="section-title">技术主题</text>
-      <text class="section-subtitle">可多选，也可添加自定义主题</text>
-      <view class="topic-list">
-        <view wx:for="{{topics}}" wx:key="id" class="topic {{selectedTopicIds[item.id] ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="toggleTopic">{{item.name}}</view>
+    <view class="section topic-section">
+      <view class="topic-summary" bindtap="toggleTopicPanel">
+        <view class="topic-summary-content">
+          <view class="topic-title-row">
+            <text class="section-title topic-title">技术主题</text>
+            <text wx:if="{{selectedTopicCount}}" class="topic-count">已选 {{selectedTopicCount}} 项</text>
+          </view>
+          <text class="topic-summary-text">{{selectedTopicSummary}}</text>
+        </view>
+        <view class="topic-edit">{{topicPanelExpanded ? '收起' : '编辑'}}<text class="topic-chevron {{topicPanelExpanded ? 'expanded' : ''}}">›</text></view>
       </view>
-      <view class="topic-input-row">
-        <input class="topic-input" placeholder="输入新的技术主题" value="{{newTopicName}}" bindinput="inputTopic" maxlength="50" />
-        <button class="add-button" bindtap="addTopic" loading="{{addingTopic}}">添加</button>
+      <view wx:if="{{topicPanelExpanded}}" class="topic-panel">
+        <text class="section-subtitle topic-panel-hint">可多选，也可添加自定义主题</text>
+        <view class="topic-list">
+          <view wx:for="{{topics}}" wx:key="id" class="topic {{selectedTopicIds[item.id] ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="toggleTopic">{{item.name}}</view>
+        </view>
+        <view class="topic-input-row">
+          <input class="topic-input" placeholder="输入新的技术主题" value="{{newTopicName}}" bindinput="inputTopic" maxlength="50" />
+          <button class="add-button" bindtap="addTopic" loading="{{addingTopic}}">添加</button>
+        </view>
       </view>
-      <text class="topic-hint">添加后可直接选用</text>
     </view>
 
     <view class="section difficulty-section">
       <text class="section-title">难度</text>
       <view class="difficulty-list">
-        <view class="difficulty {{form.difficulty === 'intro' ? 'selected' : ''}}" data-value="intro" bindtap="selectDifficulty">入门</view>
-        <view class="difficulty {{form.difficulty === 'advanced' ? 'selected' : ''}}" data-value="advanced" bindtap="selectDifficulty">进阶</view>
+        <view wx:for="{{difficulties}}" wx:key="value" class="difficulty {{form.difficulty === item.value ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectDifficulty">{{item.label}}</view>
       </view>
     </view>
 

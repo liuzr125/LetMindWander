@@ -4,6 +4,7 @@
     "pages/auth/register/index",
     "pages/today/index",
     "pages/today/words/index",
+    "pages/ai/ask/index",
     "pages/learn/index",
     "pages/knowledge/index",
     "pages/knowledge/detail/index",
@@ -12,14 +13,33 @@
     "pages/knowledge/delete/index",
     "pages/growth/index",
     "pages/mine/index",
+    "pages/mine/favorites/index",
+    "pages/mine/privacy/index",
+    "pages/mine/feedback/index",
+    "pages/mine/usage/index",
+    "pages/friends/index/index",
+    "pages/friends/search/index",
+    "pages/friends/requests/index",
+    "pages/friends/profile/index",
+    "pages/friends/shared/index",
+    "pages/schedules/index/index",
+    "pages/schedules/edit/index",
     "pages/profile/edit/index",
     "pages/plan/index",
     "pages/plan/history/index",
     "pages/content/detail/index",
     "pages/word/detail/index",
+    "pages/word/books/index",
+    "pages/word/books/progress/index",
+    "pages/word/memory/setup/index",
+    "pages/word/memory/session/index",
+    "pages/word/memory/result/index",
+    "pages/article/detail/index",
     "pages/journal/edit/index",
     "pages/journal/history/index",
     "pages/review/index",
+    "pages/summary/detail/index",
+    "pages/action/plan/index",
     "pages/action/detail/index"
   ],
   "window": {
@@ -37,19 +57,19 @@
     "list": [
       {
         "pagePath": "pages/today/index",
-        "text": "今日"
+        "text": "首页"
       },
       {
         "pagePath": "pages/learn/index",
         "text": "学习"
       },
       {
-        "pagePath": "pages/knowledge/index",
-        "text": "知识库"
+        "pagePath": "pages/ai/ask/index",
+        "text": "问一问"
       },
       {
-        "pagePath": "pages/growth/index",
-        "text": "成长"
+        "pagePath": "pages/knowledge/index",
+        "text": "知识库"
       },
       {
         "pagePath": "pages/mine/index",

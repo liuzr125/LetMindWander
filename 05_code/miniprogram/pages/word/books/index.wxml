@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="hero">
+    <view class="book-mark">Aa</view>
+    <text class="title">先选一本词书</text>
+    <text class="subtitle">今日新词将只从你选定的词书中安排，之后也可以随时更换。</text>
+  </view>
+
+  <view wx:if="{{currentProgress}}" class="progress-entry" bindtap="openProgress">
+    <view><text class="progress-name">当前词书 · {{currentProgress.bookName}}</text><text class="progress-count">已学 {{currentProgress.learnedCount}} / {{currentProgress.totalCount}}，还剩 {{currentProgress.remainingCount}}</text><text class="progress-count" wx:if="{{currentProgress.dailyNewCount > 0}}">每天 {{currentProgress.dailyNewCount}} 个，预计还需 {{currentProgress.estimatedRemainingDays}} 天</text><text class="progress-count" wx:else>每日新词为 0，暂无法估算天数</text></view>
+    <text class="progress-link">查看进度 ›</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="state">正在加载词书…</view>
+  <view wx:elif="{{error}}" class="state error"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <view wx:elif="{{!books.length}}" class="state">暂无可用词书</view>
+  <view wx:else class="book-list">
+    <view wx:for="{{books}}" wx:key="id" class="book-card {{selectedId === item.id ? 'selected' : ''}} {{item.available ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="choose">
+      <view class="book-icon">{{item.initial}}</view>
+      <view class="book-main">
+        <view class="book-title-row"><text class="book-title">{{item.bookName}}</text><text wx:if="{{item.recommended}}" class="tag">推荐</text></view>
+        <text class="book-desc">{{item.description || item.typeLabel}}</text>
+        <text class="book-meta">{{item.typeLabel}} · {{item.countText}}</text>
+      </view>
+      <view wx:if="{{item.available}}" class="radio"><view wx:if="{{selectedId === item.id}}"></view></view><text wx:else class="preparing">准备中</text>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <button class="confirm" disabled="{{!selectedId || saving}}" bindtap="confirm">{{saving ? '正在准备…' : '选择并开始学习'}}</button>
+    <text class="tip">更换词书不会删除已有学习和复习记录</text>
+  </view>
+</view>

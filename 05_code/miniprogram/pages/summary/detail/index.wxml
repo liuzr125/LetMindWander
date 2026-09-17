@@ -1,0 +1,22 @@
+<view class="summary-page">
+  <view wx:if="{{loading}}" class="state">正在汇总这一周…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:elif="{{summary.status === 'empty'}}">
+    <view class="empty"><text class="empty-icon">▢</text><text class="empty-title">这一周还没有有效记录</text><text>没有学习、复习或复盘事实时，不生成虚构总结。</text></view>
+  </block>
+  <block wx:else>
+    <view class="summary-head"><view><text class="title">上周总结</text><text class="range">{{summary.weekStart}}—{{summary.weekEnd}}</text></view><text class="status {{summary.status}}">{{summary.status === 'confirmed' ? '已确认' : summary.stale ? '有新记录' : '待确认'}}</text></view>
+    <view class="insight">☼　这一周，你留下了清晰、可核对的成长足迹。</view>
+    <view class="metric-row"><view><text class="blue">▮</text><text>学习</text><text class="metric-number">{{summary.metrics.learningCount}}</text><text class="metric-unit">条</text></view><view><text class="green">↻</text><text>复习</text><text class="metric-number">{{summary.metrics.reviewCount}}</text><text class="metric-unit">次</text></view><view><text class="orange">▣</text><text>复盘</text><text class="metric-number">{{summary.metrics.journalDays}}</text><text class="metric-unit">天</text></view></view>
+    <button class="daily-link" bindtap="toggleDays">查看每日明细　{{showDays ? '⌃' : '⌄'}}</button>
+    <view wx:if="{{showDays}}" class="daily-list"><view wx:for="{{summary.days}}" wx:key="date"><text>{{item.weekday}} {{item.date}}</text><text>{{item.doneCount}} / {{item.plannedCount}} 项</text></view></view>
+    <view class="text-card gain"><text class="card-title">◇　本周收获</text><textarea wx:if="{{editing}}" maxlength="10000" value="{{body}}" bindinput="inputBody"></textarea><text wx:else class="card-body">{{summary.body || summary.gainText}}</text></view>
+    <view class="text-card blocker"><text class="card-title">△　遇到的阻塞</text><text class="card-body">{{summary.blockerText}}</text></view>
+    <view class="action-card"><view><text class="card-title">⚑　下周行动</text><text class="card-body">最多安排 3 项，日期和预算由服务端校验。</text></view><button bindtap="openActions">安排行动</button></view>
+    <view wx:if="{{editing}}" class="edit-actions"><button bindtap="cancelEdit">取消</button><button class="primary" bindtap="save" loading="{{saving}}">保存修订</button></view>
+    <view wx:else class="tool-row"><button bindtap="aiUnavailable">✦ AI 润色</button><button bindtap="startEdit">✎ 编辑</button></view>
+    <button wx:if="{{!editing && summary.status !== 'confirmed'}}" class="confirm" bindtap="confirm" loading="{{saving}}">确认周总结</button>
+    <view wx:if="{{summary.stale}}" class="stale"><text>▣　检测到新记录，已确认版本会保留。</text><button bindtap="recalculate" loading="{{saving}}">重新汇总</button></view>
+    <view wx:elif="{{summary.status === 'confirmed'}}" class="confirmed">✓　当前修订已确认，后续编辑会生成新修订。</view>
+  </block>
+</view>

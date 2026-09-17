@@ -1,0 +1,18 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">正在恢复训练进度…</view><view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <view class="progress"><text>本轮 {{session.targetCount}} 词</text><text>{{current ? '第 ' + current.position + ' 题' : '可结算'}}</text></view>
+    <view wx:if="{{current}}" class="card">
+      <text class="dimension">{{current.dimension === 'meaning' ? '认义' : '拼写'}}</text>
+      <text wx:if="{{current.wordTerm}}" class="word">{{current.wordTerm}}</text><text wx:if="{{current.meaning}}" class="meaning">{{current.meaning}}</text>
+      <text class="prompt">{{current.prompt}}</text>
+      <input class="answer" value="{{answer}}" bindinput="answerChanged" placeholder="输入你的答案" maxlength="1000" disabled="{{feedback}}" />
+      <view wx:if="{{!feedback}}" class="hint-row"><button data-type="first_letter" bindtap="revealHint">首字母</button><button wx:if="{{current.hasClue}}" data-type="clue" bindtap="revealHint">给点提示</button><button data-type="answer" bindtap="revealHint">看答案</button></view>
+      <view wx:if="{{hintContent}}" class="hint"><text>提示已记录</text><text>{{hintContent}}</text></view>
+      <button wx:if="{{!feedback}}" class="primary" loading="{{acting}}" disabled="{{acting}}" bindtap="submit">提交答案</button>
+      <view wx:else class="feedback {{feedback.correct ? 'correct' : 'wrong'}}"><text class="feedback-title">{{feedback.correct ? (feedback.result === 'independent_correct' ? '独立答对' : feedback.result === 'hinted_correct' ? '提示后答对' : '纠错完成') : '首答已记录为错误'}}</text><text wx:if="{{!feedback.correct && feedback.canRetry}}">错题会在其他首答后回补，最多追加 2 次。</text><button bindtap="next">{{feedback.nextEpisodeAvailable ? '继续下一题' : '刷新进度'}}</button></view>
+    </view>
+    <view wx:else class="card finish"><text class="finish-title">已完成当前可用题目</text><text>结算只保留客观作答证据，不会暗改“已理解”或生词本。</text><button class="primary" bindtap="finish">查看本轮结果</button></view>
+    <button class="partial" bindtap="finishPartial">现在结束（部分完成）</button>
+  </block>
+</view>

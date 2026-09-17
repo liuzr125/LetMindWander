@@ -7,6 +7,8 @@ import com.zhixing.common.CryptoUtils;
 import com.zhixing.dto.*;
 import com.zhixing.entity.KnowledgeItemEntity;
 import com.zhixing.mapper.KnowledgeMapper;
+import com.zhixing.mapper.ContentMapper;
+import com.zhixing.model.ContentDetailView;
 import com.zhixing.model.KnowledgeDetailView;
 import com.zhixing.model.KnowledgeFriendView;
 import com.zhixing.model.KnowledgeListItemView;
@@ -27,8 +29,9 @@ public class KnowledgeService {
     private static final Set<String> VERIFICATION_STATES=new HashSet<String>(Arrays.asList("unverified","verified","partial","invalid"));
     private final KnowledgeMapper knowledge;
     private final ObjectMapper json;
+    private final ContentMapper contents;
 
-    public KnowledgeService(KnowledgeMapper knowledge,ObjectMapper json){this.knowledge=knowledge;this.json=json;}
+    public KnowledgeService(KnowledgeMapper knowledge,ObjectMapper json,ContentMapper contents){this.knowledge=knowledge;this.json=json;this.contents=contents;}
 
     public List<KnowledgeListItemView> list(String ownerId,String type,String query,String learningStatus,String verificationStatus,Integer limit){
         int safeLimit=limit==null?20:Math.max(1,Math.min(limit,50));
@@ -58,7 +61,8 @@ public class KnowledgeService {
         entity.setTitle(prepared.title);entity.setBody(prepared.body);entity.setProblemJson(prepared.problemJson);
         entity.setSearchText(prepared.searchText);entity.setLearningStatus("unlearned");entity.setVerificationStatus("unverified");
         entity.setVersionNo(1);entity.setVisibility(prepared.visibility);entity.setState(prepared.state);
-        entity.setNoteParentId(prepared.noteParentId);entity.setCreatedAt(Instant.now());entity.setUpdatedAt(Instant.now());
+        entity.setNoteParentId(prepared.noteParentId);entity.setSourceContentId(prepared.sourceContentId);entity.setSourceContentVersionId(prepared.sourceContentVersionId);
+        entity.setCreatedAt(Instant.now());entity.setUpdatedAt(Instant.now());
         knowledge.insert(entity);
         replaceTags(ownerId,entity.getId(),prepared.tags);
         replaceShares(ownerId,entity.getId(),prepared.visibility,prepared.friendIds);
@@ -159,6 +163,10 @@ public class KnowledgeService {
         p.noteParentId=cleanToNull(request.getNoteParentId());
         if(p.noteParentId!=null&&knowledge.selectOwnedForUpdate(ownerId,p.noteParentId)==null)
             throw new ApiException(HttpStatus.NOT_FOUND,"NOTE_SOURCE_NOT_FOUND","原文知识不存在或已不可访问");
+        p.sourceContentId=cleanToNull(request.getSourceContentId());p.sourceContentVersionId=cleanToNull(request.getSourceContentVersionId());
+        if(p.noteParentId!=null&&(p.sourceContentId!=null||p.sourceContentVersionId!=null))throw new ApiException(HttpStatus.BAD_REQUEST,"MULTIPLE_NOTE_SOURCES","一条笔记只能关联一种原文");
+        if((p.sourceContentId==null)!=(p.sourceContentVersionId==null))throw new ApiException(HttpStatus.BAD_REQUEST,"CONTENT_SOURCE_INCOMPLETE","内容原文与版本必须同时提供");
+        if(p.sourceContentId!=null){ContentDetailView source=contents.selectDetail(ownerId,p.sourceContentId);if(source==null||!p.sourceContentVersionId.equals(source.getVersionId()))throw new ApiException(HttpStatus.NOT_FOUND,"NOTE_SOURCE_NOT_FOUND","内容原文不存在、已下架或版本已失效");}
         if("problem".equals(p.itemType)){
             KnowledgeProblemFields problem=request.getProblem()==null?new KnowledgeProblemFields():request.getProblem();
             normalize(problem);int total=problemLength(problem);
@@ -213,10 +221,10 @@ public class KnowledgeService {
     private KnowledgeProblemFields readProblem(String value){if(value==null||value.trim().isEmpty())return new KnowledgeProblemFields();try{return json.readValue(value,KnowledgeProblemFields.class);}catch(Exception e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"KNOWLEDGE_DATA_INVALID","问题卡数据格式异常");}}
     private String write(Object value){try{return json.writeValueAsString(value);}catch(JsonProcessingException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"KNOWLEDGE_SERIALIZE_FAILED","知识保存失败");}}
     private void insertRevision(String ownerId,String id,int revision,String kind,String snapshot){knowledge.insertRevision(CryptoUtils.randomId(),ownerId,id,revision,snapshot,kind);}
-    private String snapshot(KnowledgeItemEntity item,List<String> tags,List<String> friendIds){Map<String,Object> m=new LinkedHashMap<String,Object>();m.put("id",item.getId());m.put("itemType",item.getItemType());m.put("title",item.getTitle());m.put("body",item.getBody());m.put("problem",item.getProblemJson()==null?null:readProblem(item.getProblemJson()));m.put("learningStatus",item.getLearningStatus());m.put("verificationStatus",item.getVerificationStatus());m.put("visibility",item.getVisibility());m.put("state",item.getState());m.put("noteParentId",item.getNoteParentId());m.put("tags",tags);m.put("selectedFriendIds",friendIds);return write(m);}
+    private String snapshot(KnowledgeItemEntity item,List<String> tags,List<String> friendIds){Map<String,Object> m=new LinkedHashMap<String,Object>();m.put("id",item.getId());m.put("itemType",item.getItemType());m.put("title",item.getTitle());m.put("body",item.getBody());m.put("problem",item.getProblemJson()==null?null:readProblem(item.getProblemJson()));m.put("learningStatus",item.getLearningStatus());m.put("verificationStatus",item.getVerificationStatus());m.put("visibility",item.getVisibility());m.put("state",item.getState());m.put("noteParentId",item.getNoteParentId());m.put("sourceContentId",item.getSourceContentId());m.put("sourceContentVersionId",item.getSourceContentVersionId());m.put("tags",tags);m.put("selectedFriendIds",friendIds);return write(m);}
     private String snapshot(KnowledgeDetailView item){Map<String,Object> m=new LinkedHashMap<String,Object>();m.put("id",item.getId());m.put("itemType",item.getItemType());m.put("title",item.getTitle());m.put("body",item.getBody());m.put("problem",item.getProblem());m.put("learningStatus",item.getLearningStatus());m.put("verificationStatus",item.getVerificationStatus());m.put("visibility",item.getVisibility());m.put("state",item.getState());m.put("noteParentId",item.getNoteParentId());m.put("tags",item.getTags());m.put("selectedFriendIds",item.getSelectedFriendIds());return write(m);}
     private int length(String v){return v==null?0:v.codePointCount(0,v.length());}
     private String clean(String v){return v==null?"":v.trim();}
     private String cleanToNull(String v){String c=clean(v);return c.isEmpty()?null:c;}
-    private static class Prepared{String itemType,title,body,problemJson,searchText,visibility,state,noteParentId;KnowledgeProblemFields problem;List<String> tags,friendIds;}
+    private static class Prepared{String itemType,title,body,problemJson,searchText,visibility,state,noteParentId,sourceContentId,sourceContentVersionId;KnowledgeProblemFields problem;List<String> tags,friendIds;}
 }

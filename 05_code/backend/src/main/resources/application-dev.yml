@@ -2,7 +2,7 @@ spring:
   datasource:
     # 不配置 driver-class-name：Spring Boot 会根据 DB_URL 自动选择 H2 或 MySQL 驱动。
     url: jdbc:mysql://localhost:3306/letMindWander?useAffectedRows=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
+    username: ${DB_USERNAME:root}
     password: Liu123456
   sql:
     init:

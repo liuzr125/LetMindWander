@@ -6,9 +6,14 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 /** 参数读取只允许访问 active 项；SQL 不散落在业务服务中。 */
 @Mapper
 public interface AppParameterMapper extends BaseMapper<AppParameterEntity> {
-    @Select("SELECT id, param_key, param_value FROM app_parameter WHERE param_key=#{key} AND state='active' LIMIT 1")
+    @Select("SELECT id, param_key, param_value, is_secret, description, state, version_no FROM app_parameter WHERE param_key=#{key} AND state='active' LIMIT 1")
     AppParameterEntity selectActiveByKey(@Param("key") String key);
+
+    @Select("SELECT id,param_key,param_value,is_secret,description,state,version_no FROM app_parameter WHERE state='active' AND param_key LIKE CONCAT(#{prefix},'%') ORDER BY param_key")
+    List<AppParameterEntity> selectActiveByPrefix(@Param("prefix") String prefix);
 }

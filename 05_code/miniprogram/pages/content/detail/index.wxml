@@ -9,6 +9,7 @@
     <view class="divider"></view>
     <text class="body">{{detail.body}}</text>
     <view class="principle"><text class="quote">“</text><text>先理解概念与边界，再把它放回真实问题中使用。</text></view>
+    <button class="note" bindtap="takeNote">▤ 做笔记</button>
     <button class="ai" bindtap="explain">✦ 解释这段内容</button>
     <text class="license">来源与许可：{{detail.licenseSnapshot}}</text>
     <view class="bottom-actions">

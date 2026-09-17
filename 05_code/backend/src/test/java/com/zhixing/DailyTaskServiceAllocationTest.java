@@ -8,6 +8,7 @@ import com.zhixing.mapper.DailyPackageMapper;
 import com.zhixing.mapper.DailyTaskMapper;
 import com.zhixing.mapper.LearningPlanMapper;
 import com.zhixing.mapper.MaterialMapper;
+import com.zhixing.mapper.VocabularyBookMapper;
 import com.zhixing.model.MaterialCandidate;
 import com.zhixing.service.DailyTaskService;
 import org.junit.jupiter.api.Test;
@@ -31,15 +32,18 @@ class DailyTaskServiceAllocationTest {
     void followsPrdPriorityUnderACompactBudget() {
         MaterialMapper materials = mock(MaterialMapper.class);
         when(materials.selectContent(anyString(), anyString(), anyString(), anyString(), anyInt()))
-                .thenAnswer(invocation -> "tech".equals(invocation.getArgument(2))
-                        ? candidates("tech", 2, 180) : candidates("word", 10, 30));
+                .thenReturn(candidates("tech", 2, 180));
+        when(materials.selectWordContent(anyString(), anyString(), anyString(), anyInt()))
+                .thenReturn(candidates("word", 10, 30));
         when(materials.selectDueReviews(anyString(), any(LocalDate.class), anyInt()))
                 .thenReturn(candidates("review", 5, 30));
         when(materials.selectActions(anyString(), any(LocalDate.class), anyInt()))
                 .thenReturn(Collections.<MaterialCandidate>emptyList());
 
+        VocabularyBookMapper books=mock(VocabularyBookMapper.class);
+        when(books.selectActiveBookId(anyString())).thenReturn("book");
         DailyTaskService service = new DailyTaskService(mock(DailyPackageMapper.class),
-                mock(DailyTaskMapper.class), mock(LearningPlanMapper.class), materials, new ObjectMapper());
+                mock(DailyTaskMapper.class), mock(LearningPlanMapper.class), materials, books, new ObjectMapper());
         DailyPackageEntity dailyPackage = new DailyPackageEntity();
         dailyPackage.setId("package");
         dailyPackage.setOwnerId("owner");

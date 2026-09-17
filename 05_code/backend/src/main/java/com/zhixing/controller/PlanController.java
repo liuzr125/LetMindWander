@@ -4,6 +4,7 @@ import com.zhixing.dto.CreateTopicRequest;
 import com.zhixing.dto.UpdatePlanRequest;
 import com.zhixing.model.AuthenticatedSession;
 import com.zhixing.model.PlanView;
+import com.zhixing.model.PlanSettingsView;
 import com.zhixing.service.PlanService;
 import com.zhixing.service.SessionService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,9 @@ public class PlanController {
 
     @GetMapping
     public PlanView get(@RequestHeader(value = "Authorization", required = false) String authorization) { return plans.get(userId(authorization)); }
+
+    @GetMapping("/settings")
+    public PlanSettingsView settings(@RequestHeader(value = "Authorization", required = false) String authorization) { userId(authorization); return plans.settings(); }
 
     @GetMapping("/history")
     public List<PlanView> history(@RequestHeader(value = "Authorization", required = false) String authorization) { return plans.history(userId(authorization)); }

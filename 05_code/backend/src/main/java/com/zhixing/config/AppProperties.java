@@ -17,6 +17,9 @@ public class AppProperties {
     private List<String> allowedOrigins = new ArrayList<String>();
     private final Wechat wechat = new Wechat();
     private final Sms sms = new Sms();
+    private final WordMemory wordMemory = new WordMemory();
+    private final Ai ai = new Ai();
+    private final Tts tts = new Tts();
 
     public String getPrivacyVersion() { return privacyVersion; }
     public void setPrivacyVersion(String privacyVersion) { this.privacyVersion = privacyVersion; }
@@ -34,6 +37,9 @@ public class AppProperties {
     public void setAllowedOrigins(List<String> allowedOrigins) { this.allowedOrigins = allowedOrigins; }
     public Wechat getWechat() { return wechat; }
     public Sms getSms() { return sms; }
+    public WordMemory getWordMemory() { return wordMemory; }
+    public Ai getAi() { return ai; }
+    public Tts getTts() { return tts; }
 
     public static class Wechat {
         private boolean mockEnabled = true;
@@ -65,5 +71,39 @@ public class AppProperties {
         public void setMaxAttempts(int maxAttempts) { this.maxAttempts = maxAttempts; }
         public String getFixedCode() { return fixedCode; }
         public void setFixedCode(String fixedCode) { this.fixedCode = fixedCode; }
+    }
+
+    public static class WordMemory {
+        private boolean enabled = true;
+        private boolean listeningEnabled;
+        private boolean aiEnabled;
+        private boolean stableLabelEnabled;
+        public boolean isEnabled(){return enabled;} public void setEnabled(boolean v){enabled=v;}
+        public boolean isListeningEnabled(){return listeningEnabled;} public void setListeningEnabled(boolean v){listeningEnabled=v;}
+        public boolean isAiEnabled(){return aiEnabled;} public void setAiEnabled(boolean v){aiEnabled=v;}
+        public boolean isStableLabelEnabled(){return stableLabelEnabled;} public void setStableLabelEnabled(boolean v){stableLabelEnabled=v;}
+    }
+
+    public static class Ai {
+        private boolean mockEnabled;
+        private int personalDailyLimit = 10;
+        private int globalDailyLimit = 200;
+        private int personalConcurrency = 1;
+        private int globalConcurrency = 2;
+        private String consentVersion = "AI_SEND_V1";
+        private String credentialEncryptionKey = "";
+        public boolean isMockEnabled(){return mockEnabled;} public void setMockEnabled(boolean v){mockEnabled=v;}
+        public int getPersonalDailyLimit(){return personalDailyLimit;} public void setPersonalDailyLimit(int v){personalDailyLimit=v;}
+        public int getGlobalDailyLimit(){return globalDailyLimit;} public void setGlobalDailyLimit(int v){globalDailyLimit=v;}
+        public int getPersonalConcurrency(){return personalConcurrency;} public void setPersonalConcurrency(int v){personalConcurrency=v;}
+        public int getGlobalConcurrency(){return globalConcurrency;} public void setGlobalConcurrency(int v){globalConcurrency=v;}
+        public String getConsentVersion(){return consentVersion;} public void setConsentVersion(String v){consentVersion=v;}
+        public String getCredentialEncryptionKey(){return credentialEncryptionKey;} public void setCredentialEncryptionKey(String v){credentialEncryptionKey=v;}
+    }
+
+    public static class Tts {
+        private boolean mockEnabled;
+        public boolean isMockEnabled(){return mockEnabled;}
+        public void setMockEnabled(boolean value){mockEnabled=value;}
     }
 }

@@ -29,7 +29,7 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
     private static final Logger ACCESS_LOG = LoggerFactory.getLogger("API_ACCESS");
     private static final int MAX_BODY_CHARS = 2048;
     private static final List<String> SENSITIVE_NAMES = Arrays.asList(
-            "authorization", "token", "code", "smscode", "mobile", "invitecode", "registrationticket", "password");
+            "authorization", "token", "code", "smscode", "mobile", "invitecode", "registrationticket", "password", "apikey");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -79,6 +79,9 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
 
     private String requestBody(ContentCachingRequestWrapper request) {
         if (request.getRequestURI().startsWith("/api/knowledge")) return "[private knowledge body omitted]";
+        if (request.getRequestURI().startsWith("/api/word-memory")) return "[private memory answer body omitted]";
+        if (request.getRequestURI().startsWith("/api/ai/")) return "[private AI input omitted]";
+        if (request.getRequestURI().startsWith("/api/admin/ai/")) return "[AI administration body omitted]";
         String contentType = request.getContentType();
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).contains(MediaType.APPLICATION_JSON_VALUE)) {
             return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("multipart/") ? "[multipart omitted]" : "";

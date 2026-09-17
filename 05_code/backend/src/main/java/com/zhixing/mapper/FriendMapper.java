@@ -1,0 +1,35 @@
+package com.zhixing.mapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zhixing.entity.FriendRelationEntity;
+import com.zhixing.entity.FriendRequestEntity;
+import com.zhixing.model.*;
+import org.apache.ibatis.annotations.*;
+import java.time.Instant;
+import java.util.List;
+
+@Mapper
+public interface FriendMapper extends BaseMapper<FriendRelationEntity> {
+ @Select("SELECT COUNT(*) FROM app_user WHERE id=#{id} AND status='active'") int countActiveUser(@Param("id")String id);
+ @Select("SELECT * FROM friend_relation WHERE user_low_id=#{lowId} AND user_high_id=#{highId} FOR UPDATE") FriendRelationEntity selectRelationForUpdate(@Param("lowId")String lowId,@Param("highId")String highId);
+ @Select("SELECT * FROM friend_request WHERE relation_id=#{relationId} AND state='pending' FOR UPDATE") FriendRequestEntity selectPendingForUpdate(@Param("relationId")String relationId);
+ @Insert("INSERT INTO friend_request(id,relation_id,sender_id,receiver_id,remark,state,pending_slot,version_no,created_at,updated_at) VALUES(#{id},#{relationId},#{senderId},#{receiverId},#{remark},'pending',1,1,#{now},#{now})") int insertRequest(@Param("id")String id,@Param("relationId")String relationId,@Param("senderId")String senderId,@Param("receiverId")String receiverId,@Param("remark")String remark,@Param("now")Instant now);
+ @Select("SELECT * FROM friend_request WHERE id=#{id} AND receiver_id=#{receiverId} FOR UPDATE") FriendRequestEntity selectRequestForUpdate(@Param("id")String id,@Param("receiverId")String receiverId);
+ @Update("UPDATE friend_request SET state=#{state},pending_slot=NULL,decided_at=#{now},version_no=version_no+1,updated_at=#{now} WHERE id=#{id} AND state='pending' AND version_no=#{version}") int decide(@Param("id")String id,@Param("state")String state,@Param("version")Integer version,@Param("now")Instant now);
+ @Update("UPDATE friend_relation SET state='active',generation=generation+1,version_no=version_no+1,accepted_at=#{now},removed_at=NULL,updated_at=#{now} WHERE id=#{id}") int activate(@Param("id")String id,@Param("now")Instant now);
+ @Update("UPDATE friend_relation SET state='removed',version_no=version_no+1,removed_at=#{now},updated_at=#{now} WHERE id=#{id} AND state='active'") int remove(@Param("id")String id,@Param("now")Instant now);
+ @Select({"<script>","SELECT u.id,u.short_id shortId,u.nickname,u.avatar_url avatarUrl,fr.state relationState,",
+  "(SELECT r.state FROM friend_request r WHERE r.relation_id=fr.id ORDER BY r.created_at DESC LIMIT 1) requestState ",
+  "FROM app_user u LEFT JOIN friend_relation fr ON fr.user_low_id=CASE WHEN #{ownerId}&lt;u.id THEN #{ownerId} ELSE u.id END AND fr.user_high_id=CASE WHEN #{ownerId}&lt;u.id THEN u.id ELSE #{ownerId} END ",
+  "WHERE u.status='active' AND u.id&lt;&gt;#{ownerId} ",
+  "<choose><when test=\"type == 'id'\">AND u.short_id=#{query} </when><when test=\"type == 'mobile'\">AND (u.mobile=#{query} OR u.mobile=CONCAT('+86',#{query})) </when><otherwise>AND LOWER(u.nickname) LIKE CONCAT('%',LOWER(#{query}),'%') </otherwise></choose>",
+  "ORDER BY u.nickname,u.id LIMIT 20","</script>"}) List<FriendSearchView> search(@Param("ownerId")String ownerId,@Param("type")String type,@Param("query")String query);
+ @Select("SELECT u.id,u.short_id shortId,u.nickname,u.avatar_url avatarUrl,fr.id relationId,"+
+  "(SELECT COUNT(*) FROM knowledge_item k WHERE k.owner_id=#{ownerId} AND k.state<>'deleted' AND ((k.visibility='friends' AND NOT EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=u.id AND x.effect='deny')) OR (k.visibility='selected' AND EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=u.id AND x.effect='allow' AND x.relation_generation=fr.generation)))) sharedByMeCount,"+
+  "(SELECT COUNT(*) FROM knowledge_item k WHERE k.owner_id=u.id AND k.state<>'deleted' AND ((k.visibility='friends' AND NOT EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{ownerId} AND x.effect='deny')) OR (k.visibility='selected' AND EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{ownerId} AND x.effect='allow' AND x.relation_generation=fr.generation)))) sharedByFriendCount " +
+  "FROM friend_relation fr JOIN app_user u ON u.id=CASE WHEN fr.user_low_id=#{ownerId} THEN fr.user_high_id ELSE fr.user_low_id END WHERE fr.state='active' AND u.status='active' AND (fr.user_low_id=#{ownerId} OR fr.user_high_id=#{ownerId}) ORDER BY u.nickname,u.id") List<FriendView> selectFriends(@Param("ownerId")String ownerId);
+ @Select({"<script>","SELECT r.id,CASE WHEN r.receiver_id=#{ownerId} THEN 'received' ELSE 'sent' END direction,r.state,r.remark,r.version_no versionNo,r.created_at createdAt,r.decided_at decidedAt,",
+  "u.id userId,u.short_id shortId,u.nickname,u.avatar_url avatarUrl FROM friend_request r JOIN app_user u ON u.id=CASE WHEN r.receiver_id=#{ownerId} THEN r.sender_id ELSE r.receiver_id END ",
+  "WHERE (r.receiver_id=#{ownerId} OR r.sender_id=#{ownerId}) ","<if test=\"direction == 'received'\">AND r.receiver_id=#{ownerId} </if><if test=\"direction == 'sent'\">AND r.sender_id=#{ownerId} </if>",
+  "ORDER BY CASE WHEN r.state='pending' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 100","</script>"}) List<FriendRequestView> selectRequests(@Param("ownerId")String ownerId,@Param("direction")String direction);
+ @Select("SELECT k.id,k.title,CASE WHEN LENGTH(k.body)>120 THEN CONCAT(SUBSTRING(k.body,1,120),'...') ELSE k.body END summary,k.body,k.item_type itemType,'mine' direction FROM knowledge_item k JOIN friend_relation fr ON fr.state='active' AND ((fr.user_low_id=#{ownerId} AND fr.user_high_id=#{friendId}) OR (fr.user_high_id=#{ownerId} AND fr.user_low_id=#{friendId})) WHERE k.owner_id=#{ownerId} AND k.state<>'deleted' AND ((k.visibility='friends' AND NOT EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{friendId} AND x.effect='deny')) OR (k.visibility='selected' AND EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{friendId} AND x.effect='allow' AND x.relation_generation=fr.generation))) UNION ALL SELECT k.id,k.title,CASE WHEN LENGTH(k.body)>120 THEN CONCAT(SUBSTRING(k.body,1,120),'...') ELSE k.body END summary,k.body,k.item_type itemType,'theirs' direction FROM knowledge_item k JOIN friend_relation fr ON fr.state='active' AND ((fr.user_low_id=#{ownerId} AND fr.user_high_id=#{friendId}) OR (fr.user_high_id=#{ownerId} AND fr.user_low_id=#{friendId})) WHERE k.owner_id=#{friendId} AND k.state<>'deleted' AND ((k.visibility='friends' AND NOT EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{ownerId} AND x.effect='deny')) OR (k.visibility='selected' AND EXISTS(SELECT 1 FROM knowledge_share_rule x WHERE x.knowledge_id=k.id AND x.friend_id=#{ownerId} AND x.effect='allow' AND x.relation_generation=fr.generation))) ORDER BY direction,title") List<SharedKnowledgeView> selectShared(@Param("ownerId")String ownerId,@Param("friendId")String friendId);
+}

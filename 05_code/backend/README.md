@@ -14,7 +14,7 @@ mvn spring-boot:run
 
 ## 连接现有 MySQL 5.7
 
-生产环境不自动建表，应先使用项目 `02_database/SQL/知行日课_V3.0_数据库初始化_最终版_MySQL5.7.25.sql` 初始化。所有敏感值通过环境变量注入：
+生产环境不自动建表。空库先使用 `../../02_database/SQL/知行日课_数据库初始化_V3.1_MySQL5.7.25.sql`，然后依次执行 `sql` 中 V3.8—V3.14 的幂等增量脚本。V3.12 新增 AI 模型运行配置；V3.13 新增两档各 101 篇英语短文、阿里云 TTS 配置、音频缓存和脱敏调用日志；V3.14 新增短文点词补充词表，覆盖 V3.13 预置短文的 104 个词形。已有数据库必须先备份并在副本演练。
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
@@ -26,6 +26,7 @@ REDIS_PASSWORD='Redis密码' \
 WECHAT_APP_ID='小程序AppID' \
 WECHAT_APP_SECRET='小程序AppSecret' \
 ADMIN_TOKEN='高强度管理端令牌' \
+AI_CREDENTIAL_ENCRYPTION_KEY='至少 16 位的独立加密密钥' \
 OSS_ENDPOINT='OSS Endpoint' \
 OSS_BUCKET='私有 Bucket 名称' \
 OSS_ACCESS_KEY_ID='OSS AccessKey ID' \
@@ -35,6 +36,43 @@ mvn spring-boot:run
 ```
 
 真实密钥不得写入 YAML 或 Git。生产配置使用 Redis 保存十分钟的待注册状态；数据库仅保存邀请码和会话令牌的 SHA-256 摘要。
+
+DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，也可在 Web 管理端录入并使用 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密入库；接口不回传密钥明文。
+
+## 英语短文与阿里云 TTS
+
+- `POST /api/learning/contents/{id}/speech`：按需合成短文或单词发音；首次调用生成并存入 OSS，后续复用缓存。短文点词先查正式词库，再查 V3.14 补充词表。
+- `/api/admin/ai/tts`：仅 Web 管理员可查看状态、录入 AppKey/AccessKey、选择英语音色和查看脱敏调用日志；接口永不回传密钥。
+- 阿里云 AppKey 不能单独完成鉴权，还需具备智能语音交互权限的 AccessKey ID/Secret。凭据仅保存在服务端，并使用 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密。
+- V3.13 使用阿里云短文本 TTS，因此单篇正文限制为 300 字符。播放速度由小程序播放器在 0.75x、1x、1.25x、1.5x 间调整，不重复计费合成。
+- 音频写入现有私有 OSS；除 TTS 凭据外，仍需正确配置本节启动命令中的 OSS 参数。
+
+## 问一问与 AI 管理
+
+- `GET /api/ai/models`：返回可用模型及密钥、价格、预算的就绪状态。
+- `POST /api/ai/ask`：需要 AI 同意、`Idempotency-Key`、日额度、并发名额与月预算。
+- `GET /api/ai/ask/history`：仅返回本人近期提问。正文最多保留 24 小时，计量与费用记录继续保留。
+- `/api/admin/ai/models`：模型、规格、地址、凭据状态和价格版本管理。
+- `/api/admin/ai/budget` 与 `/api/admin/ai/usage`：月预算、脱敏调用日志和结算费用。
+- 短文中的“解释这段内容”复用同一接口、授权、额度、预算和日志机制，仅发送用户点击的当前段落。
+
+## Web 词书管理查看
+
+- `GET /api/admin/vocabulary-books`：返回启用词书及实时成员数、可用数和标称数差异，需要 `X-Admin-Token`。
+- `GET /api/admin/vocabulary-books/{bookId}/words`：按词书分页查看单词，默认 20 条/页，`pageSize` 可设为 1—100，支持英文或中文释义搜索。
+- `GET /api/admin/vocabulary-books/words/{contentId}`：返回单词的音标、词义、例句、来源、许可和现有发音资源。
+- `POST /api/admin/vocabulary-books/words/{contentId}/speech`：仅管理员可在缺少音频时触发服务端 TTS；凭据不会下发浏览器。
+
+## Web 账号列表
+
+- `GET /api/admin/users`：按昵称、短 ID 或手机号分页搜索账号，默认 20 条/页，支持 `all`、`active`、`disabled` 状态筛选。
+- 响应只包含管理所需的短 ID、序号、昵称、脱敏手机号、状态、AI 同意状态、最近登录与创建时间；不返回微信 OpenID、完整手机号或用户私有内容。
+
+## Web 技术知识查看
+
+- `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持按主题过滤以及标题、摘要、正文关键词搜索。
+- `GET /api/admin/content/technical/{contentId}`：查看已发布版本的正文、难度、预计时长、主题、审核状态、来源和许可快照。
+- 两个接口都需要 `X-Admin-Token`，当前只读，不提供修改或删除已发布内容的能力。
 
 ## F01 和 F02 接口
 
@@ -62,3 +100,19 @@ mvn spring-boot:run
 ## F02 媒体配置
 
 `MEDIA_BASE_URL` 是媒体代理的公网 HTTPS 地址，例如 `https://api.example.com/api/media`。头像数据只保留该受控引用；代理会签发短时 OSS 地址。不要使用本机地址或把 OSS 密钥放进小程序。
+
+## V3.1 英语记忆训练
+
+`/api/word-memory` 实现已审核提示读取、会话创建/恢复、提示记录、幂等作答、最多两次回补、部分完成与结果统计。题目的标准答案不随 GET 响应下发；提交由服务端判定。训练结算不会自动写入“已理解”或生词本，只在用户创建会话时显式选择后才加入复习。
+
+核心写接口要求 `Idempotency-Key`，会话变更要求 `expectedVersion`；409 `MEMORY_SESSION_VERSION_CONFLICT` 时客户端应重新读取会话而不是覆盖。
+
+## 英语词书选择
+
+`GET /api/vocabulary-books` 返回可用词书，`GET /api/vocabulary-books/current` 返回当前词书，`PUT /api/vocabulary-books/current` 选择或更换词书。今日新词不再从全库随机选取：未选词书时服务端返回“未选择词书”缺口，选定后只从该词书的成员关系中生成任务。更换词书仅替换未开始的当日新词，已开始和已完成记录不被删除。
+
+`GET /api/vocabulary-books/current/progress` 返回当前词书的总词数、已学数、剩余数、完成率、每日新词数、预计剩余天数和分页单词列表；`status` 支持 `all`/`learned`/`remaining`。预计天数为 `ceil(剩余词数 / 当前计划每日新词数)`；每日新词为 0 时不返回预计天数。“已学”只以服务端 `learning_record.learning_status` 为 `understood` 或 `mastered` 的事实记录计算，不由客户端累加，也不把记忆测验自动算作已学。
+
+## 计划设置数据字典
+
+`GET /api/plans/settings` 只返回计划页面需要的非敏感白名单配置。每日分钟数可以直接输入，范围、加减步长、快捷值、星期、难度、数量上限、默认值和预算提示耗时均来自 `app_parameter` 的 `plan.*` 数据字典；保存时后端使用同一份字典再次校验，客户端不能绕过范围约束。

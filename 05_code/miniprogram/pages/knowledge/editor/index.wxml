@@ -1,7 +1,7 @@
 <view class="editor-page">
   <view wx:if="{{loading}}" class="state">正在加载…</view>
   <block wx:else>
-    <text class="lead">{{parentId ? '笔记独立保存，原文保持不变。' : '记录理解，让知识留下来'}}</text>
+    <text class="lead">{{parentId || sourceContentId ? '笔记独立保存，原文保持不变。' : '记录理解，让知识留下来'}}</text>
     <view wx:if="{{source}}" class="source-card"><text class="source-label">▢ 原文知识 · 只读</text><text class="source-title">{{source.title}}</text><text class="source-summary">{{source.summary}}</text></view>
     <view class="form-card">
       <text class="label">知识类型</text>

@@ -4,7 +4,7 @@ import java.util.List;
 
 public class KnowledgeSaveRequest {
     private Integer expectedVersion;
-    private String itemType, title, body, state, visibility, noteParentId;
+    private String itemType, title, body, state, visibility, noteParentId, sourceContentId, sourceContentVersionId;
     private KnowledgeProblemFields problem;
     private List<String> tags, selectedFriendIds;
     public Integer getExpectedVersion(){return expectedVersion;} public void setExpectedVersion(Integer v){expectedVersion=v;}
@@ -14,6 +14,8 @@ public class KnowledgeSaveRequest {
     public String getState(){return state;} public void setState(String v){state=v;}
     public String getVisibility(){return visibility;} public void setVisibility(String v){visibility=v;}
     public String getNoteParentId(){return noteParentId;} public void setNoteParentId(String v){noteParentId=v;}
+    public String getSourceContentId(){return sourceContentId;} public void setSourceContentId(String v){sourceContentId=v;}
+    public String getSourceContentVersionId(){return sourceContentVersionId;} public void setSourceContentVersionId(String v){sourceContentVersionId=v;}
     public KnowledgeProblemFields getProblem(){return problem;} public void setProblem(KnowledgeProblemFields v){problem=v;}
     public List<String> getTags(){return tags;} public void setTags(List<String> v){tags=v;}
     public List<String> getSelectedFriendIds(){return selectedFriendIds;} public void setSelectedFriendIds(List<String> v){selectedFriendIds=v;}

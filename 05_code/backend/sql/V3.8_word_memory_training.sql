@@ -1,0 +1,160 @@
+-- 知行日课 V3.1 英语记忆训练核心表 / MySQL 5.7.25
+-- 执行前：备份、在副本演练、确认已先完成 V3.1 空库基线。本脚本不会自动启用功能开关。
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS word_memory_hint (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ content_version_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ sense_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ method_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ hint_body VARCHAR(1000) NOT NULL,
+ level_code VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ source_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'editorial',
+ state VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',
+ hint_version INT UNSIGNED NOT NULL DEFAULT 1,
+ withdrawn_at DATETIME(3) NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_hint(content_version_id,sense_id,method_type,hint_version),
+ KEY idx_word_memory_hint_pick(content_version_id,state,method_type),
+ CONSTRAINT fk_wmh_version FOREIGN KEY(content_version_id) REFERENCES content_version(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmh_sense FOREIGN KEY(sense_id) REFERENCES word_sense(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='已审核公共记忆提示';
+
+CREATE TABLE IF NOT EXISTS word_memory_question (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ content_version_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ sense_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ dimension VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ prompt_text VARCHAR(1000) NOT NULL,
+ expected_answer VARCHAR(1000) NOT NULL,
+ accepted_answers_json TEXT NULL,
+ answer_policy VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'exact',
+ hint_text VARCHAR(1000) NULL,
+ audio_required TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ state VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',
+ question_version INT UNSIGNED NOT NULL DEFAULT 1,
+ withdrawn_at DATETIME(3) NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_question(content_version_id,sense_id,dimension,question_version),
+ KEY idx_word_memory_question_pick(content_version_id,dimension,state),
+ CONSTRAINT fk_wmq_version FOREIGN KEY(content_version_id) REFERENCES content_version(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmq_sense FOREIGN KEY(sense_id) REFERENCES word_sense(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='已审核英语记忆题目及答案版本';
+
+CREATE TABLE IF NOT EXISTS word_memory_session (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ owner_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ source_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ return_to VARCHAR(500) NULL,
+ task_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ business_date DATE NOT NULL,
+ target_count TINYINT UNSIGNED NOT NULL,
+ required_dimensions VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ add_to_review TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ state VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active',
+ version_no INT UNSIGNED NOT NULL DEFAULT 1,
+ idempotency_key VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ completed_at DATETIME(3) NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_session_idem(owner_id,idempotency_key),
+ KEY idx_word_memory_session_resume(owner_id,state,updated_at),
+ CONSTRAINT fk_wms_owner FOREIGN KEY(owner_id) REFERENCES app_user(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wms_task FOREIGN KEY(task_id) REFERENCES daily_task(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='可恢复的英语记忆训练会话';
+
+CREATE TABLE IF NOT EXISTS word_memory_episode (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ session_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ content_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ content_version_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ sense_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ question_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ question_version INT UNSIGNED NOT NULL,
+ dimension VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ position_no INT UNSIGNED NOT NULL,
+ state VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',
+ hint_used TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ answer_revealed TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ attempt_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ first_result VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ final_result VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_episode(session_id,question_id),
+ KEY idx_word_memory_episode_next(session_id,state,position_no),
+ CONSTRAINT fk_wme_session FOREIGN KEY(session_id) REFERENCES word_memory_session(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wme_content FOREIGN KEY(content_id) REFERENCES learning_content(id) ON DELETE RESTRICT,
+ CONSTRAINT fk_wme_version FOREIGN KEY(content_version_id) REFERENCES content_version(id) ON DELETE RESTRICT,
+ CONSTRAINT fk_wme_sense FOREIGN KEY(sense_id) REFERENCES word_sense(id) ON DELETE SET NULL,
+ CONSTRAINT fk_wme_question FOREIGN KEY(question_id) REFERENCES word_memory_question(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话中冻结的题目与重试状态';
+
+CREATE TABLE IF NOT EXISTS word_memory_hint_event (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ owner_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ session_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ episode_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ hint_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ answer_revealed TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ occurred_at DATETIME(3) NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ KEY idx_word_memory_hint_event_episode(episode_id,occurred_at),
+ CONSTRAINT fk_wmhe_owner FOREIGN KEY(owner_id) REFERENCES app_user(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmhe_session FOREIGN KEY(session_id) REFERENCES word_memory_session(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmhe_episode FOREIGN KEY(episode_id) REFERENCES word_memory_episode(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='不可覆写的提示使用轨迹';
+
+CREATE TABLE IF NOT EXISTS word_memory_attempt (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ owner_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ session_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ episode_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ attempt_no TINYINT UNSIGNED NOT NULL,
+ answer_text VARCHAR(1000) NULL,
+ verdict VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ result_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ hint_used TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ first_attempt TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ duration_ms INT UNSIGNED NULL,
+ idempotency_key VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ submitted_at DATETIME(3) NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_attempt_no(episode_id,attempt_no),
+ UNIQUE KEY uk_word_memory_attempt_idem(owner_id,idempotency_key),
+ KEY idx_word_memory_attempt_session(session_id,episode_id),
+ CONSTRAINT fk_wma_owner FOREIGN KEY(owner_id) REFERENCES app_user(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wma_session FOREIGN KEY(session_id) REFERENCES word_memory_session(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wma_episode FOREIGN KEY(episode_id) REFERENCES word_memory_episode(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='不可覆写的首答与重试事实';
+
+CREATE TABLE IF NOT EXISTS word_memory_evidence (
+ id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ owner_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ content_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ sense_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ dimension VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ business_date DATE NOT NULL,
+ episode_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ first_attempt_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ first_result VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ hint_used TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ rule_version VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(id),
+ UNIQUE KEY uk_word_memory_evidence_episode(episode_id),
+ KEY idx_word_memory_evidence_dimension(owner_id,content_id,sense_id,dimension,business_date),
+ CONSTRAINT fk_wmev_owner FOREIGN KEY(owner_id) REFERENCES app_user(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmev_content FOREIGN KEY(content_id) REFERENCES learning_content(id) ON DELETE RESTRICT,
+ CONSTRAINT fk_wmev_sense FOREIGN KEY(sense_id) REFERENCES word_sense(id) ON DELETE SET NULL,
+ CONSTRAINT fk_wmev_episode FOREIGN KEY(episode_id) REFERENCES word_memory_episode(id) ON DELETE CASCADE,
+ CONSTRAINT fk_wmev_attempt FOREIGN KEY(first_attempt_id) REFERENCES word_memory_attempt(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='按业务日保留的分维度首答证据';

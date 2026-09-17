@@ -1,6 +1,30 @@
-<view class="page-shell">
-  <text class="eyebrow">GROWTH</text>
-  <text class="page-title">成长</text>
-  <text class="page-subtitle">向后看见轨迹，向前找到下一步。</text>
-  <state-panel title="{{title}}" description="{{description}}" />
+<view class="growth-page">
+  <view class="head">
+    <view><text class="title">成长</text><text class="subtitle">每一次回顾，都让理解更扎实。</text></view>
+    <view class="week-switch"><button data-delta="-1" bindtap="shiftWeek">‹</button><text>{{overview.weekLabel || '本周'}}</text><button data-delta="1" bindtap="shiftWeek">›</button></view>
+  </view>
+  <view wx:if="{{loading}}" class="state">正在整理真实成长记录…</view>
+  <view wx:elif="{{error}}" class="state error"><text>{{error}}</text><button bindtap="load">重新加载</button></view>
+  <block wx:elif="{{overview}}">
+    <text class="week-status">● {{overview.weekStatus}}</text>
+    <view class="growth-card">
+      <view><text>已积累 <text class="growth-number">{{overview.accumulatedGrowthDays}}</text> 个成长日</text><text class="growth-copy">成长来自真实的学习、复习与复盘记录。</text></view>
+      <view class="sprout"><view class="leaf left"></view><view class="leaf right"></view><view class="stem"></view><view class="soil"></view></view>
+    </view>
+    <view class="metric-row">
+      <view class="metric-card"><text class="metric-icon blue">✓</text><text class="metric-label">本周完成</text><text class="metric-value">{{overview.weekCompleted}}<text> 项</text></text></view>
+      <view class="metric-card"><text class="metric-icon green">•••</text><text class="metric-label">复习反馈</text><text class="metric-value">{{overview.reviewFeedbackCount}}<text> 次</text></text></view>
+    </view>
+    <view class="chart-card">
+      <view class="section-head"><text>每日任务</text><view class="legend"><view><text class="dot done"></text><text>完成</text></view><view><text class="dot plan"></text><text>计划</text></view></view></view>
+      <view class="bars">
+        <view wx:for="{{overview.days}}" wx:key="date" class="bar-item">
+          <view class="bar-stack"><view class="plan-bar"></view><view class="done-bar" style="height: {{item.heightPercent}}%;"></view></view>
+          <text>{{item.weekday}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="route-card review-route"><view class="route-icon">◷</view><view class="route-main"><text>到期复习 <text class="route-number">{{overview.dueReviewCount}}</text> 项</text><text>剩余积压 {{overview.reviewBacklogCount}} 项</text></view><button bindtap="openReview" disabled="{{overview.dueReviewCount === 0}}">{{overview.dueReviewCount ? '开始复习' : '暂无到期'}}</button></view>
+    <view class="route-card summary-route" bindtap="openSummary"><view class="route-icon">▣</view><view class="route-main"><text>{{overview.previousSummary.hasData ? '上周总结' : '上周暂无总结'}} <text class="route-date">{{overview.previousSummary.weekStart}}—{{overview.previousSummary.weekEnd}}</text></text><text wx:if="{{overview.previousSummary.status === 'confirmed'}}">已确认，可查看与安排行动。</text><text wx:elif="{{overview.previousSummary.stale}}">有新记录，需重新汇总。</text><text wx:else>{{overview.previousSummary.hasData ? '回顾上周，沉淀成长。' : '无有效记录，不生成虚构内容。'}}</text></view><button>{{overview.previousSummary.hasData ? '查看周结' : '查看详情'}}</button></view>
+  </block>
 </view>

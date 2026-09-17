@@ -1,0 +1,23 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">正在统计学习进度…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button wx:if="{{needsBook}}" class="primary" bindtap="chooseBook">选择词书</button><button wx:else bindtap="retry">重试</button></view>
+  <block wx:else>
+    <view class="summary-card">
+      <view class="summary-head"><view><text class="eyebrow">当前词书</text><text class="book-name">{{progress.bookName}}</text></view><text class="change" bindtap="chooseBook">更换词书 ›</text></view>
+      <view class="rate-row"><text class="rate">{{progress.completionRate}}<text>%</text></text><text class="rate-copy">已完成</text></view>
+      <view class="track"><view class="bar" style="width:{{progress.completionRate}}%;"></view></view>
+      <view class="metrics"><view><text class="metric-number learned">{{progress.learnedCount}}</text><text>已学</text></view><view><text class="metric-number">{{progress.remainingCount}}</text><text>还剩</text></view><view><text class="metric-number">{{progress.totalCount}}</text><text>总词数</text></view></view>
+      <view class="forecast" bindtap="openPlan"><text wx:if="{{progress.dailyNewCount > 0}}">按每天学习 {{progress.dailyNewCount}} 个新词，预计还需 <text class="forecast-days">{{progress.estimatedRemainingDays}} 天</text></text><text wx:else>每日新词数量为 0，点击调整学习计划</text><text class="forecast-arrow">调整 ›</text></view>
+    </view>
+
+    <view class="tabs"><view wx:for="{{tabs}}" wx:key="value" class="tab {{status === item.value ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectTab">{{item.label}}</view></view>
+    <view wx:if="{{!items.length}}" class="empty">{{status === 'learned' ? '还没有学完的单词' : status === 'remaining' ? '这本词书已全部学完' : '词书暂无内容'}}</view>
+    <view wx:else class="word-list">
+      <view wx:for="{{items}}" wx:key="contentId" class="word-row" data-id="{{item.contentId}}" bindtap="openWord">
+        <view class="word-main"><view><text class="word">{{item.wordTerm}}</text><text class="phonetic">{{item.phonetic}}</text></view><text class="meaning">{{item.meaning}}</text></view>
+        <text class="word-status {{item.learned ? 'done' : ''}}">{{item.learned ? '已学' : '未学'}}</text><text class="arrow">›</text>
+      </view>
+    </view>
+    <text wx:if="{{loadingMore}}" class="more">正在加载…</text><text wx:elif="{{items.length && !hasMore}}" class="more">已显示全部</text>
+  </block>
+</view>

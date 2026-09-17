@@ -1,0 +1,1 @@
+@import "/styles/mine-pages.wxss";.item-title{font-size:29rpx;font-weight:700}.summary{display:block;margin-top:18rpx;color:#65728d;font-size:24rpx;line-height:1.6}

@@ -1,50 +1,14 @@
-const { profileService } = require('../../services/index');
+const { mineService } = require('../../services/index');
 const { setUserInfo } = require('../../utils/storage');
-
 Page({
-  data: {
-    profile: {},
-    defaultAvatar: '/assets/logo.png',
-    aiUsed: 2,
-    aiLimit: 10,
-    sessionExpired: false
-  },
-
-  onShow() {
-    this.loadProfile();
-  },
-
-  loadProfile() {
-    const token = getApp().globalData.accessToken || wx.getStorageSync('access_token');
-    if (!token) {
-      const cached = wx.getStorageSync('user_info');
-      if (cached) this.setData({ profile: cached });
-      return;
-    }
-    profileService.get().then((profile) => {
-      this.setData({ profile });
-      this.setData({ sessionExpired: false });
-      setUserInfo(profile);
-    }).catch((error) => {
-      if (error.statusCode === 401) {
-        this.setData({ profile: {}, sessionExpired: true });
-        return;
-      }
-      const cached = wx.getStorageSync('user_info');
-      if (cached) this.setData({ profile: cached });
-    });
-  },
-
-  goProfile() {
-    const token = getApp().globalData.accessToken || wx.getStorageSync('access_token');
-    wx.navigateTo({ url: token ? '/pages/profile/edit/index' : '/pages/auth/invite/index' });
-  },
-  goPlan() { wx.navigateTo({ url: '/pages/plan/index' }); },
-  goHistory() { wx.navigateTo({ url: '/pages/plan/history/index' }); },
-  goFavorites() { wx.showToast({ title: '功能开发中', icon: 'none' }); },
-  goFriends() { wx.showToast({ title: '功能开发中', icon: 'none' }); },
-  goWordbook() { wx.showToast({ title: '功能开发中', icon: 'none' }); },
-  goPrivacy() { wx.showToast({ title: '功能开发中', icon: 'none' }); },
-  goFeedback() { wx.showToast({ title: '功能开发中', icon: 'none' }); },
-  goUsage() { wx.showToast({ title: '功能开发中', icon: 'none' }); }
+ data:{overview:{},profile:{},loading:true,error:'',defaultAvatar:'/assets/logo.png',planText:'每天预计 10 分钟',planMeta:'周一至周五 · 入门'},
+ onShow(){this.load();},
+ load(){const token=getApp().globalData.accessToken||wx.getStorageSync('access_token');if(!token){this.setData({loading:false});return;}this.setData({loading:true,error:''});mineService.overview().then((overview)=>{const p=overview.profile||{};setUserInfo(p);this.setData({overview,profile:p,planText:`每天预计 ${overview.planMinutes||10} 分钟`,planMeta:`${this.days(overview.weekdaysMask)} · ${overview.planDifficulty==='advanced'?'进阶':'入门'}`,loading:false});}).catch((e)=>this.setData({loading:false,error:e.message||'加载失败'}));},
+ days(mask){const labels=['一','二','三','四','五','六','日'],picked=labels.filter((_,i)=>(Number(mask||31)&(1<<i)));if(picked.length===5&&picked.join('')==='一二三四五')return '周一至周五';if(picked.length===7)return '每天';return picked.length?`周${picked.join('、')}`:'未设置学习日';},
+ goProfile(){wx.navigateTo({url:'/pages/profile/edit/index'});},goPlan(){wx.navigateTo({url:'/pages/plan/index'});},goHistory(){wx.navigateTo({url:'/pages/journal/history/index'});},
+ goFavorites(){wx.navigateTo({url:'/pages/mine/favorites/index'});},goFriends(){wx.navigateTo({url:'/pages/friends/index/index'});},
+ goBookProgress(){wx.navigateTo({url:'/pages/word/books/progress/index'});},
+ goWordbook(){wx.setStorageSync('learning_page_state_v1',{primaryTab:'english',englishTab:'notebook'});wx.setStorageSync('learning_deep_link','wordbook');wx.switchTab({url:'/pages/learn/index'});},
+ goSchedules(){wx.navigateTo({url:'/pages/schedules/index/index'});},goPrivacy(){wx.navigateTo({url:'/pages/mine/privacy/index'});},
+ goFeedback(){wx.navigateTo({url:'/pages/mine/feedback/index'});},goUsage(){wx.navigateTo({url:'/pages/mine/usage/index'});}
 });

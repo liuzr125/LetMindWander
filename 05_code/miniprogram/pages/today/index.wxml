@@ -25,10 +25,18 @@
       <view wx:for="{{groups}}" wx:key="type" class="task-group" bindtap="openGroup" data-type="{{item.type}}">
         <view class="group-icon {{item.color}}">{{item.done === item.total ? '✓' : item.icon}}</view>
         <view class="group-main"><text class="group-title">{{item.title}}</text><text class="group-status {{item.done === item.total ? 'complete' : ''}}">{{item.statusText}}</text></view>
-        <text class="group-action">{{item.done === item.total ? '查看' : (item.type === 'review' ? '去复习' : '继续学习')}}</text><text class="chevron">›</text>
+        <text class="group-action">{{item.requiresBook ? '选择词书' : (item.done === item.total ? '查看' : (item.type === 'review' ? '去复习' : '继续学习'))}}</text><text class="chevron">›</text>
       </view>
     </view>
     <view wx:if="{{hasGaps}}" class="gap-card"><text class="gap-title">今日未安排</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.label}}：{{item.reason}}，少 {{item.gapCount}} 项</text></view>
   </block>
+  <view class="home-section growth-entry" bindtap="openGrowth">
+    <view class="section-icon growth-icon">↗</view>
+    <view class="section-main">
+      <view class="section-title-row"><text class="section-title">成长</text><text class="section-link">查看详情 ›</text></view>
+      <view wx:if="{{growth}}" class="growth-summary"><text><text class="growth-value">{{growth.accumulatedGrowthDays}}</text> 个成长日</text><text>本周完成 <text class="growth-value">{{growth.weekCompleted}}</text> 项</text><text>复习 <text class="growth-value">{{growth.reviewFeedbackCount}}</text> 次</text></view>
+      <text wx:else class="section-copy">{{growthError || '正在整理你的成长记录…'}}</text>
+    </view>
+  </view>
   <view class="history-card" bindtap="openJournalHistory"><text>复盘历史</text><text>›</text></view>
 </view>

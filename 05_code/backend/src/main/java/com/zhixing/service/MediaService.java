@@ -97,7 +97,7 @@ public class MediaService {
         String objectKey = String.valueOf(raw(row, "object_key"));
 
         // 学习词条/例句音频为公开内容，无需归属校验。
-        if ("word_audio".equals(purpose) || "example_audio".equals(purpose)) {
+        if ("word_audio".equals(purpose) || "example_audio".equals(purpose) || "article_audio".equals(purpose)) {
             return presign(objectKey);
         }
         if (!"avatar".equals(purpose)) return null;
@@ -125,6 +125,14 @@ public class MediaService {
 
     public String referenceUrl(String mediaId) {
         return publicBaseUrl.replaceAll("/+$", "") + "/" + mediaId;
+    }
+
+    @Transactional
+    public String storePublicAudio(String purpose,String folder,byte[] bytes,String mimeType,String originUrl,String licenseNote){
+        if(!"word_audio".equals(purpose)&&!"article_audio".equals(purpose))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AUDIO_PURPOSE","音频用途不正确");
+        if(bytes==null||bytes.length==0||bytes.length>MAX_BYTES)throw new ApiException(HttpStatus.BAD_GATEWAY,"INVALID_TTS_AUDIO","语音服务返回的音频不可用");
+        String id=CryptoUtils.randomId();String objectKey=folder.replaceAll("[^A-Za-z0-9/_-]","")+"/"+id+".mp3";putToOss(objectKey,mimeType,bytes);
+        Timestamp now=Timestamp.from(Instant.now());jdbcTemplate.update("INSERT INTO media_asset(id,owner_id,purpose,object_key,mime_type,byte_size,sha256,state,origin_url,license_note,created_at,updated_at) VALUES(?,NULL,?,?,?,?,?,'ready',?,?,?,?)",id,purpose,objectKey,mimeType,bytes.length,sha256(bytes),originUrl,licenseNote,now,now);return id;
     }
 
     public void requireOwnedAvatar(String ownerId, String url) {

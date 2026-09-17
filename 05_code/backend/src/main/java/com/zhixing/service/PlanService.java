@@ -1,5 +1,7 @@
 package com.zhixing.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
 import com.zhixing.dto.CreateTopicRequest;
@@ -9,6 +11,7 @@ import com.zhixing.entity.LearningPlanTopicEntity;
 import com.zhixing.entity.LearningTopicEntity;
 import com.zhixing.mapper.LearningPlanMapper;
 import com.zhixing.model.PlanView;
+import com.zhixing.model.PlanSettingsView;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -33,18 +36,45 @@ import java.util.Set;
 @Service
 public class PlanService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final Set<Integer> BUDGETS = new HashSet<Integer>(Arrays.asList(5, 10, 15, 20, 30));
-    private static final Set<String> DIFFICULTIES = new HashSet<String>(Arrays.asList("intro", "advanced"));
     private final LearningPlanMapper plans;
     private final DailyTaskService dailyTasks;
     private final AppParameterService parameters;
+    private final ObjectMapper json;
 
     /** 数量上限的 yml 兜底默认；app_parameter 命中同名 key 时以参数表为准。 */
     @Value("${app.plan.limits.tech-count-max}") private int techMaxDefault;
     @Value("${app.plan.limits.new-word-count-max}") private int wordMaxDefault;
     @Value("${app.plan.limits.review-limit-max}") private int reviewMaxDefault;
 
-    public PlanService(LearningPlanMapper plans, DailyTaskService dailyTasks, AppParameterService parameters) { this.plans = plans; this.dailyTasks = dailyTasks; this.parameters = parameters; }
+    public PlanService(LearningPlanMapper plans, DailyTaskService dailyTasks, AppParameterService parameters, ObjectMapper json) { this.plans = plans; this.dailyTasks = dailyTasks; this.parameters = parameters; this.json=json; }
+
+    public PlanSettingsView settings() {
+        Map<String,String> values=parameters.activeByPrefix("plan.");
+        PlanSettingsView view=new PlanSettingsView();
+        int budgetMin=intValue(values,"plan.daily_budget_min",1,1,1440);
+        int budgetMax=intValue(values,"plan.daily_budget_max",1440,budgetMin,1440);
+        view.setDailyBudgetMin(budgetMin);view.setDailyBudgetMax(budgetMax);
+        view.setDailyBudgetStep(intValue(values,"plan.daily_budget_step",5,1,budgetMax));
+        view.setDailyBudgetPresets(integerList(values.get("plan.daily_budget_presets"),Arrays.asList(5,10,15,20,30),budgetMin,budgetMax));
+        view.setWeekdays(options(values.get("plan.weekdays"),weekdayDefaults(),true));
+        view.setDifficulties(options(values.get("plan.difficulties"),difficultyDefaults(),false));
+        view.setTechCountMax(intValue(values,"plan.tech_count_max",techMaxDefault,0,10000));
+        view.setNewWordCountMax(intValue(values,"plan.new_word_count_max",wordMaxDefault,0,10000));
+        view.setReviewLimitMax(intValue(values,"plan.review_limit_max",reviewMaxDefault,0,10000));
+        view.setDefaultDailyBudgetMin(intValue(values,"plan.default_daily_budget_min",10,budgetMin,budgetMax));
+        view.setDefaultWeekdaysMask(intValue(values,"plan.default_weekdays_mask",31,0,allowedWeekdaysMask(view))&allowedWeekdaysMask(view));
+        view.setDefaultDifficulty(optionValue(values.get("plan.default_difficulty"),view.getDifficulties(),"intro"));
+        view.setDefaultTechCount(intValue(values,"plan.default_tech_count",1,0,view.getTechCountMax()));
+        view.setDefaultNewWordCount(intValue(values,"plan.default_new_word_count",3,0,view.getNewWordCountMax()));
+        view.setDefaultReviewLimit(intValue(values,"plan.default_review_limit",5,0,view.getReviewLimitMax()));
+        view.setDefaultJournalEnabled(boolValue(values.get("plan.default_journal_enabled"),true));
+        view.setDefaultReviewEnabled(boolValue(values.get("plan.default_review_enabled"),true));
+        view.setTechEstimateSeconds(intValue(values,"plan.estimate_tech_seconds",180,0,86400));
+        view.setWordEstimateSeconds(intValue(values,"plan.estimate_word_seconds",30,0,86400));
+        view.setJournalEstimateSeconds(intValue(values,"plan.estimate_journal_seconds",120,0,86400));
+        view.setReviewEstimateSeconds(intValue(values,"plan.estimate_review_seconds",30,0,86400));
+        return view;
+    }
 
     public PlanView get(String ownerId) {
         LearningPlanEntity plan = plans.selectLatest(ownerId);
@@ -122,30 +152,27 @@ public class PlanService {
     }
 
     private LearningPlanEntity defaultPlan(String ownerId, int version, LocalDate effectiveDate) {
+        PlanSettingsView settings=settings();
         LearningPlanEntity plan = new LearningPlanEntity();
         plan.setId(CryptoUtils.randomId()); plan.setOwnerId(ownerId); plan.setVersionNo(version); plan.setEffectiveDate(effectiveDate);
-        plan.setDailyBudgetMin(10); plan.setWeekdaysMask(31); plan.setTopicMask(1); plan.setDifficulty("intro"); plan.setTechCount(1); plan.setNewWordCount(3);
-        plan.setJournalEnabled(1); plan.setReviewEnabled(1); plan.setReviewLimit(5); plan.setIsPaused(0);
+        plan.setDailyBudgetMin(settings.getDefaultDailyBudgetMin()); plan.setWeekdaysMask(settings.getDefaultWeekdaysMask()); plan.setTopicMask(1); plan.setDifficulty(settings.getDefaultDifficulty()); plan.setTechCount(settings.getDefaultTechCount()); plan.setNewWordCount(settings.getDefaultNewWordCount());
+        plan.setJournalEnabled(bool(settings.getDefaultJournalEnabled())); plan.setReviewEnabled(bool(settings.getDefaultReviewEnabled())); plan.setReviewLimit(settings.getDefaultReviewLimit()); plan.setIsPaused(0);
         return plan;
     }
 
-    private int paramLimit(String key, int fallback) {
-        String raw = parameters.optional(key, null);
-        if (raw == null) return fallback;
-        try { return Integer.parseInt(raw.trim()); } catch (NumberFormatException ignored) { return fallback; }
-    }
-
     private LearningPlanEntity copyValidated(String ownerId, LearningPlanEntity latest, UpdatePlanRequest r) {
-        if (r.getDailyBudgetMin() == null || !BUDGETS.contains(r.getDailyBudgetMin())) bad("INVALID_DAILY_BUDGET", "每日时间仅支持 5、10、15、20、30 分钟");
-        if (r.getWeekdaysMask() == null || r.getWeekdaysMask() < 0 || r.getWeekdaysMask() > 127) bad("INVALID_WEEKDAYS", "学习日设置不合法");
-        int techMax = paramLimit("plan.tech_count_max", techMaxDefault);
-        int wordMax = paramLimit("plan.new_word_count_max", wordMaxDefault);
-        int reviewMax = paramLimit("plan.review_limit_max", reviewMaxDefault);
+        PlanSettingsView settings=settings();
+        if (r.getDailyBudgetMin() == null || r.getDailyBudgetMin()<settings.getDailyBudgetMin() || r.getDailyBudgetMin()>settings.getDailyBudgetMax()) bad("INVALID_DAILY_BUDGET", "每日时间应为 " + settings.getDailyBudgetMin() + " 至 " + settings.getDailyBudgetMax() + " 分钟");
+        int allowedMask=allowedWeekdaysMask(settings);
+        if (r.getWeekdaysMask() == null || r.getWeekdaysMask() < 0 || (r.getWeekdaysMask()&~allowedMask)!=0) bad("INVALID_WEEKDAYS", "学习日设置不合法");
+        int techMax = settings.getTechCountMax();
+        int wordMax = settings.getNewWordCountMax();
+        int reviewMax = settings.getReviewLimitMax();
         if (r.getTechCount() == null || r.getTechCount() < 0 || r.getTechCount() > techMax) bad("INVALID_TECH_COUNT", "技术新学数量应为 0 至 " + techMax);
         if (r.getNewWordCount() == null || r.getNewWordCount() < 0 || r.getNewWordCount() > wordMax) bad("INVALID_WORD_COUNT", "英语新词数量应为 0 至 " + wordMax);
         if (r.getReviewLimit() == null || r.getReviewLimit() < 0 || r.getReviewLimit() > reviewMax) bad("INVALID_REVIEW_LIMIT", "复习上限应为 0 至 " + reviewMax);
         String difficulty = r.getDifficulty() == null ? "" : r.getDifficulty().trim().toLowerCase(Locale.ROOT);
-        if (!DIFFICULTIES.contains(difficulty)) bad("INVALID_DIFFICULTY", "难度仅支持入门或进阶");
+        if (!optionValues(settings.getDifficulties()).contains(difficulty)) bad("INVALID_DIFFICULTY", "学习难度不在当前数据字典中");
         if (r.getJournalEnabled() == null || r.getReviewEnabled() == null || r.getPaused() == null) bad("INVALID_PLAN", "计划开关不能为空");
         LocalDate pauseUntil = parsePauseUntil(r.getPaused(), r.getPauseUntil());
         String reason = trim(r.getChangeReason());
@@ -213,6 +240,15 @@ public class PlanService {
     private String normalizeTopic(String value) { return Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT); }
     private String trim(String value) { if (value == null) return null; String result = value.trim(); return result.isEmpty() ? null : result; }
     private int bool(Boolean value) { return value.booleanValue() ? 1 : 0; }
+    private int intValue(Map<String,String> values,String key,int fallback,int min,int max){try{int value=Integer.parseInt(values.get(key).trim());return Math.max(min,Math.min(max,value));}catch(Exception ignored){return Math.max(min,Math.min(max,fallback));}}
+    private boolean boolValue(String raw,boolean fallback){return raw==null?fallback:Boolean.parseBoolean(raw.trim());}
+    private List<Integer> integerList(String raw,List<Integer> fallback,int min,int max){List<Integer> result=new ArrayList<Integer>();try{for(JsonNode node:json.readTree(raw))if(node.canConvertToInt()){int value=node.asInt();if(value>=min&&value<=max&&!result.contains(value))result.add(value);}}catch(Exception ignored){}if(result.isEmpty())for(Integer value:fallback)if(value>=min&&value<=max&&!result.contains(value))result.add(value);return result;}
+    private List<PlanSettingsView.OptionView> options(String raw,List<PlanSettingsView.OptionView> fallback,boolean weekday){List<PlanSettingsView.OptionView> result=new ArrayList<PlanSettingsView.OptionView>();try{for(JsonNode node:json.readTree(raw)){String value=node.path("value").asText("").trim(),label=node.path("label").asText("").trim();if(value.isEmpty()||label.isEmpty())continue;if(weekday){int day=Integer.parseInt(value);if(day<0||day>6)continue;}boolean exists=false;for(PlanSettingsView.OptionView item:result)if(item.getValue().equals(value))exists=true;if(!exists)result.add(new PlanSettingsView.OptionView(value,label));}}catch(Exception ignored){}return result.isEmpty()?fallback:result;}
+    private List<PlanSettingsView.OptionView> weekdayDefaults(){return Arrays.asList(new PlanSettingsView.OptionView("0","一"),new PlanSettingsView.OptionView("1","二"),new PlanSettingsView.OptionView("2","三"),new PlanSettingsView.OptionView("3","四"),new PlanSettingsView.OptionView("4","五"),new PlanSettingsView.OptionView("5","六"),new PlanSettingsView.OptionView("6","日"));}
+    private List<PlanSettingsView.OptionView> difficultyDefaults(){return Arrays.asList(new PlanSettingsView.OptionView("intro","入门"),new PlanSettingsView.OptionView("advanced","进阶"));}
+    private Set<String> optionValues(List<PlanSettingsView.OptionView> options){Set<String> result=new HashSet<String>();for(PlanSettingsView.OptionView option:options)result.add(option.getValue());return result;}
+    private String optionValue(String raw,List<PlanSettingsView.OptionView> options,String fallback){String value=raw==null?fallback:raw.trim().toLowerCase(Locale.ROOT);Set<String> allowed=optionValues(options);if(allowed.contains(value))return value;return options.isEmpty()?fallback:options.get(0).getValue();}
+    private int allowedWeekdaysMask(PlanSettingsView settings){int mask=0;for(PlanSettingsView.OptionView option:settings.getWeekdays())try{mask|=1<<Integer.parseInt(option.getValue());}catch(Exception ignored){}return mask;}
     private LocalDate tomorrow() { return LocalDate.now(BUSINESS_ZONE).plusDays(1); }
     private LocalDate today() { return LocalDate.now(BUSINESS_ZONE); }
     private void bad(String code, String message) { throw new ApiException(HttpStatus.BAD_REQUEST, code, message); }

@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "今日",
+  "navigationBarTitleText": "首页",
   "usingComponents": {
     "state-panel": "/components/state-panel/index"
   }

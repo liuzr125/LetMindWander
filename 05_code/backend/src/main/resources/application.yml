@@ -39,9 +39,25 @@ app:
       tech-count-max: ${PLAN_TECH_COUNT_MAX:255}
       new-word-count-max: ${PLAN_NEW_WORD_COUNT_MAX:255}
       review-limit-max: ${PLAN_REVIEW_LIMIT_MAX:255}
+  word-memory:
+    enabled: ${WORD_MEMORY_ENABLED:true}
+    listening-enabled: ${WORD_MEMORY_LISTENING_ENABLED:false}
+    ai-enabled: ${WORD_MEMORY_AI_ENABLED:false}
+    stable-label-enabled: ${WORD_MEMORY_STABLE_LABEL_ENABLED:false}
+  ai:
+    mock-enabled: ${AI_MOCK_ENABLED:false}
+    personal-daily-limit: ${AI_PERSONAL_DAILY_LIMIT:10}
+    global-daily-limit: ${AI_GLOBAL_DAILY_LIMIT:200}
+    personal-concurrency: ${AI_PERSONAL_CONCURRENCY:1}
+    global-concurrency: ${AI_GLOBAL_CONCURRENCY:2}
+    consent-version: ${AI_CONSENT_VERSION:AI_SEND_V1}
+    # Web 端录入的供应商密钥使用 AES-GCM 加密后入库；未配置时禁止从 Web 写入密钥。
+    credential-encryption-key: ${AI_CREDENTIAL_ENCRYPTION_KEY:}
   media:
     # 阿里云 OSS：密钥仅从环境变量读取，不写入仓库。
     oss-endpoint: https://oss-cn-beijing.aliyuncs.com
     oss-bucket: let-mind-wander
     # 头像等私有图片的公网访问域名（bucket 公读时可等于 endpoint 域名）。
-    public-base-url: ${MEDIA_BASE_URL:https://44f0224c.r25.cpolar.top/api/media}
+    public-base-url: ${MEDIA_BASE_URL:https://5d446e9.r7.vip.cpolar.cn/api/media}
+  tts:
+    mock-enabled: ${TTS_MOCK_ENABLED:false}

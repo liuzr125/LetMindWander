@@ -4,17 +4,18 @@ function emptyProblem() { return { phenomenon: '', environment: '', cause: '', s
 
 Page({
   data: {
-    id: '', parentId: '', loading: false, saving: false, tagInput: '', suggestions: [], source: null,
+    id: '', parentId: '', sourceContentId: '', sourceContentVersionId: '', loading: false, saving: false, tagInput: '', suggestions: [], source: null,
     form: { itemType: 'note', title: '', body: '', state: 'active', visibility: 'private', selectedFriendIds: [], problem: emptyProblem(), tags: [], versionNo: 0 },
     visibilityName: '仅自己'
   },
   onLoad(options) {
-    const id = options.id || '', parentId = options.parentId || '';
-    this.setData({ id, parentId });
-    wx.setNavigationBarTitle({ title: id ? '编辑知识' : (parentId ? '做笔记' : '新建知识') });
+    const id = options.id || '', parentId = options.parentId || '', sourceContentId = options.sourceContentId || '', sourceContentVersionId = options.sourceContentVersionId || '';
+    this.setData({ id, parentId, sourceContentId, sourceContentVersionId });
+    wx.setNavigationBarTitle({ title: id ? '编辑知识' : ((parentId || sourceContentId) ? '做笔记' : '新建知识') });
     knowledgeService.tags().then((tags) => this.setData({ suggestions: tags || [] })).catch(() => {});
     if (id) this.load(id);
     else if (parentId) this.loadParent(parentId);
+    else if (sourceContentId) this.loadContentSource(sourceContentId);
     if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '尚未保存，确定离开吗？' });
   },
   load(id) {
@@ -27,6 +28,10 @@ Page({
   },
   loadParent(id) {
     knowledgeService.get(id).then((detail) => this.setData({ source: { title: detail.title, summary: detail.body }, 'form.title': `关于《${detail.title}》的笔记`, 'form.noteParentId': id })).catch(() => {});
+  },
+  loadContentSource(id) {
+    const { contentService } = require('../../../services/index');
+    contentService.get(id).then((detail) => this.setData({ source: { title: detail.title, summary: detail.summary || detail.body }, sourceContentVersionId: detail.versionId, 'form.title': `关于《${detail.title}》的笔记` })).catch(() => wx.showToast({ title: '原文已不可用', icon: 'none' }));
   },
   selectType(event) { if (this.data.id) return; this.setData({ 'form.itemType': event.currentTarget.dataset.type }); },
   onFieldInput(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
@@ -58,6 +63,8 @@ Page({
       problem: this.data.form.problem, tags: this.data.form.tags, state,
       visibility: this.data.form.visibility, selectedFriendIds: this.data.form.selectedFriendIds,
       noteParentId: this.data.parentId || this.data.form.noteParentId || null,
+      sourceContentId: this.data.sourceContentId || null,
+      sourceContentVersionId: this.data.sourceContentVersionId || null,
       expectedVersion: this.data.form.versionNo
     };
     this.setData({ saving: true });
