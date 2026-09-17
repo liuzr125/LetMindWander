@@ -14,7 +14,7 @@ mvn spring-boot:run
 
 ## 连接现有 MySQL 5.7
 
-生产环境不自动建表。空库先使用 `../../02_database/SQL/知行日课_数据库初始化_V3.1_MySQL5.7.25.sql`，然后依次执行 `sql` 中 V3.8—V3.14 的幂等增量脚本。V3.12 新增 AI 模型运行配置；V3.13 新增两档各 101 篇英语短文、阿里云 TTS 配置、音频缓存和脱敏调用日志；V3.14 新增短文点词补充词表，覆盖 V3.13 预置短文的 104 个词形。已有数据库必须先备份并在副本演练。
+生产环境不自动建表。空库直接使用 `../../02_database/SQL/知行日课_数据库初始化_V3.14_MySQL5.7.25.sql`；已有数据库按实际版本依次执行 `sql` 目录中尚未执行的幂等增量脚本。V3.12 新增 AI 模型运行配置；V3.13 新增两档各 101 篇英语短文、阿里云 TTS 配置、音频缓存和脱敏调用日志；V3.14 新增短文点词补充词表，覆盖 V3.13 预置短文的 104 个词形。已有数据库必须先备份并在副本演练。
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
@@ -66,12 +66,16 @@ DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，�
 ## Web 账号列表
 
 - `GET /api/admin/users`：按昵称、短 ID 或手机号分页搜索账号，默认 20 条/页，支持 `all`、`active`、`disabled` 状态筛选。
+- `GET /api/admin/users/{userId}/learning`：只读返回该用户当前已保存的计划、今日任务汇总、所选词书进度、生词本汇总和生词本分页列表；`notebookPageSize` 为 1—50。
 - 响应只包含管理所需的短 ID、序号、昵称、脱敏手机号、状态、AI 同意状态、最近登录与创建时间；不返回微信 OpenID、完整手机号或用户私有内容。
+- 学习详情同样需要 `X-Admin-Token`，且不返回 AI 提问/回答正文、日记正文；未保存计划或未选择词书时返回 `null`，不会用默认值伪装为用户真实设置。
 
 ## Web 技术知识查看
 
 - `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持按主题过滤以及标题、摘要、正文关键词搜索。
 - `GET /api/admin/content/technical/{contentId}`：查看已发布版本的正文、难度、预计时长、主题、审核状态、来源和许可快照。
+- `GET /api/admin/content/articles`：分页查看已发布英语短文，支持按 `intro`/`advanced` 难度筛选以及标题、摘要、正文关键词搜索。
+- `GET /api/admin/content/articles/{contentId}`：查看英语短文正文、难度、预计时长、审核状态、来源和许可快照。
 - 两个接口都需要 `X-Admin-Token`，当前只读，不提供修改或删除已发布内容的能力。
 
 ## F01 和 F02 接口

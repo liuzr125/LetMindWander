@@ -48,6 +48,7 @@ onBeforeUnmount(() => {
         <RouterLink to="/overview"><b>⌂</b><span>概览</span></RouterLink>
         <RouterLink to="/content"><b>◇</b><span>内容与来源</span></RouterLink>
         <RouterLink to="/words"><b>Aa</b><span>英语单词</span></RouterLink>
+        <RouterLink to="/articles"><b>En</b><span>英语短文</span></RouterLink>
         <RouterLink to="/users"><b>●</b><span>用户状态</span></RouterLink>
         <RouterLink to="/jobs"><b>□</b><span>任务与运行</span></RouterLink>
         <RouterLink to="/ai"><b>AI</b><span>AI 模型与费用</span></RouterLink>
