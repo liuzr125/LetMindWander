@@ -9,7 +9,7 @@ public class ContentDetailView {
     private String wordTerm, phonetic, meaning, exampleText, exampleTranslation;
     private String originUrl, originAuthor, licenseSnapshot, sourceName, sourceType, sourceUrl;
     private String articleAudioAssetId,articleAudioUrl,articleAudioVoice;
-    private Instant originPublishedAt;
+    private Instant publishedAt, originPublishedAt;
     private String articleBlocksJson;
     private Integer estimatedSeconds, familiarityPercent, recordVersion;
     private Boolean understood, favorite, inReview, inWordBook;
@@ -39,6 +39,7 @@ public class ContentDetailView {
     public String getArticleAudioUrl(){return articleAudioUrl;} public void setArticleAudioUrl(String v){articleAudioUrl=v;}
     public String getArticleAudioVoice(){return articleAudioVoice;} public void setArticleAudioVoice(String v){articleAudioVoice=v;}
     @com.fasterxml.jackson.annotation.JsonIgnore public String getArticleAudioAssetId(){return articleAudioAssetId;} public void setArticleAudioAssetId(String v){articleAudioAssetId=v;}
+    public Instant getPublishedAt(){return publishedAt;} public void setPublishedAt(Instant v){publishedAt=v;}
     public Instant getOriginPublishedAt(){return originPublishedAt;} public void setOriginPublishedAt(Instant v){originPublishedAt=v;}
     public Integer getEstimatedSeconds(){return estimatedSeconds;} public void setEstimatedSeconds(Integer v){estimatedSeconds=v;}
     public Integer getFamiliarityPercent(){return familiarityPercent;} public void setFamiliarityPercent(Integer v){familiarityPercent=v;}

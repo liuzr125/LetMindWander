@@ -11,7 +11,7 @@ import java.util.List;
 /** U03/U05 的全部数据库访问集中在 Mapper；Service 只处理权限、幂等与业务联动。 */
 @Mapper
 public interface ContentMapper extends BaseMapper<LearningContentEntity> {
-    @Select("SELECT lc.id AS content_id, cv.id AS version_id, lc.content_type, lc.stage, cv.title, cv.summary, cv.body, " +
+    @Select("SELECT lc.id AS content_id, cv.id AS version_id, lc.content_type, lc.stage, lc.published_at, cv.title, cv.summary, cv.body, " +
             "cv.difficulty, cv.estimated_seconds, cv.word_term, cv.phonetic, cv.meaning, cv.example_text, cv.example_translation, " +
             "cv.origin_url, cv.origin_author, cv.origin_published_at, cv.license_snapshot, cs.name AS source_name, cs.source_type, cs.url AS source_url, cv.article_blocks AS article_blocks_json, cv.article_audio_asset_id, cv.article_audio_voice, " +
             "lr.familiarity_percent, COALESCE(lr.version_no,0) AS record_version, " +

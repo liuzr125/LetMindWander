@@ -72,10 +72,11 @@ DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，�
 
 ## Web 技术知识查看
 
-- `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持按主题过滤以及标题、摘要、正文关键词搜索。
-- `GET /api/admin/content/technical/{contentId}`：查看已发布版本的正文、难度、预计时长、主题、审核状态、来源和许可快照。
-- `GET /api/admin/content/articles`：分页查看已发布英语短文，支持按 `intro`/`advanced` 难度筛选以及标题、摘要、正文关键词搜索。
-- `GET /api/admin/content/articles/{contentId}`：查看英语短文正文、难度、预计时长、审核状态、来源和许可快照。
+- `GET /api/learning/contents/{contentId}`：用户详情返回当前 `published_version_id` 指向的正文和版本化来源字段，并同时返回 `originPublishedAt`（原文发布时间）与 `publishedAt`（站内发布时间）。
+- `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持按主题过滤以及标题、摘要、正文关键词搜索；列表返回原文发布时间，缺失时由前端回退站内发布时间。
+- `GET /api/admin/content/technical/{contentId}`：查看已发布版本的正文、难度、预计时长、主题、审核状态、来源、原文/站内发布时间和许可快照。
+- `GET /api/admin/content/articles`：分页查看已发布英语短文，支持按 `intro`/`advanced` 难度筛选以及标题、摘要、正文关键词搜索；时间字段语义与技术知识一致。
+- `GET /api/admin/content/articles/{contentId}`：查看英语短文正文、难度、预计时长、审核状态、来源、原文/站内发布时间和许可快照。
 - 两个接口都需要 `X-Admin-Token`，当前只读，不提供修改或删除已发布内容的能力。
 
 ## F01 和 F02 接口

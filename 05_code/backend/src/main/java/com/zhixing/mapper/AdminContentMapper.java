@@ -31,7 +31,7 @@ public interface AdminContentMapper {
     int countTechnical(@Param("topic")String topic,@Param("keyword")String keyword);
 
     @Select({"<script>","SELECT lc.id content_id,cv.id version_id,cv.version_no,cv.title,cv.summary,cv.difficulty,cv.estimated_seconds,cv.review_status,",
-            "lc.published_at,cs.name source_name,cs.source_type FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
+            "lc.published_at,cv.origin_published_at,cs.name source_name,cs.source_type FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
             "JOIN content_source cs ON cs.id=lc.source_id WHERE lc.content_type='tech' AND lc.state='published' ",
             "<if test=\"topic != null and topic != ''\">AND EXISTS(SELECT 1 FROM content_topic ct JOIN learning_topic t ON t.id=ct.topic_id WHERE ct.content_version_id=cv.id AND t.name=#{topic}) </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (cv.title LIKE CONCAT('%',#{keyword},'%') OR cv.summary LIKE CONCAT('%',#{keyword},'%') OR cv.body LIKE CONCAT('%',#{keyword},'%')) </if>",
@@ -52,7 +52,7 @@ public interface AdminContentMapper {
     int countArticles(@Param("difficulty")String difficulty,@Param("keyword")String keyword);
 
     @Select({"<script>","SELECT lc.id content_id,cv.id version_id,cv.version_no,cv.title,cv.summary,cv.difficulty,cv.estimated_seconds,cv.review_status,",
-            "lc.published_at,cs.name source_name,cs.source_type FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
+            "lc.published_at,cv.origin_published_at,cs.name source_name,cs.source_type FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
             "JOIN content_source cs ON cs.id=lc.source_id WHERE lc.content_type='english_article' AND lc.state='published' ",
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (cv.title LIKE CONCAT('%',#{keyword},'%') OR cv.summary LIKE CONCAT('%',#{keyword},'%') OR cv.body LIKE CONCAT('%',#{keyword},'%')) </if>",

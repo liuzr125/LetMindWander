@@ -35,8 +35,8 @@ class F15AdminTechnicalContentIntegrationTest {
         jdbc.update("DELETE FROM content_source WHERE id=?",SOURCE);
         jdbc.update("INSERT INTO content_source(id,name,source_type,url,license_note,enabled) VALUES(?,?,?, ?,?,1)",SOURCE,"官方技术文档","official","https://example.com/docs","允许测试引用");
         jdbc.update("INSERT INTO learning_topic(id,scope_key,name,normalized_name,state) VALUES(?, 'global',?,?,'active')",TOPIC,"AI基础","ai基础");
-        jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,state,current_version_id,published_version_id,published_at) VALUES(?,'tech',?,?, 'published',?,?,CURRENT_TIMESTAMP)",CONTENT,SOURCE,CryptoUtils.sha256("f15-content"),VERSION,VERSION);
-        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,?,?,?,'advanced',420,?,?,CURRENT_TIMESTAMP,?,?,'approved','00000000000000000000000000000002')",VERSION,CONTENT,"理解向量检索","从召回到排序的完整链路","向量检索先召回候选内容，再通过排序模型提高相关性。","https://example.com/vector","测试作者","允许测试引用",CryptoUtils.sha256("f15-body"));
+        jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,state,current_version_id,published_version_id,published_at) VALUES(?,'tech',?,?, 'published',?,?,?)",CONTENT,SOURCE,CryptoUtils.sha256("f15-content"),VERSION,VERSION,java.sql.Timestamp.valueOf("2026-09-18 08:00:00"));
+        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,?,?,?,'advanced',420,?,?,?,?,?,'approved','00000000000000000000000000000002')",VERSION,CONTENT,"理解向量检索","从召回到排序的完整链路","向量检索先召回候选内容，再通过排序模型提高相关性。","https://example.com/vector","测试作者",java.sql.Timestamp.valueOf("2026-09-14 17:10:33"),"允许测试引用",CryptoUtils.sha256("f15-body"));
         jdbc.update("INSERT INTO content_topic(id,content_version_id,topic_id) VALUES('f1500000000000000000000000000005',?,?)",VERSION,TOPIC);
     }
 
@@ -50,6 +50,7 @@ class F15AdminTechnicalContentIntegrationTest {
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.items[0].title").value("理解向量检索"))
+                .andExpect(jsonPath("$.items[0].originPublishedAt").exists())
                 .andExpect(jsonPath("$.items[0].topics[0]").value("AI基础"));
 
         mvc.perform(get("/api/admin/content/technical").header("X-Admin-Token","dev-admin-token").param("topic","AI基础").param("keyword","排序模型"))
@@ -61,6 +62,10 @@ class F15AdminTechnicalContentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.body").value("向量检索先召回候选内容，再通过排序模型提高相关性。"))
                 .andExpect(jsonPath("$.sourceName").value("官方技术文档"))
+                .andExpect(jsonPath("$.originUrl").value("https://example.com/vector"))
+                .andExpect(jsonPath("$.originAuthor").value("测试作者"))
+                .andExpect(jsonPath("$.originPublishedAt").exists())
+                .andExpect(jsonPath("$.publishedAt").exists())
                 .andExpect(jsonPath("$.licenseSnapshot").value("允许测试引用"))
                 .andExpect(jsonPath("$.reviewStatus").value("approved"));
     }

@@ -5,7 +5,7 @@
     <text class="title">{{detail.title}}</text>
     <view class="tags"><text wx:for="{{detail.topics}}" wx:key="*this">{{item}}</text><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text>预计 {{detail.estimatedSeconds / 60}} 分钟</text></view>
     <text class="summary">{{detail.summary}}</text>
-    <view class="source"><text>{{detail.originAuthor || '公开资料整理'}}</text><text class="source-link" bindtap="copySource">查看来源</text></view>
+    <view class="source"><text>{{sourceText}}</text><text class="source-link" bindtap="copySource">查看来源</text></view>
     <view class="divider"></view>
     <text class="body">{{detail.body}}</text>
     <view class="principle"><text class="quote">“</text><text>先理解概念与边界，再把它放回真实问题中使用。</text></view>
