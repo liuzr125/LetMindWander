@@ -44,7 +44,10 @@ function request(options = {}) {
         reject(error);
       },
       fail(error) {
-        reject(error);
+        const networkError = new Error(error.errMsg || '网络连接失败，请检查服务地址后重试');
+        networkError.code = 'NETWORK_ERROR';
+        networkError.data = error;
+        reject(networkError);
       }
     });
   });

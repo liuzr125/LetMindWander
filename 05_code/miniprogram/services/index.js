@@ -51,7 +51,12 @@ function uploadFile(filePath, url, formData = {}) {
         err.code = data && data.code;
         reject(err);
       },
-      fail(error) { reject(error); }
+      fail(error) {
+        const networkError = new Error(error.errMsg || '文件上传网络连接失败');
+        networkError.code = 'NETWORK_ERROR';
+        networkError.data = error;
+        reject(networkError);
+      }
     });
   });
 }
