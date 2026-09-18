@@ -9,6 +9,6 @@ Page({
  goFavorites(){wx.navigateTo({url:'/pages/mine/favorites/index'});},goFriends(){wx.navigateTo({url:'/pages/friends/index/index'});},
  goBookProgress(){wx.navigateTo({url:'/pages/word/books/progress/index'});},
  goWordbook(){wx.setStorageSync('learning_page_state_v1',{primaryTab:'english',englishTab:'notebook'});wx.setStorageSync('learning_deep_link','wordbook');wx.switchTab({url:'/pages/learn/index'});},
- goSchedules(){wx.navigateTo({url:'/pages/schedules/index/index'});},goPrivacy(){wx.navigateTo({url:'/pages/mine/privacy/index'});},
+ goPrivacy(){wx.navigateTo({url:'/pages/mine/privacy/index'});},
  goFeedback(){wx.navigateTo({url:'/pages/mine/feedback/index'});},goUsage(){wx.navigateTo({url:'/pages/mine/usage/index'});}
 });
