@@ -28,6 +28,7 @@ public interface MineMapper extends BaseMapper<AppUserEntity> {
  List<FavoriteView> selectFavorites(@Param("ownerId")String ownerId,@Param("type")String type,@Param("query")String query);
 
  @Select("SELECT CASE WHEN u.ai_consent_version IS NULL THEN FALSE ELSE TRUE END aiConsent,"+
+   "COALESCE((SELECT CASE WHEN c.decision='grant' THEN TRUE ELSE FALSE END FROM user_consent c WHERE c.owner_id=#{ownerId} AND c.purpose='follow_recording_upload' ORDER BY c.occurred_at DESC,c.id DESC LIMIT 1),FALSE) followRecordingConsent,"+
    "(SELECT e.id FROM data_export e WHERE e.owner_id=#{ownerId} ORDER BY e.created_at DESC LIMIT 1) exportId,"+
    "(SELECT e.state FROM data_export e WHERE e.owner_id=#{ownerId} ORDER BY e.created_at DESC LIMIT 1) exportState,"+
    "(SELECT e.expires_at FROM data_export e WHERE e.owner_id=#{ownerId} ORDER BY e.created_at DESC LIMIT 1) exportExpiresAt,"+

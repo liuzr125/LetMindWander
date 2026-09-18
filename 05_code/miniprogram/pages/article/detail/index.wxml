@@ -8,8 +8,8 @@
     <view class="audio-card">
       <view class="audio-head"><view><text class="audio-title">整篇朗读</text><text class="audio-note">{{detail.articleAudioUrl ? '音频已就绪' : '首次播放由服务端生成并缓存'}}</text></view><button loading="{{audioLoading}}" bindtap="playArticle">{{articlePlaying ? '暂停' : '▶ 播放'}}</button></view>
       <view class="speed-row"><text>语速</text><view wx:for="{{speeds}}" wx:key="*this" class="speed {{speed===item?'active':''}}" data-speed="{{item}}" bindtap="changeSpeed">{{item}}x</view></view>
-      <view class="follow-row"><view><text class="audio-title">跟读练习</text><text class="audio-note">录音仅保存在当前设备临时文件中</text></view><button wx:if="{{!recording}}" class="outline" bindtap="startFollow">开始跟读</button><button wx:else class="recording" bindtap="stopFollow">停止录音</button></view>
-      <button wx:if="{{recordPath}}" class="record-play" bindtap="playRecording">{{recordPlaying ? '停止回放' : '▶ 回放我的跟读'}}</button>
+      <view class="follow-row"><view><text class="audio-title">跟读练习</text><text class="audio-note">{{recordUploading ? '正在安全上传…' : (recordSaved ? '已私密保存至云端，新录音会替换旧录音' : '录音经同意后私密保存至云端')}}</text></view><button wx:if="{{!recording}}" class="outline" loading="{{recordUploading}}" disabled="{{recordUploading}}" bindtap="startFollow">开始跟读</button><button wx:else class="recording" bindtap="stopFollow">停止录音</button></view>
+      <view wx:if="{{recordPath || recordUrl}}" class="record-actions"><button class="record-play" bindtap="playRecording">{{recordPlaying ? '停止回放' : '▶ 回放我的跟读'}}</button><button class="record-delete" disabled="{{recordUploading}}" bindtap="deleteRecording">删除录音</button></view>
     </view>
     <view class="translation-switch"><text>显示译文</text><switch checked="{{showTranslation}}" color="#0869f7" bindchange="toggleTranslation" /></view>
     <view wx:for="{{detail.articleBlocks}}" wx:for-index="blockIndex" wx:key="paragraphId" class="paragraph-card">

@@ -29,7 +29,8 @@ class F09MineSecondaryPagesIntegrationTest {
   mvc.perform(post("/api/friends/requests/"+request.path("id").asText()+"/decision").header("Authorization",bearer(b.token)).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"accept\",\"expectedVersion\":"+request.path("versionNo").asInt()+"}")).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("accepted"));
   mvc.perform(get("/api/friends").header("Authorization",bearer(a.token))).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(b.id));
   mvc.perform(post("/api/consents").header("Authorization",bearer(a.token)).contentType(MediaType.APPLICATION_JSON).content("{\"purpose\":\"ai_send\",\"documentVersion\":\"AI_SEND_V1\",\"decision\":\"grant\"}")).andExpect(status().isOk());
-  mvc.perform(get("/api/mine/privacy").header("Authorization",bearer(a.token))).andExpect(status().isOk()).andExpect(jsonPath("$.aiConsent").value(true));
+  mvc.perform(post("/api/consents").header("Authorization",bearer(a.token)).contentType(MediaType.APPLICATION_JSON).content("{\"purpose\":\"follow_recording_upload\",\"documentVersion\":\"FOLLOW_RECORDING_V1\",\"decision\":\"grant\"}")).andExpect(status().isOk());
+  mvc.perform(get("/api/mine/privacy").header("Authorization",bearer(a.token))).andExpect(status().isOk()).andExpect(jsonPath("$.aiConsent").value(true)).andExpect(jsonPath("$.followRecordingConsent").value(true));
   mvc.perform(post("/api/mine/feedback").header("Authorization",bearer(a.token)).contentType(MediaType.APPLICATION_JSON).content("{\"category\":\"suggestion\",\"body\":\"希望增加夜间模式\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("open"));
   mvc.perform(post("/api/mine/exports").header("Authorization",bearer(a.token))).andExpect(status().isOk()).andExpect(jsonPath("$.exportState").value("queued"));
 

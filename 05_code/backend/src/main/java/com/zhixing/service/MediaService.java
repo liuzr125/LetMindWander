@@ -28,7 +28,8 @@ import java.util.Map;
 @Service
 public class MediaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MediaService.class);
-    private static final long MAX_BYTES = 5L * 1024 * 1024;
+    private static final long MAX_AVATAR_BYTES = 5L * 1024 * 1024;
+    private static final long MAX_FOLLOW_RECORDING_BYTES = 2L * 1024 * 1024;
 
     private final JdbcTemplate jdbcTemplate;
     private final AppParameterService parameters;
@@ -51,14 +52,14 @@ public class MediaService {
     public UploadResult uploadAvatar(String ownerId, String filename, String declaredMime, InputStream stream) {
         byte[] bytes;
         try {
-            bytes = readLimited(stream);
+            bytes = readLimited(stream, MAX_AVATAR_BYTES, "图片不能超过 5MB");
         } catch (IOException exception) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_READ_FAILED", "文件读取失败，请重试");
         }
         if (bytes.length == 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_EMPTY", "文件不能为空");
         }
-        if (bytes.length > MAX_BYTES) {
+        if (bytes.length > MAX_AVATAR_BYTES) {
             throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_TOO_LARGE", "图片不能超过 5MB");
         }
 
@@ -86,6 +87,28 @@ public class MediaService {
         return new UploadResult(id, url, signedUrl(id, ownerId), actualMime, bytes.length);
     }
 
+    @Transactional
+    public UploadResult uploadFollowRecording(String ownerId, InputStream stream) {
+        byte[] bytes;
+        try {
+            bytes = readLimited(stream, MAX_FOLLOW_RECORDING_BYTES, "跟读录音不能超过 2MB");
+        } catch (IOException exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_READ_FAILED", "录音读取失败，请重试");
+        }
+        if (bytes.length == 0) throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_EMPTY", "录音不能为空");
+        if (!isMp3(bytes)) throw new ApiException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "MEDIA_FORMAT_REJECTED", "跟读录音仅支持 MP3 格式");
+
+        String id = CryptoUtils.randomId();
+        String objectKey = "follow-recording/" + ownerId + "/" + id + ".mp3";
+        putToOss(objectKey, "audio/mpeg", bytes);
+        Timestamp now = Timestamp.from(Instant.now());
+        jdbcTemplate.update(
+                "INSERT INTO media_asset (id,owner_id,purpose,object_key,mime_type,byte_size,sha256,state,created_at,updated_at) VALUES (?,?,'follow_recording',?,'audio/mpeg',?,?,'ready',?,?)",
+                id, ownerId, objectKey, bytes.length, sha256(bytes), now, now);
+        LOGGER.info("Follow recording uploaded to OSS: ownerId={}, mediaId={}, bytes={}", ownerId, id, bytes.length);
+        return new UploadResult(id, referenceUrl(id), signedUrl(id, ownerId), "audio/mpeg", bytes.length);
+    }
+
     /** 供媒体代理访问：返回 OSS object 的签名 URL（短时有效）。头像需归属校验，学习音频公开可读。 */
     public String signedUrl(String mediaId, String viewerId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -100,6 +123,9 @@ public class MediaService {
         if ("word_audio".equals(purpose) || "example_audio".equals(purpose) || "article_audio".equals(purpose)) {
             return presign(objectKey);
         }
+        if ("follow_recording".equals(purpose)) {
+            return viewerId != null && viewerId.equals(String.valueOf(raw(row, "owner_id"))) ? presign(objectKey, 3600) : null;
+        }
         if (!"avatar".equals(purpose)) return null;
 
         boolean owner = viewerId != null && viewerId.equals(String.valueOf(raw(row, "owner_id")));
@@ -111,10 +137,14 @@ public class MediaService {
     }
 
     private String presign(String objectKey) {
+        return presign(objectKey, 300);
+    }
+
+    private String presign(String objectKey, long validSeconds) {
         OSS client = buildClient();
         try {
             return client.generatePresignedUrl(ossBucket, objectKey,
-                    java.util.Date.from(Instant.now().plusSeconds(300))).toString();
+                    java.util.Date.from(Instant.now().plusSeconds(validSeconds))).toString();
         } catch (Exception exception) {
             LOGGER.warn("OSS presign failed: objectKey={}, {}", objectKey, exception.getMessage());
             return null;
@@ -130,7 +160,7 @@ public class MediaService {
     @Transactional
     public String storePublicAudio(String purpose,String folder,byte[] bytes,String mimeType,String originUrl,String licenseNote){
         if(!"word_audio".equals(purpose)&&!"article_audio".equals(purpose))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AUDIO_PURPOSE","音频用途不正确");
-        if(bytes==null||bytes.length==0||bytes.length>MAX_BYTES)throw new ApiException(HttpStatus.BAD_GATEWAY,"INVALID_TTS_AUDIO","语音服务返回的音频不可用");
+        if(bytes==null||bytes.length==0||bytes.length>MAX_AVATAR_BYTES)throw new ApiException(HttpStatus.BAD_GATEWAY,"INVALID_TTS_AUDIO","语音服务返回的音频不可用");
         String id=CryptoUtils.randomId();String objectKey=folder.replaceAll("[^A-Za-z0-9/_-]","")+"/"+id+".mp3";putToOss(objectKey,mimeType,bytes);
         Timestamp now=Timestamp.from(Instant.now());jdbcTemplate.update("INSERT INTO media_asset(id,owner_id,purpose,object_key,mime_type,byte_size,sha256,state,origin_url,license_note,created_at,updated_at) VALUES(?,NULL,?,?,?,?,?,'ready',?,?,?,?)",id,purpose,objectKey,mimeType,bytes.length,sha256(bytes),originUrl,licenseNote,now,now);return id;
     }
@@ -142,6 +172,26 @@ public class MediaService {
                 "SELECT COUNT(*) FROM media_asset WHERE id = ? AND owner_id = ? AND purpose = 'avatar' AND state = 'ready'",
                 Integer.class, id, ownerId) == 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AVATAR", "请选择本人成功上传的头像");
+        }
+    }
+
+    @Transactional
+    public void retireOwnedMedia(String ownerId, String mediaId, String purpose) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT object_key FROM media_asset WHERE id=? AND owner_id=? AND purpose=? AND state='ready'",
+                mediaId, ownerId, purpose);
+        if (rows.isEmpty()) return;
+        String objectKey = String.valueOf(raw(rows.get(0), "object_key"));
+        if (jdbcTemplate.update("UPDATE media_asset SET state='deleted',updated_at=? WHERE id=? AND owner_id=? AND state='ready'",
+                Timestamp.from(Instant.now()), mediaId, ownerId) == 0) return;
+        OSS client = buildClient();
+        try {
+            client.deleteObject(ossBucket, objectKey);
+        } catch (Exception exception) {
+            // 数据库状态已阻断访问；OSS 生命周期规则可继续清理极少数删除失败的孤儿对象。
+            LOGGER.warn("OSS delete failed after media retirement: mediaId={}, objectKey={}, {}", mediaId, objectKey, exception.getMessage());
+        } finally {
+            client.shutdown();
         }
     }
 
@@ -157,7 +207,7 @@ public class MediaService {
                     }});
         } catch (Exception exception) {
             LOGGER.error("OSS upload failed: objectKey={}", objectKey, exception);
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "MEDIA_STORE_FAILED", "图片上传失败，请重试");
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "MEDIA_STORE_FAILED", "文件上传失败，请重试");
         } finally {
             client.shutdown();
         }
@@ -169,17 +219,25 @@ public class MediaService {
 
     // ---------- 内部 ----------
 
-    private byte[] readLimited(InputStream stream) throws IOException {
+    private byte[] readLimited(InputStream stream, long maxBytes, String tooLargeMessage) throws IOException {
         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
         byte[] chunk = new byte[8192];
         int read;
         while ((read = stream.read(chunk)) != -1) {
             buffer.write(chunk, 0, read);
-            if (buffer.size() > MAX_BYTES + 1) {
-                throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_TOO_LARGE", "图片不能超过 5MB");
+            if (buffer.size() > maxBytes) {
+                throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_TOO_LARGE", tooLargeMessage);
             }
         }
         return buffer.toByteArray();
+    }
+
+    private boolean isMp3(byte[] bytes) {
+        if (bytes.length >= 3 && bytes[0] == 'I' && bytes[1] == 'D' && bytes[2] == '3') return true;
+        for (int i = 0; i + 1 < Math.min(bytes.length, 4096); i++) {
+            if ((bytes[i] & 0xFF) == 0xFF && (bytes[i + 1] & 0xE0) == 0xE0) return true;
+        }
+        return false;
     }
 
     /** Decode the actual image, including WebP, instead of trusting extensions or MIME headers. */

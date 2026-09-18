@@ -658,6 +658,22 @@ CREATE TABLE IF NOT EXISTS media_asset (
 
 CREATE INDEX IF NOT EXISTS idx_media_owner ON media_asset (owner_id, purpose, state);
 
+CREATE TABLE IF NOT EXISTS follow_recording (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  content_id CHAR(32) NOT NULL,
+  content_version_id CHAR(32) NOT NULL,
+  asset_id CHAR(32) NOT NULL,
+  duration_ms INT NOT NULL,
+  state VARCHAR(16) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP(3),
+  CONSTRAINT uk_follow_recording_owner_content UNIQUE (owner_id, content_id)
+);
+CREATE INDEX IF NOT EXISTS idx_follow_recording_asset ON follow_recording (asset_id, state);
+CREATE INDEX IF NOT EXISTS idx_follow_recording_owner_state ON follow_recording (owner_id, state);
+
 CREATE TABLE IF NOT EXISTS article_word_glossary (
   id CHAR(32) NOT NULL PRIMARY KEY,
   term VARCHAR(80) NOT NULL,

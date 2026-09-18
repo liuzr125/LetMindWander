@@ -31,13 +31,14 @@ const authService = {
   }
 };
 
-function uploadAvatarFile(filePath) {
+function uploadFile(filePath, url, formData = {}) {
   return new Promise((resolve, reject) => {
     const token = getApp().globalData.accessToken || wx.getStorageSync('access_token');
     wx.uploadFile({
-      url: `${apiBaseUrl}/media/upload`,
+      url: `${apiBaseUrl}${url}`,
       filePath,
       name: 'file',
+      formData,
       header: token ? { Authorization: `Bearer ${token}` } : {},
       success(response) {
         let data = response.data;
@@ -65,7 +66,7 @@ const profileService = {
     return request({ url: '/me', method: 'PUT', data: payload });
   },
   uploadAvatar(filePath) {
-    return uploadAvatarFile(filePath);
+    return uploadFile(filePath, '/media/upload');
   }
 };
 
@@ -88,6 +89,11 @@ const dailyTaskService = {
 const contentService = {
   get(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}` }); },
   speech(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/speech`, method: 'POST', timeout: 65000 }); },
+  followRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording` }); },
+  uploadFollowRecording(id, filePath, durationMs) {
+    return uploadFile(filePath, `/learning/contents/${encodeURIComponent(id)}/follow-recording`, { durationMs: String(durationMs) });
+  },
+  deleteFollowRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording`, method: 'DELETE' }); },
   understood(id, payload) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/understood`, method: 'POST', data: payload }); },
   favorite(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/favorite`, method: 'POST', data: { active } }); },
   review(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/review`, method: 'POST', data: { active } }); },
