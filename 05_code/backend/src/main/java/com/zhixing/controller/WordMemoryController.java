@@ -22,6 +22,9 @@ public class WordMemoryController {
     public List<WordMemoryHintView> hints(@RequestHeader(value="Authorization",required=false)String auth,
                                           @RequestParam String contentId,@RequestParam(required=false)String senseId){user(auth);return memory.hints(contentId,senseId);}
 
+    @GetMapping("/sources")
+    public WordMemorySourceSummaryView sources(@RequestHeader(value="Authorization",required=false)String auth){return memory.sources(user(auth));}
+
     @PostMapping("/sessions")
     public WordMemorySessionView create(@RequestHeader(value="Authorization",required=false)String auth,
                                          @RequestHeader(value="Idempotency-Key",required=false)String idempotencyKey,

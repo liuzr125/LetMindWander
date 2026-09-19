@@ -100,6 +100,7 @@ const contentService = {
   },
   deleteFollowRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording`, method: 'DELETE' }); },
   understood(id, payload) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/understood`, method: 'POST', data: payload }); },
+  feedback(id, payload) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/feedback`, method: 'POST', data: payload }); },
   favorite(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/favorite`, method: 'POST', data: { active } }); },
   review(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/review`, method: 'POST', data: { active } }); },
   wordBook(id, active) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/word-book`, method: 'POST', data: { active } }); },
@@ -141,6 +142,7 @@ const reviewService = {
 
 const wordMemoryService = {
   config() { return request({ url: '/word-memory/config' }); },
+  sources() { return request({ url: '/word-memory/sources' }); },
   hints(contentId, senseId) {
     const suffix = senseId ? `&senseId=${encodeURIComponent(senseId)}` : '';
     return request({ url: `/word-memory/hints?contentId=${encodeURIComponent(contentId)}${suffix}` });

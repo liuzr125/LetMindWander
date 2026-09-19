@@ -5,7 +5,9 @@ public class ContentActionRequest {
     private Boolean active;
     private String taskId;
     private Integer expectedVersion;
+    private String feedback;
     public Boolean getActive() { return active; } public void setActive(Boolean active) { this.active = active; }
     public String getTaskId() { return taskId; } public void setTaskId(String taskId) { this.taskId = taskId; }
     public Integer getExpectedVersion() { return expectedVersion; } public void setExpectedVersion(Integer expectedVersion) { this.expectedVersion = expectedVersion; }
+    public String getFeedback() { return feedback; } public void setFeedback(String feedback) { this.feedback = feedback; }
 }

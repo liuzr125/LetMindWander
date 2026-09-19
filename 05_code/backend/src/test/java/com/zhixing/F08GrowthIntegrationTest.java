@@ -29,6 +29,7 @@ class F08GrowthIntegrationTest {
         mvc.perform(get("/api/reviews/queue").header("Authorization",bearer(session.token)).param("date",LocalDate.now(ZoneId.of("Asia/Shanghai")).toString()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].scheduleId").value(freeSchedule)).andExpect(jsonPath("$[0].taskId").doesNotExist());
         LocalDate sourceWeek=LocalDate.now(ZoneId.of("Asia/Shanghai")).with(DayOfWeek.MONDAY).minusWeeks(1);
+        jdbc.update("UPDATE learning_plan SET effective_date=? WHERE id=?",sourceWeek,plan.path("id").asText());
         seedWeek(session.userId,plan.path("id").asText(),sourceWeek);
         seedOrphanSummary(session.userId,sourceWeek.minusWeeks(1));
 

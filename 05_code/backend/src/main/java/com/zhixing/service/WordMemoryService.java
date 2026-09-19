@@ -22,9 +22,10 @@ import java.util.*;
 public class WordMemoryService {
     private static final ZoneId BUSINESS_ZONE=ZoneId.of("Asia/Shanghai");
     private static final Set<String> DIMENSIONS=new LinkedHashSet<String>(Arrays.asList("meaning","spelling"));
-    private static final Set<String> SOURCES=new HashSet<String>(Arrays.asList("word_detail","learning","today","review","free"));
+    private static final Set<String> SOURCES=new HashSet<String>(Arrays.asList("word_detail","learning","today","current_book","review","free"));
     private static final Set<String> HINT_TYPES=new HashSet<String>(Arrays.asList("first_letter","clue","answer"));
     private static final int MAX_ATTEMPTS=3;
+    private static final int MAX_BATCH_SIZE=5;
     private final WordMemoryMapper memory;
     private final ContentService contents;
     private final ObjectMapper json;
@@ -41,19 +42,36 @@ public class WordMemoryService {
         return memory.selectHints(id,clean(senseId));
     }
 
+    public WordMemorySourceSummaryView sources(String ownerId){
+        ensureEnabled();LocalDate today=LocalDate.now(BUSINESS_ZONE);
+        WordMemorySourceSummaryView result=memory.selectCurrentBookSource(ownerId);
+        if(result==null)result=new WordMemorySourceSummaryView();
+        result.setBusinessDate(today);result.setTodayLearnedCount(memory.countTodayLearned(ownerId,today));
+        if(result.getCurrentBookLearnedCount()==null)result.setCurrentBookLearnedCount(0);
+        result.setMaxBatchSize(MAX_BATCH_SIZE);return result;
+    }
+
     @Transactional
     public WordMemorySessionView create(String ownerId,String idempotencyKey,CreateWordMemorySessionRequest request){
         ensureEnabled();
         String key=requiredText(idempotencyKey,"IDEMPOTENCY_KEY_REQUIRED","创建训练会话必须提供 Idempotency-Key",100);
         WordMemorySessionRow prior=memory.selectSessionByIdempotency(ownerId,key);
         if(prior!=null)return view(prior);
-        if(request==null||request.getContentIds()==null)throw bad("CONTENT_REQUIRED","请选择要训练的单词");
-        LinkedHashSet<String> contentSet=new LinkedHashSet<String>();
-        for(String raw:request.getContentIds()){String id=clean(raw);if(id!=null)contentSet.add(id);}
-        if(contentSet.isEmpty()||contentSet.size()>5)throw bad("INVALID_CONTENT_COUNT","每组需选择 1 到 5 个单词");
-        List<String> dimensions=dimensions(request.getDimensions());
+        if(request==null)throw bad("CONTENT_REQUIRED","请选择要训练的单词");
         String source=clean(request.getSource());if(source==null)source="word_detail";
         if(!SOURCES.contains(source))throw bad("INVALID_MEMORY_SOURCE","训练来源不正确");
+        LinkedHashSet<String> contentSet=new LinkedHashSet<String>();
+        if(request.getContentIds()!=null)for(String raw:request.getContentIds()){String id=clean(raw);if(id!=null)contentSet.add(id);}
+        if("today".equals(source)){contentSet.clear();contentSet.addAll(memory.selectTodayLearnedContentIds(ownerId,LocalDate.now(BUSINESS_ZONE),MAX_BATCH_SIZE));}
+        if("current_book".equals(source)){contentSet.clear();contentSet.addAll(memory.selectCurrentBookLearnedContentIds(ownerId,MAX_BATCH_SIZE));}
+        if(contentSet.isEmpty())throw bad("MEMORY_SOURCE_EMPTY","所选范围暂无已经学习过且可测试的单词");
+        if(contentSet.size()>MAX_BATCH_SIZE)throw bad("INVALID_CONTENT_COUNT","每组需选择 1 到 5 个单词");
+        if(!"today".equals(source)&&!"current_book".equals(source)){
+            List<String> eligible=memory.selectEligibleLearnedContentIds(ownerId,new ArrayList<String>(contentSet));
+            if(eligible.size()!=contentSet.size())throw new ApiException(HttpStatus.FORBIDDEN,"MEMORY_SOURCE_SCOPE_VIOLATION","训练范围只能包含当前用户已经学习过且已审核发布的单词");
+            contentSet.clear();contentSet.addAll(eligible);
+        }
+        List<String> dimensions=dimensions(request.getDimensions());
         String returnTo=clean(request.getReturnTo());
         if(returnTo!=null&&(!returnTo.startsWith("/pages/")||returnTo.length()>500))throw bad("INVALID_RETURN_TO","返回地址必须是小程序内部页面");
         String taskId=clean(request.getTaskId());
@@ -62,7 +80,7 @@ public class WordMemoryService {
         List<WordMemoryEpisodeRow> questions=new ArrayList<WordMemoryEpisodeRow>();
         for(String contentId:contentSet)for(String dimension:dimensions){
             WordMemoryEpisodeRow question=memory.selectQuestion(contentId,dimension);
-            if(question==null)throw new ApiException(HttpStatus.CONFLICT,"MEMORY_QUESTION_MISSING","所选词条缺少已审核的"+dimensionLabel(dimension)+"题目");
+            if(question==null)question=ensureBaseQuestion(contentId,dimension);
             questions.add(question);
         }
         Instant now=Instant.now();WordMemorySessionRow session=new WordMemorySessionRow();session.setId(CryptoUtils.randomId());session.setOwnerId(ownerId);
@@ -72,6 +90,20 @@ public class WordMemoryService {
         try{memory.insertSession(session);}catch(DuplicateKeyException e){WordMemorySessionRow concurrent=memory.selectSessionByIdempotency(ownerId,key);if(concurrent!=null)return view(concurrent);throw e;}
         int position=1;for(WordMemoryEpisodeRow question:questions){question.setId(CryptoUtils.randomId());question.setSessionId(session.getId());question.setPositionNo(position++);memory.insertEpisode(question);}
         return view(session);
+    }
+
+    private WordMemoryEpisodeRow ensureBaseQuestion(String contentId,String dimension){
+        WordMemoryEpisodeRow base=memory.selectApprovedWordBase(contentId);
+        if(base==null||clean(base.getWordTerm())==null||clean(base.getMeaning())==null)
+            throw new ApiException(HttpStatus.CONFLICT,"MEMORY_BASE_CONTENT_MISSING","所选词条缺少已审核的基础释义，暂不能训练");
+        String prompt="meaning".equals(dimension)?base.getWordTerm()+" 的中文含义是？":"请根据“"+base.getMeaning()+"”拼写英文单词";
+        String expected="meaning".equals(dimension)?base.getMeaning():base.getWordTerm();
+        String policy="spelling".equals(dimension)?"case_insensitive":"exact";
+        try{memory.insertGeneratedBaseQuestion(CryptoUtils.randomId(),base.getContentVersionId(),base.getSenseId(),dimension,prompt,expected,policy);}
+        catch(DuplicateKeyException ignored){}
+        WordMemoryEpisodeRow generated=memory.selectQuestion(contentId,dimension);
+        if(generated==null)throw new ApiException(HttpStatus.CONFLICT,"MEMORY_QUESTION_CREATE_FAILED","基础训练题生成失败，请稍后重试");
+        return generated;
     }
 
     public WordMemorySessionView get(String ownerId,String sessionId){ensureEnabled();return view(required(ownerId,sessionId));}
@@ -140,15 +172,16 @@ public class WordMemoryService {
 
     private WordMemoryResultView result(String ownerId,WordMemorySessionRow session){
         List<WordMemoryEpisodeRow> episodes=memory.selectEpisodes(session.getId());Set<String> practiced=new HashSet<String>(),weak=new HashSet<String>();
-        int completed=0,valid=0,independent=0,hinted=0,retry=0,firstIncorrect=0,untested=0;
+        int completed=0,valid=0,independent=0,hinted=0,retry=0,firstIncorrect=0,untested=0,answerRevealed=0;
         for(WordMemoryEpisodeRow e:episodes){if(e.getFirstResult()==null){untested++;continue;}valid++;practiced.add(e.getContentId());
             if("answered".equals(e.getState()))completed++;if("independent_correct".equals(e.getFirstResult()))independent++;
             if("hinted_correct".equals(e.getFirstResult()))hinted++;if("incorrect".equals(e.getFirstResult()))firstIncorrect++;
+            if(Integer.valueOf(1).equals(e.getAnswerRevealed()))answerRevealed++;
             if("retry_correct".equals(e.getFinalResult()))retry++;if(!isCorrectResult(e.getFinalResult())||"incorrect".equals(e.getFirstResult()))weak.add(e.getContentId());}
         WordMemoryResultView v=new WordMemoryResultView();v.setSessionId(session.getId());v.setState(session.getState());v.setReturnTo(session.getReturnTo());
         v.setBusinessDate(session.getBusinessDate());v.setTargetWordCount(session.getTargetCount());v.setPracticedWordCount(practiced.size());v.setTotalEpisodes(episodes.size());
         v.setCompletedEpisodes(completed);v.setValidObjectiveCount(valid);v.setIndependentCorrectCount(independent);v.setHintedCorrectCount(hinted);
-        v.setRetryCorrectCount(retry);v.setFirstIncorrectCount(firstIncorrect);v.setUntestedCount(untested);v.setWeakWordCount(weak.size());v.setSessionVersion(session.getVersionNo());
+        v.setRetryCorrectCount(retry);v.setFirstIncorrectCount(firstIncorrect);v.setUntestedCount(untested);v.setAnswerRevealedCount(answerRevealed);v.setWeakWordCount(weak.size());v.setSessionVersion(session.getVersionNo());
         v.setReviewPlans(memory.selectReviewPlans(ownerId,session.getId()));return v;
     }
 

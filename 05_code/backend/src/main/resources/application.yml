@@ -46,6 +46,9 @@ app:
     stable-label-enabled: ${WORD_MEMORY_STABLE_LABEL_ENABLED:false}
   ai:
     mock-enabled: ${AI_MOCK_ENABLED:false}
+    # DeepSeek 官网价格每天北京时间 22:00 自动核验；失败时保留最后一个有效价格版本。
+    pricing-sync-enabled: ${AI_PRICING_SYNC_ENABLED:true}
+    pricing-sync-cron: "${AI_PRICING_SYNC_CRON:0 0 22 * * *}"
     personal-daily-limit: ${AI_PERSONAL_DAILY_LIMIT:10}
     global-daily-limit: ${AI_GLOBAL_DAILY_LIMIT:200}
     personal-concurrency: ${AI_PERSONAL_CONCURRENCY:1}
@@ -58,6 +61,6 @@ app:
     oss-endpoint: https://oss-cn-beijing.aliyuncs.com
     oss-bucket: let-mind-wander
     # 头像等私有图片的公网访问域名（bucket 公读时可等于 endpoint 域名）。
-    public-base-url: ${MEDIA_BASE_URL:https://5d446e9.r7.vip.cpolar.cn/api/media}
+    public-base-url: ${MEDIA_BASE_URL:https://mindkitchen.vip.cpolar.cn/api/media}
   tts:
     mock-enabled: ${TTS_MOCK_ENABLED:false}

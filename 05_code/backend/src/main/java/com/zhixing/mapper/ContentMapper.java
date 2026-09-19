@@ -12,7 +12,9 @@ import java.util.List;
 @Mapper
 public interface ContentMapper extends BaseMapper<LearningContentEntity> {
     @Select("SELECT lc.id AS content_id, cv.id AS version_id, lc.content_type, lc.stage, lc.published_at, cv.title, cv.summary, cv.body, " +
-            "cv.difficulty, cv.estimated_seconds, cv.word_term, cv.phonetic, cv.meaning, cv.example_text, cv.example_translation, " +
+            "cv.difficulty, cv.estimated_seconds, cv.word_term, " +
+            "COALESCE(NULLIF(TRIM(cv.phonetic),''),(SELECT p.phonetic FROM pronunciation p WHERE p.content_version_id=cv.id AND p.state='ready' AND p.phonetic IS NOT NULL AND TRIM(p.phonetic)!='' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,p.id LIMIT 1),'') AS phonetic, " +
+            "cv.meaning, cv.example_text, cv.example_translation, " +
             "cv.origin_url, cv.origin_author, cv.origin_published_at, cv.license_snapshot, cs.name AS source_name, cs.source_type, cs.url AS source_url, cv.article_blocks AS article_blocks_json, cv.article_audio_asset_id, cv.article_audio_voice, " +
             "lr.familiarity_percent, COALESCE(lr.version_no,0) AS record_version, " +
             "CASE WHEN lr.learning_status IN ('understood','mastered') THEN TRUE ELSE FALSE END AS understood, " +
@@ -59,6 +61,31 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
     int markUnderstood(@Param("id") String id, @Param("ownerId") String ownerId, @Param("contentId") String contentId,
                        @Param("learningKey") String learningKey, @Param("versionId") String versionId, @Param("now") Instant now);
 
+    @Insert("INSERT INTO learning_record (id,owner_id,content_id,learning_key,last_version_id,learning_status,familiarity_percent,first_completed_at,last_feedback_at,version_no) " +
+            "VALUES (#{id},#{ownerId},#{contentId},#{learningKey},#{versionId},#{status},#{familiarity}," +
+            "CASE WHEN #{status}='understood' THEN #{now} ELSE NULL END,#{now},1) " +
+            "ON DUPLICATE KEY UPDATE last_version_id=VALUES(last_version_id),learning_status=VALUES(learning_status)," +
+            "familiarity_percent=VALUES(familiarity_percent),first_completed_at=CASE WHEN VALUES(learning_status)='understood' " +
+            "THEN COALESCE(first_completed_at,VALUES(first_completed_at)) ELSE first_completed_at END," +
+            "last_feedback_at=VALUES(last_feedback_at),version_no=version_no+1")
+    int upsertWordFeedback(@Param("id") String id,@Param("ownerId") String ownerId,@Param("contentId") String contentId,
+                           @Param("learningKey") String learningKey,@Param("versionId") String versionId,
+                           @Param("status") String status,@Param("familiarity") int familiarity,@Param("now") Instant now);
+
+    @Select("SELECT id FROM learning_record WHERE owner_id=#{ownerId} AND content_id=#{contentId} LIMIT 1")
+    String selectLearningRecordId(@Param("ownerId") String ownerId, @Param("contentId") String contentId);
+
+    @Select("SELECT version_no FROM learning_record WHERE owner_id=#{ownerId} AND content_id=#{contentId} LIMIT 1")
+    Integer selectLearningRecordVersion(@Param("ownerId") String ownerId, @Param("contentId") String contentId);
+
+    @Insert("INSERT INTO learning_event (id,owner_id,record_id,record_version,task_id,event_type,feedback,business_date,occurred_at) " +
+            "VALUES (#{id},#{ownerId},#{recordId},#{recordVersion},#{taskId},'feedback',#{feedback},#{businessDate},#{occurredAt})")
+    int insertLearningEvent(@Param("id") String id, @Param("ownerId") String ownerId,
+                            @Param("recordId") String recordId, @Param("recordVersion") int recordVersion,
+                            @Param("taskId") String taskId, @Param("feedback") String feedback,
+                            @Param("businessDate") java.time.LocalDate businessDate,
+                            @Param("occurredAt") Instant occurredAt);
+
     @Insert("INSERT INTO user_favorite (id,owner_id,target_type,target_id,state,title_snapshot,favorited_at) " +
             "VALUES (#{id},#{ownerId},#{targetType},#{contentId},#{state},#{title},#{now}) " +
             "ON DUPLICATE KEY UPDATE state=VALUES(state),title_snapshot=VALUES(title_snapshot),favorited_at=VALUES(favorited_at)")
@@ -84,6 +111,17 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
             "VALUES (#{id},#{ownerId},#{knowledgeId},'active',0,#{dueDate},1)")
     int insertReview(@Param("id") String id, @Param("ownerId") String ownerId,
                      @Param("knowledgeId") String knowledgeId, @Param("dueDate") java.time.LocalDate dueDate);
+
+    @Update("UPDATE review_schedule SET state='active',stage=#{stage},due_date=#{dueDate},last_feedback_id=NULL," +
+            "version_no=version_no+1 WHERE owner_id=#{ownerId} AND knowledge_id=#{knowledgeId}")
+    int updateFeedbackSchedule(@Param("ownerId") String ownerId,@Param("knowledgeId") String knowledgeId,
+                               @Param("stage") int stage,@Param("dueDate") java.time.LocalDate dueDate);
+
+    @Insert("INSERT INTO review_schedule (id,owner_id,knowledge_id,state,stage,due_date,version_no) " +
+            "VALUES (#{id},#{ownerId},#{knowledgeId},'active',#{stage},#{dueDate},1)")
+    int insertFeedbackSchedule(@Param("id") String id,@Param("ownerId") String ownerId,
+                               @Param("knowledgeId") String knowledgeId,@Param("stage") int stage,
+                               @Param("dueDate") java.time.LocalDate dueDate);
 
     @Insert("INSERT INTO word_notebook (id,owner_id,content_id,word_key_hash,state,added_at) " +
             "SELECT #{id},#{ownerId},id,word_key_hash,#{state},#{now} FROM learning_content WHERE id=#{contentId} AND content_type='word' " +

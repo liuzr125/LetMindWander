@@ -21,7 +21,7 @@ public class AiGateway {
 
     public AiGatewayResult ask(AiRuntimeModel model,String apiKey,String question){
         if(properties.getAi().isMockEnabled()){
-            AiGatewayResult result=new AiGatewayResult();result.answer="这是测试环境的 AI 回答："+question;result.providerRequestId="mock-"+UUID.randomUUID();result.inputTokens=Math.max(1,question.length()/2);result.outputTokens=Math.max(1,result.answer.length()/2);result.usage=new LinkedHashMap<String,Object>();result.usage.put("prompt_tokens",result.inputTokens);result.usage.put("completion_tokens",result.outputTokens);return result;
+            AiGatewayResult result=new AiGatewayResult();result.answer="这是测试环境的 AI 回答："+question;result.providerRequestId="mock-"+UUID.randomUUID();result.inputTokens=Math.max(1,question.length()/2);result.outputTokens=Math.max(1,result.answer.length()/2);result.cacheMissInputTokens=result.inputTokens;result.usage=new LinkedHashMap<String,Object>();result.usage.put("prompt_tokens",result.inputTokens);result.usage.put("completion_tokens",result.outputTokens);result.usage.put("prompt_cache_hit_tokens",0);result.usage.put("prompt_cache_miss_tokens",result.inputTokens);return result;
         }
         if(model.baseUrl==null||!model.baseUrl.startsWith("https://"))throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"AI_ENDPOINT_INVALID","AI 模型地址必须使用 HTTPS");
         HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);headers.setBearerAuth(apiKey);
@@ -34,7 +34,7 @@ public class AiGateway {
             List<?> choices=(List<?>)root.get("choices");if(choices==null||choices.isEmpty())throw new IllegalStateException("missing choices");
             Map<?,?> choice=(Map<?,?>)choices.get(0);Map<?,?> message=(Map<?,?>)choice.get("message");String answer=message==null?"":String.valueOf(message.get("content")).trim();if(answer.isEmpty())throw new IllegalStateException("empty answer");
             Map<String,Object> usage=root.get("usage") instanceof Map?new LinkedHashMap<String,Object>((Map<String,Object>)root.get("usage")):new LinkedHashMap<String,Object>();
-            AiGatewayResult result=new AiGatewayResult();result.answer=answer;result.providerRequestId=root.get("id")==null?null:String.valueOf(root.get("id"));result.inputTokens=number(usage.get("prompt_tokens"));result.outputTokens=number(usage.get("completion_tokens"));result.usage=usage;return result;
+            AiGatewayResult result=new AiGatewayResult();result.answer=answer;result.providerRequestId=root.get("id")==null?null:String.valueOf(root.get("id"));result.inputTokens=number(usage.get("prompt_tokens"));result.outputTokens=number(usage.get("completion_tokens"));result.cacheHitInputTokens=number(usage.get("prompt_cache_hit_tokens"));result.cacheMissInputTokens=number(usage.get("prompt_cache_miss_tokens"));if(result.cacheHitInputTokens+result.cacheMissInputTokens<result.inputTokens)result.cacheMissInputTokens=result.inputTokens-result.cacheHitInputTokens;result.usage=usage;return result;
         }catch(HttpStatusCodeException exception){String code=exception.getStatusCode().value()==429?"AI_PROVIDER_RATE_LIMIT":"AI_PROVIDER_REJECTED";throw new ApiException(HttpStatus.BAD_GATEWAY,code,exception.getStatusCode().value()==429?"AI 服务繁忙，请稍后再试":"AI 供应商拒绝了请求，请检查模型与密钥配置");}
         catch(RestClientException exception){throw new ApiException(HttpStatus.BAD_GATEWAY,"AI_PROVIDER_ERROR","AI 服务暂时不可用，请稍后再试");}
         catch(ApiException exception){throw exception;}

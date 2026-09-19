@@ -2,49 +2,61 @@
   <view wx:if="{{loading}}" class="state">正在加载词条…</view>
   <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
   <block wx:else>
-    <text class="word">{{detail.wordTerm || detail.title}}</text>
+    <view class="word-heading">
+      <text class="word {{wordSizeClass}}">{{detail.wordTerm || detail.title}}</text>
+    </view>
+    <view class="quick-actions">
+      <button class="quick-action wordbook-action {{detail.inWordBook ? 'active' : ''}}" bindtap="toggleWordBook" disabled="{{acting}}"><text class="bookmark-icon"></text><text>生词本</text></button>
+      <button class="quick-action review-action {{detail.inReview ? 'active' : ''}}" bindtap="toggleReview" disabled="{{acting}}"><text class="review-icon"></text><text>复习</text></button>
+    </view>
     <view class="pronounce">
-      <text wx:if="{{phoneticText}}" class="phonetic">{{phoneticText}}</text>
-      <view class="play-row">
-        <button class="play-btn" bindtap="play" data-accent="uk"><text class="play-icon"></text>英式发音</button>
-        <button class="play-btn" bindtap="play" data-accent="us"><text class="play-icon"></text>美式发音</button>
+      <view wx:if="{{headerPronunciations.length}}" class="play-row">
+        <button wx:for="{{headerPronunciations}}" wx:key="accent" class="play-btn" bindtap="play" data-accent="{{item.accent}}"><text class="accent-badge">{{item.accent === 'uk' ? '英' : item.accent === 'us' ? '美' : item.accent}}</text><text class="header-phonetic">{{item.displayPhonetic}}</text><text class="header-play-icon"></text></button>
       </view>
+      <text wx:elif="{{phoneticText}}" class="phonetic">{{phoneticText}}</text>
     </view>
     <text class="translation">{{detail.meaning}}</text>
     <view class="tags"><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text>{{detail.stage === 'primary' ? '小学' : detail.stage === 'junior' ? '初中' : detail.stage === 'senior' ? '高中' : '通用'}}</text></view>
     <view class="card">
-      <text class="card-title">释义</text>
+      <view class="card-head"><text class="card-title">释义</text><picker wx:if="{{detail.senses.length}}" mode="selector" range="{{exampleAccentOptions}}" value="{{exampleAccentIndex}}" bindchange="changeExampleAccent"><view class="accent-picker">例句发音 · {{exampleAccentOptions[exampleAccentIndex]}}⌄</view></picker></view>
       <block wx:if="{{detail.senses.length}}">
         <view wx:for="{{detail.senses}}" wx:for-item="sense" wx:for-index="senseIndex" wx:key="id" class="sense-block">
           <view class="sense"><text class="pos">{{sense.partOfSpeech}}</text><text>{{sense.meaning}}</text></view>
-          <block wx:for="{{sense.examples}}" wx:for-item="example" wx:for-index="exampleIndex" wx:key="id">
-            <view wx:if="{{example.sentence !== displayExample}}" class="sense-example"><view class="sense-example-copy"><text>{{example.sentence}}</text><text class="example-translation">{{example.translation}}</text></view><view wx:if="{{example.pronunciations.length}}" class="example-play" hover-class="example-play-pressed" data-sense="{{senseIndex}}" data-example="{{exampleIndex}}" bindtap="playExample"><text class="play-icon"></text></view></view>
-          </block>
         </view>
       </block>
       <text wx:else class="meaning">{{detail.meaning}}</text>
     </view>
-    <view class="card">
+    <view wx:if="{{hasSenseExamples}}" class="card example-section">
+      <text class="card-title">例句</text>
+      <block wx:for="{{detail.senses}}" wx:for-item="sense" wx:for-index="senseIndex" wx:key="id">
+        <block wx:for="{{sense.examples}}" wx:for-item="example" wx:for-index="exampleIndex" wx:key="id">
+          <view class="sense-example"><view class="example-line"><text class="sentence">{{example.sentence}}</text><button wx:if="{{example.selectedPronunciation}}" class="example-audio" data-sense="{{senseIndex}}" data-example="{{exampleIndex}}" data-accent="{{example.selectedAccent}}" bindtap="playExample"><text class="header-play-icon"></text></button></view><text class="example-translation">{{example.translation}}</text><text wx:if="{{example.accentFallback}}" class="accent-fallback">所选口音缺失，已播放{{example.selectedAccent === 'uk' ? '英式' : '美式'}}音频</text></view>
+        </block>
+      </block>
+    </view>
+    <view wx:elif="{{!detail.senses.length}}" class="card">
       <text class="card-title">例句</text>
       <view class="example-card-content">
         <view class="example-copy"><text class="sentence">{{displayExample}}</text><text class="example-translation">{{displayExampleTranslation}}</text></view>
-        <view class="example-play" hover-class="example-play-pressed" bindtap="playDisplayExample"><text class="play-icon"></text></view>
       </view>
     </view>
-    <view class="card source"><text class="card-title">来源</text><text>{{detail.originAuthor || '课程词表整理'}}</text></view>
-    <view wx:if="{{memoryEnabled}}" class="card memory-card">
+    <!-- 来源卡片：暂隐藏（恢复时删掉 wx:if="{{false}}"） -->
+    <view wx:if="{{false}}" class="card source"><text class="card-title">来源</text><text>{{detail.originAuthor || '课程词表整理'}}</text></view>
+    <!-- 记忆提示卡片：暂隐藏（原条件 wx:if="{{memoryEnabled}}"） -->
+    <view wx:if="{{false}}" class="card memory-card">
       <view class="memory-title" bindtap="toggleMemoryHint"><view><text class="card-title">记忆提示</text><text class="memory-caption">构词依据与自编联想会明确标识</text></view><text>{{memoryHintOpen ? '收起' : '展开'}}</text></view>
       <block wx:if="{{memoryHintOpen}}">
-        <view wx:for="{{memoryHints}}" wx:key="id" class="memory-hint"><view class="memory-meta"><text>{{item.methodType}}</text><text>{{item.sourceType === 'editorial' ? '人工审核' : item.sourceType}}</text></view><text>{{item.body}}</text></view>
-        <text wx:if="{{!memoryHints.length}}" class="memory-empty">暂无已审核记忆提示</text>
+        <view wx:for="{{memoryHints}}" wx:key="id" class="memory-hint"><view class="memory-meta"><text>{{item.methodType}}</text><text>✓ 已审核</text></view><text>{{item.body}}</text></view>
+        <text wx:if="{{!memoryHints.length}}" class="memory-empty">暂无已审核提示，仍可进行基础训练</text>
       </block>
-      <button class="memory-start" bindtap="startMemory">遮住测一测</button>
-      <text class="memory-note">训练完成不等于“已理解”，也不会自动加入复习。</text>
     </view>
-    <view class="card action" bindtap="explain">
+    <!-- 解释当前内容卡片：暂隐藏（恢复时删掉 wx:if="{{false}}"） -->
+    <view wx:if="{{false}}" class="card action" bindtap="explain">
       <view><text class="card-title">解释当前内容</text><text>AI 辅助</text></view><text>›</text>
     </view>
-    <view class="familiarity"><view class="familiarity-head"><text>熟悉度　自评</text><text class="percent">{{familiarityText}}</text></view><slider min="0" max="100" step="5" value="{{detail.familiarityPercent || 0}}" activeColor="#0869f7" backgroundColor="#dce8fa" block-size="18" bindchange="familiarityChanged" /></view>
-    <view class="bottom-actions"><button bindtap="toggleWordBook">{{detail.inWordBook ? '✓ 已在生词本' : '▣ 加入生词本'}}</button><button class="primary" bindtap="understood" disabled="{{detail.understood}}">{{detail.understood ? '熟悉' : '认识'}}</button><button class="review" bindtap="toggleReview">{{detail.inReview ? '✓ 复习中' : '＋ 加入复习'}}</button></view>
+    <view class="bottom-actions">
+      <text class="feedback-note">按真实记忆选择，保存后进入下一词</text>
+      <view class="feedback-buttons"><button class="unclear" data-value="unclear" bindtap="rateWord" loading="{{acting}}" disabled="{{acting}}">不认识</button><button class="fuzzy" data-value="fuzzy" bindtap="rateWord" disabled="{{acting}}">模糊</button><button class="remember" data-value="remember" bindtap="rateWord" disabled="{{acting}}">认识</button></view>
+    </view>
   </block>
 </view>

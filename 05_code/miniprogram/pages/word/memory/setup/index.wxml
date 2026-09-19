@@ -1,10 +1,25 @@
 <view class="page">
-  <text class="title">本轮训练</text><text class="subtitle">每组最多 5 词；当前从详情页练习 1 词</text>
-  <view class="card"><text class="card-title">必测维度</text>
-    <view class="option {{meaning ? 'selected' : ''}}" data-key="meaning" bindtap="toggleDimension"><view><text>认义</text><text class="desc">看英文，主动回忆审核释义</text></view><text>{{meaning ? '✓' : ''}}</text></view>
-    <view class="option {{spelling ? 'selected' : ''}}" data-key="spelling" bindtap="toggleDimension"><view><text>拼写</text><text class="desc">看中文，拼写目标英文词</text></view><text>{{spelling ? '✓' : ''}}</text></view>
-  </view>
-  <view class="card review"><view><text class="card-title">本轮新词加入复习</text><text class="desc">默认关闭；打开后只对已练词生效</text></view><switch checked="{{addToReview}}" bindchange="toggleReview" color="#315c45" /></view>
-  <view class="notice"><text>练习完成、已理解、加入生词本和加入复习是四个独立动作。</text></view>
-  <button class="primary" loading="{{acting}}" disabled="{{acting}}" bindtap="start">开始记忆训练</button>
+  <text class="title">单词记忆测试</text>
+  <text class="subtitle">只测试已经学习过的单词，每轮最多 {{sources.maxBatchSize || 5}} 词</text>
+  <view wx:if="{{loading}}" class="state">正在统计可测试单词…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="loadSources">重新加载</button></view>
+  <block wx:else>
+    <view class="card source-card">
+      <text class="card-title">单词来源</text>
+      <text class="source-help">默认测试当天学过的单词，也可以切换到当前词书。</text>
+      <view class="option {{source === 'today' ? 'selected' : ''}} {{!sources.todayLearnedCount ? 'disabled' : ''}}" data-value="today" bindtap="selectSource">
+        <view><text>今日已学</text><text class="desc">{{sources.businessDate}} · {{sources.todayLearnedCount}} 个可测试</text></view><text>{{source === 'today' ? '✓' : ''}}</text>
+      </view>
+      <view class="option {{source === 'current_book' ? 'selected' : ''}} {{!sources.currentBookLearnedCount ? 'disabled' : ''}}" data-value="current_book" bindtap="selectSource">
+        <view><text>当前词书已学</text><text class="desc">{{sources.currentBookName || '尚未选择词书'}} · {{sources.currentBookLearnedCount || 0}} 个可测试</text></view><text>{{source === 'current_book' ? '✓' : ''}}</text>
+      </view>
+    </view>
+    <view class="card"><text class="card-title">必测维度</text>
+      <view class="option {{meaning ? 'selected' : ''}}" data-key="meaning" bindtap="toggleDimension"><view><text>认义</text><text class="desc">看英文，主动回忆审核释义</text></view><text>{{meaning ? '✓' : ''}}</text></view>
+      <view class="option {{spelling ? 'selected' : ''}}" data-key="spelling" bindtap="toggleDimension"><view><text>拼写</text><text class="desc">看中文，拼写目标英文词</text></view><text>{{spelling ? '✓' : ''}}</text></view>
+    </view>
+    <view class="card review"><view><text class="card-title">本轮单词加入复习</text><text class="desc">默认关闭；打开后只对实际完成测试的单词生效</text></view><switch checked="{{addToReview}}" bindchange="toggleReview" color="#315c45" /></view>
+    <view class="notice"><text>测试不会把单词自动标记为“认识”；提示和看答案也不会计作独立答对。</text></view>
+    <button class="primary" loading="{{acting}}" disabled="{{acting}}" bindtap="start">开始测试</button>
+  </block>
 </view>

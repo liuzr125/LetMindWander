@@ -5,6 +5,7 @@ Page({
   data: { loading: true, acting: false, audioLoading: false, error: '', contentId: '', taskId: '', taskVersion: 1, detail: null, showTranslation: true, publishedDate: '', speeds: [0.75, 1, 1.25, 1.5], speed: 1, articlePlaying: false, selectedWord: null, recording: false, recordPath: '', recordUrl: '', recordPlaying: false, recordUploading: false, recordSaved: false, recordDurationMs: 0 },
   onLoad(options) {
     this.articleAudio = wx.createInnerAudioContext(); this.wordAudio = wx.createInnerAudioContext(); this.recordAudio = wx.createInnerAudioContext();
+    [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => { audio.obeyMuteSwitch = false; });
     this.articleAudio.onEnded(() => this.setData({ articlePlaying: false })); this.articleAudio.onStop(() => this.setData({ articlePlaying: false }));
     this.recordAudio.onEnded(() => this.setData({ recordPlaying: false })); this.recordAudio.onStop(() => this.setData({ recordPlaying: false }));
     this.recorder = wx.getRecorderManager(); this.recorder.onStop((result) => this.handleRecordingStopped(result));
@@ -26,7 +27,7 @@ Page({
     if (url) return this.startArticleAudio(url);
     this.setData({ audioLoading: true }); contentService.speech(this.data.contentId).then((result) => { this.setData({ audioLoading: false, 'detail.articleAudioUrl': result.audioUrl }); this.startArticleAudio(result.audioUrl); }).catch((error) => { this.setData({ audioLoading: false }); wx.showToast({ title: error.message || '音频生成失败', icon: 'none', duration: 3000 }); });
   },
-  startArticleAudio(url) { this.articleAudio.src = url; this.articleAudio.playbackRate = this.data.speed; this.articleAudio.play(); this.setData({ articlePlaying: true }); },
+  startArticleAudio(url) { this.articleAudio.stop(); this.articleAudio.src = url; this.articleAudio.playbackRate = this.data.speed; this.articleAudio.play(); this.setData({ articlePlaying: true }); },
   playWord() { const word = this.data.selectedWord; const target = word && (word.contentId || word.speechKey); if (!target) return wx.showToast({ title: '该词暂无词典数据', icon: 'none' }); if (word.audioUrl) return this.startWordAudio(word.audioUrl); contentService.speech(target).then((result) => { this.setData({ 'selectedWord.audioUrl': result.audioUrl }); this.startWordAudio(result.audioUrl); }).catch((error) => wx.showToast({ title: error.message || '单词发音失败', icon: 'none' })); },
   startWordAudio(url) { this.wordAudio.stop(); this.wordAudio.src = url; this.wordAudio.playbackRate = 1; this.wordAudio.play(); },
   ensureFollowConsent() { if (wx.getStorageSync(FOLLOW_CONSENT_KEY)) return Promise.resolve(); return new Promise((resolve, reject) => wx.showModal({ title: '保存跟读录音到云端', content: '录音将上传至阿里云 OSS 私有存储，仅本人可访问。同一短文的新录音会替换旧录音，你可随时删除。是否同意？', confirmText: '同意并录音', success: (result) => { if (!result.confirm) { const error = new Error('已取消'); error.cancelled = true; reject(error); return; } authService.consent({ purpose: 'follow_recording_upload', documentVersion: 'FOLLOW_RECORDING_V1', decision: 'grant' }).then(() => { wx.setStorageSync(FOLLOW_CONSENT_KEY, true); resolve(); }).catch(reject); }, fail: reject })); },

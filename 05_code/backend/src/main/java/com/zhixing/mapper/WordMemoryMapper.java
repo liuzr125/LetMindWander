@@ -8,8 +8,55 @@ import java.util.List;
 
 @Mapper
 public interface WordMemoryMapper {
+    @Select("SELECT COUNT(DISTINCT lr.content_id) FROM learning_event le " +
+            "JOIN learning_record lr ON lr.id=le.record_id AND lr.owner_id=le.owner_id " +
+            "JOIN learning_content lc ON lc.id=lr.content_id AND lc.content_type='word' AND lc.state='published' " +
+            "JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' " +
+            "WHERE le.owner_id=#{ownerId} AND le.business_date=#{businessDate}")
+    int countTodayLearned(@Param("ownerId") String ownerId,@Param("businessDate") LocalDate businessDate);
+
+    @Select("SELECT lr.content_id FROM learning_event le " +
+            "JOIN learning_record lr ON lr.id=le.record_id AND lr.owner_id=le.owner_id " +
+            "JOIN learning_content lc ON lc.id=lr.content_id AND lc.content_type='word' AND lc.state='published' " +
+            "JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' " +
+            "WHERE le.owner_id=#{ownerId} AND le.business_date=#{businessDate} " +
+            "GROUP BY lr.content_id ORDER BY MAX(le.occurred_at) DESC LIMIT #{limit}")
+    List<String> selectTodayLearnedContentIds(@Param("ownerId") String ownerId,@Param("businessDate") LocalDate businessDate,
+                                               @Param("limit") int limit);
+
+    @Select("SELECT vb.id AS current_book_id,vb.book_name AS current_book_name," +
+            "COUNT(DISTINCT CASE WHEN cv.id IS NOT NULL AND lr.id IS NOT NULL AND lr.learning_status IN ('learning','understood','mastered') THEN lc.id END) AS current_book_learned_count " +
+            "FROM user_vocabulary_book uvb JOIN vocabulary_book vb ON vb.id=uvb.book_id AND vb.state='active' " +
+            "LEFT JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id " +
+            "LEFT JOIN learning_content lc ON lc.id=vbw.content_id AND lc.content_type='word' AND lc.state='published' " +
+            "LEFT JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' " +
+            "LEFT JOIN learning_record lr ON lr.owner_id=uvb.owner_id AND lr.content_id=lc.id " +
+            "WHERE uvb.owner_id=#{ownerId} AND uvb.state='active' GROUP BY vb.id,vb.book_name LIMIT 1")
+    WordMemorySourceSummaryView selectCurrentBookSource(@Param("ownerId") String ownerId);
+
+    @Select("SELECT lc.id FROM user_vocabulary_book uvb " +
+            "JOIN vocabulary_book vb ON vb.id=uvb.book_id AND vb.state='active' " +
+            "JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id " +
+            "JOIN learning_content lc ON lc.id=vbw.content_id AND lc.content_type='word' AND lc.state='published' " +
+            "JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' " +
+            "JOIN learning_record lr ON lr.owner_id=uvb.owner_id AND lr.content_id=lc.id " +
+            "WHERE uvb.owner_id=#{ownerId} AND uvb.state='active' AND lr.learning_status IN ('learning','understood','mastered') " +
+            "ORDER BY lr.last_feedback_at DESC,vbw.sort_no,lc.id LIMIT #{limit}")
+    List<String> selectCurrentBookLearnedContentIds(@Param("ownerId") String ownerId,@Param("limit") int limit);
+
+    @Select({"<script>",
+            "SELECT DISTINCT lr.content_id FROM learning_record lr ",
+            "JOIN learning_content lc ON lc.id=lr.content_id AND lc.content_type='word' AND lc.state='published' ",
+            "JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' ",
+            "WHERE lr.owner_id=#{ownerId} AND lr.learning_status IN ('learning','understood','mastered') ",
+            "AND lr.content_id IN ",
+            "<foreach collection='contentIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "</script>"})
+    List<String> selectEligibleLearnedContentIds(@Param("ownerId") String ownerId,@Param("contentIds") List<String> contentIds);
+
     @Select("SELECT h.id,h.content_version_id,h.sense_id,h.method_type,h.hint_body AS body,h.level_code,h.source_type,h.hint_version AS version " +
             "FROM word_memory_hint h JOIN learning_content lc ON lc.published_version_id=h.content_version_id " +
+            "JOIN content_version cv ON cv.id=h.content_version_id AND cv.review_status='approved' " +
             "WHERE lc.id=#{contentId} AND lc.content_type='word' AND lc.state='published' AND h.state='published' AND h.withdrawn_at IS NULL " +
             "AND (#{senseId} IS NULL OR h.sense_id=#{senseId}) ORDER BY h.sense_id,h.method_type,h.hint_version DESC")
     List<WordMemoryHintView> selectHints(@Param("contentId") String contentId,@Param("senseId") String senseId);
@@ -18,9 +65,21 @@ public interface WordMemoryMapper {
             "q.accepted_answers_json,q.answer_policy,q.hint_text,q.question_version,lc.id AS content_id,cv.word_term,cv.meaning " +
             "FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id " +
             "JOIN word_memory_question q ON q.content_version_id=cv.id " +
-            "WHERE lc.id=#{contentId} AND lc.content_type='word' AND lc.state='published' AND q.dimension=#{dimension} " +
+            "WHERE lc.id=#{contentId} AND lc.content_type='word' AND lc.state='published' AND cv.review_status='approved' AND q.dimension=#{dimension} " +
             "AND q.state='published' AND q.withdrawn_at IS NULL ORDER BY q.question_version DESC,q.id LIMIT 1")
     WordMemoryEpisodeRow selectQuestion(@Param("contentId") String contentId,@Param("dimension") String dimension);
+
+    @Select("SELECT lc.id AS content_id,cv.id AS content_version_id,"+
+            "(SELECT ws.id FROM word_sense ws WHERE ws.content_version_id=cv.id ORDER BY ws.sort_no,ws.id LIMIT 1) AS sense_id,"+
+            "cv.word_term,cv.meaning FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id "+
+            "WHERE lc.id=#{contentId} AND lc.content_type='word' AND lc.state='published' AND cv.review_status='approved'")
+    WordMemoryEpisodeRow selectApprovedWordBase(@Param("contentId") String contentId);
+
+    @Insert("INSERT INTO word_memory_question(id,content_version_id,sense_id,dimension,prompt_text,expected_answer,answer_policy,audio_required,state,question_version,created_at,updated_at) "+
+            "VALUES(#{id},#{contentVersionId},#{senseId},#{dimension},#{promptText},#{expectedAnswer},#{answerPolicy},0,'published',1000000,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+    int insertGeneratedBaseQuestion(@Param("id")String id,@Param("contentVersionId")String contentVersionId,
+            @Param("senseId")String senseId,@Param("dimension")String dimension,@Param("promptText")String promptText,
+            @Param("expectedAnswer")String expectedAnswer,@Param("answerPolicy")String answerPolicy);
 
     @Select("SELECT COUNT(*) FROM daily_task WHERE id=#{taskId} AND owner_id=#{ownerId} AND content_id=#{contentId} " +
             "AND task_type='word' AND status NOT IN ('CANCELLED','DONE')")
@@ -108,8 +167,8 @@ public interface WordMemoryMapper {
     List<WordMemoryReviewPlanView> selectReviewPlans(@Param("ownerId") String ownerId,@Param("sessionId") String sessionId);
 
     @Insert("INSERT INTO word_memory_evidence (id,owner_id,content_id,sense_id,dimension,business_date,episode_id,first_attempt_id," +
-            "first_result,hint_used,rule_version) SELECT #{id},s.owner_id,e.content_id,e.sense_id,e.dimension,s.business_date,e.id,a.id," +
-            "e.first_result,e.hint_used,#{ruleVersion} FROM word_memory_episode e JOIN word_memory_session s ON s.id=e.session_id " +
+            "first_result,hint_used,answer_revealed,rule_version) SELECT #{id},s.owner_id,e.content_id,e.sense_id,e.dimension,s.business_date,e.id,a.id," +
+            "e.first_result,e.hint_used,e.answer_revealed,#{ruleVersion} FROM word_memory_episode e JOIN word_memory_session s ON s.id=e.session_id " +
             "JOIN word_memory_attempt a ON a.episode_id=e.id AND a.first_attempt=1 WHERE e.id=#{episodeId} AND e.first_result IS NOT NULL " +
             "AND NOT EXISTS (SELECT 1 FROM word_memory_evidence x WHERE x.episode_id=e.id)")
     int insertEvidence(@Param("id") String id,@Param("episodeId") String episodeId,@Param("ruleVersion") String ruleVersion);

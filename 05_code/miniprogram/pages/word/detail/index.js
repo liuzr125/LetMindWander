@@ -1,85 +1,109 @@
 const { contentService, dailyTaskService, wordMemoryService } = require('../../../services/index');
 const { formatDate } = require('../../../utils/date');
+const EXAMPLE_ACCENT_KEY = 'word_example_accent_v1';
+const WORD_BROWSE_QUEUE_KEY = 'word_learning_queue_v1';
 
 Page({
-  data: { loading: true, error: '', detail: null, contentId: '', taskId: '', taskVersion: 1, acting: false, displayExample: '', displayExampleTranslation: '', familiarityText: '未设置', memoryEnabled: false, memoryHints: [], memoryHintOpen: true },
-  onLoad(options) { this.setData({ contentId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.version) || 1 }); this.load(); this.loadWordQueue(); },
+  data: { loading: true, error: '', detail: null, contentId: '', taskId: '', taskVersion: 1, acting: false, displayExample: '', displayExampleTranslation: '', wordSizeClass: '', headerPronunciations: [], hasSenseExamples: false, memoryEnabled: false, memoryHints: [], memoryHintOpen: true, exampleAccent: 'uk', exampleAccentIndex: 0, exampleAccentOptions: ['英式', '美式'] },
+  onLoad(options) { const savedAccent = wx.getStorageSync(EXAMPLE_ACCENT_KEY) === 'us' ? 'us' : 'uk'; this.setData({ contentId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.version) || 1, exampleAccent: savedAccent, exampleAccentIndex: savedAccent === 'us' ? 1 : 0 }); this.load(); this.loadWordQueue(); },
   onUnload() { this.stopAudio(); },
   onHide() { this.stopAudio(); },
   load() { contentService.get(this.data.contentId).then((detail) => { this.setDetail(detail); this.loadMemory(); }).catch((error) => this.setData({ loading: false, error: error.message || '词条加载失败' })); },
   loadMemory() { wordMemoryService.config().then((config) => { this.setData({ memoryEnabled: !!config.enabled }); if (config.enabled) return wordMemoryService.hints(this.data.contentId).then((memoryHints) => this.setData({ memoryHints: memoryHints || [] })); }).catch(() => this.setData({ memoryEnabled: false, memoryHints: [] })); },
   toggleMemoryHint() { this.setData({ memoryHintOpen: !this.data.memoryHintOpen }); },
-  startMemory() {
-    const returnTo = `/pages/word/detail/index?id=${encodeURIComponent(this.data.contentId)}${this.data.taskId ? `&taskId=${encodeURIComponent(this.data.taskId)}&version=${this.data.taskVersion}` : ''}`;
-    wx.navigateTo({ url: `/pages/word/memory/setup/index?contentId=${encodeURIComponent(this.data.contentId)}&taskId=${encodeURIComponent(this.data.taskId || '')}&returnTo=${encodeURIComponent(returnTo)}` });
+  loadWordQueue() {
+    const cached = wx.getStorageSync(WORD_BROWSE_QUEUE_KEY) || {};
+    this.browseWordQueue = Date.now() - Number(cached.createdAt || 0) < 6 * 60 * 60 * 1000 ? (cached.ids || []) : [];
+    dailyTaskService.day(formatDate(new Date())).then((pack) => { this.wordQueue = (pack.tasks || []).filter((t) => t.taskType === 'word' && t.status !== 'CANCELLED'); }).catch(() => { this.wordQueue = []; });
   },
-  loadWordQueue() { dailyTaskService.day(formatDate(new Date())).then((pack) => { this.wordQueue = (pack.tasks || []).filter((t) => t.taskType === 'word' && t.status !== 'CANCELLED'); }).catch(() => { this.wordQueue = []; }); },
   play(e) {
     const accent = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.accent) || 'uk';
-    const url = this.findAudioUrl(accent);
-    if (!url) { wx.showToast({ title: '该词条暂未配置音频', icon: 'none' }); return; }
-    this.stopAudio(); const ctx = wx.createInnerAudioContext(); this.audioContext = ctx;
+    const pronunciation = (this.data.headerPronunciations || []).find((item) => item.accent === accent && item.audioUrl);
+    this.playAudio(pronunciation && pronunciation.audioUrl, '该词条暂未配置该口音音频', { scope: pronunciation && pronunciation.scope || 'word', senseId: pronunciation && pronunciation.senseId, accent, assetId: pronunciation && pronunciation.assetId });
+  },
+  playAudio(url, emptyMessage, diagnostics) {
+    if (!url) { wx.showToast({ title: emptyMessage || '暂未配置音频', icon: 'none' }); return; }
+    this.stopAudio(); const ctx = wx.createInnerAudioContext(); this.audioContext = ctx; ctx.obeyMuteSwitch = false;
     ctx.src = url;
+    ctx.onError((error) => {
+      let client = {};
+      try { const system = wx.getSystemInfoSync(); client = { platform: system.platform, system: system.system, version: system.version, SDKVersion: system.SDKVersion }; } catch (ignored) {}
+      console.error('[word-audio-play-failed]', Object.assign({ contentId: this.data.contentId, errMsg: error && error.errMsg, errCode: error && error.errCode, client }, diagnostics || {}));
+      wx.showToast({ title: '音频播放失败，请稍后重试', icon: 'none' }); this.stopAudio();
+    });
+    ctx.onEnded(() => this.stopAudio());
     ctx.play();
-    ctx.onError(() => { wx.showToast({ title: '音频播放失败', icon: 'none' }); this.stopAudio(); });
-    ctx.onEnded(() => this.stopAudio());
   },
-  findAudioUrl(accent) {
-    const common = ((this.data.detail && this.data.detail.pronunciations) || []).find((p) => p.accent === accent && p.audioUrl);
-    if (common) return common.audioUrl;
-    const senses = (this.data.detail && this.data.detail.senses) || [];
-    for (const sense of senses) {
-      const hit = (sense.pronunciations || []).find((p) => p.accent === accent && p.audioUrl);
-      if (hit) return hit.audioUrl;
-    }
-    return '';
+  playExample(event) {
+    const sense = ((this.data.detail && this.data.detail.senses) || [])[Number(event.currentTarget.dataset.sense)] || {};
+    const example = (sense.examples || [])[Number(event.currentTarget.dataset.example)] || {};
+    const accent = event.currentTarget.dataset.accent;
+    const hit = (example.pronunciations || []).find((item) => item.accent === accent && item.audioUrl);
+    this.playAudio(hit && hit.audioUrl, '该例句暂未配置该口音音频', { scope: 'example', exampleId: example.id, senseId: sense.id, accent, assetId: hit && hit.assetId });
   },
-  playExample(event) { const senseIndex=Number(event.currentTarget.dataset.sense),exampleIndex=Number(event.currentTarget.dataset.example);const example=((this.data.detail.senses||[])[senseIndex]||{}).examples||[];const target=example[exampleIndex]||{};const hit=(target.pronunciations||[]).find((p)=>p.audioUrl);if(!hit)return wx.showToast({title:'该例句暂未配置音频',icon:'none'});this.stopAudio();const ctx=wx.createInnerAudioContext();this.audioContext=ctx;ctx.src=hit.audioUrl;ctx.play();ctx.onError(()=>{wx.showToast({title:'音频播放失败',icon:'none'});this.stopAudio();});ctx.onEnded(()=>this.stopAudio()); },
-  playDisplayExample() {
-    const senses = (this.data.detail && this.data.detail.senses) || [];
-    const examples = [];
-    senses.forEach((sense) => (sense.examples || []).forEach((example) => examples.push(example)));
-    const displayed = this.data.displayExample;
-    const target = examples.find((example) => example.sentence === displayed && (example.pronunciations || []).some((item) => item.audioUrl));
-    const pronunciation = target && (target.pronunciations || []).find((item) => item.audioUrl);
-    if (!pronunciation) return wx.showToast({ title: '该例句暂未配置音频', icon: 'none' });
-    this.stopAudio();
-    const ctx = wx.createInnerAudioContext(); this.audioContext = ctx; ctx.src = pronunciation.audioUrl; ctx.play();
-    ctx.onError(() => { wx.showToast({ title: '音频播放失败', icon: 'none' }); this.stopAudio(); });
-    ctx.onEnded(() => this.stopAudio());
+  changeExampleAccent(event) {
+    const index = Number(event.detail.value) === 1 ? 1 : 0; const accent = index === 1 ? 'us' : 'uk';
+    wx.setStorageSync(EXAMPLE_ACCENT_KEY, accent);
+    this.setData({ exampleAccent: accent, exampleAccentIndex: index, detail: this.withExampleAccent(this.data.detail, accent) });
   },
   stopAudio(){if(this.audioContext){try{this.audioContext.stop();this.audioContext.destroy();}catch(error){}this.audioContext=null;}},
   toggleWordBook() { this.act(() => contentService.wordBook(this.data.contentId, !this.data.detail.inWordBook), '生词本已更新', false); },
   toggleReview() { this.act(() => contentService.review(this.data.contentId, !this.data.detail.inReview), '复习计划已更新', false); },
   understood() { this.act(() => contentService.understood(this.data.contentId, { taskId: this.data.taskId || null, expectedVersion: this.data.taskVersion }), '', true); },
+  rateWord(event) {
+    if (this.data.acting) return;
+    const feedback = event.currentTarget.dataset.value;
+    const task = this.currentWordTask();
+    const payload = { feedback, taskId: this.data.taskId || (task && task.id) || null, expectedVersion: this.data.taskId ? this.data.taskVersion : (task && task.versionNo) };
+    this.act(() => contentService.feedback(this.data.contentId, payload), '', true);
+  },
+  currentWordTask() { return (this.wordQueue || []).find((task) => task.id === this.data.taskId || task.contentId === this.data.contentId); },
   familiarityChanged(event) { const value=Number(event.detail.value);this.act(()=>contentService.familiarity(this.data.contentId,value,this.data.detail.recordVersion||0),'熟悉度已保存',false); },
   explain() { wx.showModal({ title: 'AI 解释', content: 'AI 入口尚未获得发送授权，本页不会静默发送词条内容。', showCancel: false }); },
   act(action, message, advance) { if (this.data.acting) return; this.setData({ acting: true }); action().then((detail) => { this.setDetail(detail); if (message) wx.showToast({ title: message, icon: 'success' }); if(advance)setTimeout(() => this.advanceToNext(), 600); }).catch((error) => wx.showToast({ title: error.message || '操作失败', icon: 'none' })).finally(() => this.setData({ acting: false })); },
   advanceToNext() {
     const queue = this.wordQueue || [];
     const idx = queue.findIndex((t) => t.id === this.data.taskId || t.contentId === this.data.contentId);
-    if (idx < 0) return;
-    const current = queue[idx];
-    if (current && current.status === 'DONE') return;
-    const next = queue.slice(idx + 1).find((t) => t.status !== 'DONE' && t.status !== 'SKIPPED');
-    if (next) {
-      wx.redirectTo({ url: `/pages/word/detail/index?id=${next.contentId}&taskId=${next.id}&version=${next.versionNo}` });
-    } else {
-      setTimeout(() => wx.navigateBack(), 500);
+    if (idx >= 0) {
+      const next = queue.slice(idx + 1).find((t) => t.status !== 'DONE' && t.status !== 'SKIPPED');
+      if (next) return wx.redirectTo({ url: `/pages/word/detail/index?id=${next.contentId}&taskId=${next.id}&version=${next.versionNo}` });
     }
+    const browseQueue = this.browseWordQueue || [];
+    const browseIndex = browseQueue.indexOf(this.data.contentId);
+    const nextContentId = browseIndex >= 0 ? browseQueue.slice(browseIndex + 1).find((id) => id && id !== this.data.contentId) : null;
+    if (nextContentId) return wx.redirectTo({ url: `/pages/word/detail/index?id=${encodeURIComponent(nextContentId)}&returnTo=learn` });
+    setTimeout(() => wx.navigateBack(), 500);
   },
   setDetail(detail) {
+    detail = this.withExampleAccent(detail, this.data.exampleAccent);
     const firstSense = (detail.senses || [])[0] || {};
     const firstExample = (firstSense.examples || [])[0] || {};
+    const commonPronunciations = (detail.pronunciations || []).filter((item) => item.audioUrl).map((item) => Object.assign({}, item, { scope: 'word' }));
+    const sensePronunciations = (firstSense.pronunciations || []).filter((item) => item.audioUrl).map((item) => Object.assign({}, item, { scope: 'sense', senseId: firstSense.id }));
+    const headerPronunciations = [];
+    commonPronunciations.concat(sensePronunciations).forEach((item) => {
+      if (!headerPronunciations.some((current) => current.accent === item.accent)) headerPronunciations.push(Object.assign({}, item, { displayPhonetic: item.phonetic || this.accentPhonetic(detail.phonetic, item.accent) }));
+    });
     this.setData({
       detail,
+      wordSizeClass: this.wordSizeClass(detail.wordTerm || detail.title),
+      headerPronunciations,
+      hasSenseExamples: (detail.senses || []).some((sense) => (sense.examples || []).length),
       phoneticText: this.formatPhonetic(detail.phonetic),
       displayExample: detail.exampleText || firstExample.sentence || '暂无例句',
       displayExampleTranslation: detail.exampleTranslation || firstExample.translation || '',
-      familiarityText: detail.familiarityPercent == null ? '未设置' : `${detail.familiarityPercent}%`,
       loading: false,
       error: ''
     });
+  },
+  withExampleAccent(detail, accent) {
+    if (!detail) return detail;
+    const senses = (detail.senses || []).map((sense) => Object.assign({}, sense, { examples: (sense.examples || []).map((example) => {
+      const available = (example.pronunciations || []).filter((item) => item.audioUrl);
+      const selected = available.find((item) => item.accent === accent) || available[0] || null;
+      return Object.assign({}, example, { selectedPronunciation: selected, selectedAccent: selected && selected.accent, accentFallback: !!selected && selected.accent !== accent });
+    }) }));
+    return Object.assign({}, detail, { senses });
   },
   formatPhonetic(ph) {
     if (!ph) return '';
@@ -92,5 +116,23 @@ Page({
     if (uk && us) return `${uk}（英式发音） | ${us}（美式发音）`;
     if (uk || us) return `${uk || us}（${uk ? '英式发音' : '美式发音'}）`;
     return ph;
+  },
+  accentPhonetic(ph, accent) {
+    if (!ph) return '';
+    let fallback = '';
+    (ph.split('|')).forEach((part) => {
+      const value = part.trim();
+      const match = value.match(/^(UK|US)[\s:：]*(\S.*)$/);
+      if (!match) { if (!fallback) fallback = value; return; }
+      if ((accent === 'uk' && match[1] === 'UK') || (accent === 'us' && match[1] === 'US')) fallback = match[2];
+    });
+    return fallback;
+  },
+  wordSizeClass(word) {
+    const length = Array.from(word || '').length;
+    if (length > 16) return 'word-xlong';
+    if (length > 12) return 'word-long';
+    if (length > 8) return 'word-medium';
+    return 'word-regular';
   }
 });

@@ -86,6 +86,7 @@ public class AppProperties {
 
     public static class Ai {
         private boolean mockEnabled;
+        private boolean pricingSyncEnabled = true;
         private int personalDailyLimit = 10;
         private int globalDailyLimit = 200;
         private int personalConcurrency = 1;
@@ -93,6 +94,7 @@ public class AppProperties {
         private String consentVersion = "AI_SEND_V1";
         private String credentialEncryptionKey = "";
         public boolean isMockEnabled(){return mockEnabled;} public void setMockEnabled(boolean v){mockEnabled=v;}
+        public boolean isPricingSyncEnabled(){return pricingSyncEnabled;} public void setPricingSyncEnabled(boolean v){pricingSyncEnabled=v;}
         public int getPersonalDailyLimit(){return personalDailyLimit;} public void setPersonalDailyLimit(int v){personalDailyLimit=v;}
         public int getGlobalDailyLimit(){return globalDailyLimit;} public void setGlobalDailyLimit(int v){globalDailyLimit=v;}
         public int getPersonalConcurrency(){return personalConcurrency;} public void setPersonalConcurrency(int v){personalConcurrency=v;}

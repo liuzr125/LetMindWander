@@ -6,6 +6,7 @@ import com.zhixing.config.AppProperties;
 import com.zhixing.dto.AiModelSaveRequest;
 import com.zhixing.dto.TtsConfigRequest;
 import com.zhixing.service.AiService;
+import com.zhixing.service.AiOfficialPricingService;
 import com.zhixing.service.AliyunTtsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -16,12 +17,13 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/admin/ai")
 public class AdminAiController {
-    private final AiService ai;private final AliyunTtsService tts;private final AppProperties properties;
-    public AdminAiController(AiService ai,AliyunTtsService tts,AppProperties properties){this.ai=ai;this.tts=tts;this.properties=properties;}
+    private final AiService ai;private final AiOfficialPricingService pricing;private final AliyunTtsService tts;private final AppProperties properties;
+    public AdminAiController(AiService ai,AiOfficialPricingService pricing,AliyunTtsService tts,AppProperties properties){this.ai=ai;this.pricing=pricing;this.tts=tts;this.properties=properties;}
     @GetMapping("/models") public List<Map<String,Object>> models(@RequestHeader(value="X-Admin-Token",required=false)String token){requireAdmin(token);return ai.adminModels();}
     @PostMapping("/models") public Map<String,Object> create(@RequestHeader(value="X-Admin-Token",required=false)String token,@Valid @RequestBody AiModelSaveRequest request){requireAdmin(token);return ai.saveModel(null,request);}
     @PutMapping("/models/{id}") public Map<String,Object> update(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String id,@Valid @RequestBody AiModelSaveRequest request){requireAdmin(token);return ai.saveModel(id,request);}
     @GetMapping("/usage") public Map<String,Object> usage(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(defaultValue="100")int size){requireAdmin(token);return ai.adminUsage(size);}
+    @GetMapping("/pricing/status") public Map<String,Object> pricingStatus(@RequestHeader(value="X-Admin-Token",required=false)String token){requireAdmin(token);return pricing.status();}
     @PutMapping("/budget") public Map<String,Object> budget(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestBody Map<String,Object> request){requireAdmin(token);Object raw=request.get("limitAmount");BigDecimal limit;try{limit=new BigDecimal(String.valueOf(raw));}catch(Exception e){throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AI_BUDGET","请输入正确的月预算");}return ai.saveBudget(limit,String.valueOf(request.getOrDefault("currency","CNY")));}
     @PutMapping("/attempts/{id}/reconcile") public Map<String,Object> reconcile(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String id,@RequestBody Map<String,Object> request){requireAdmin(token);BigDecimal amount;try{amount=new BigDecimal(String.valueOf(request.get("settledAmount")));}catch(Exception e){throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AI_SETTLEMENT","请输入正确的核定费用");}return ai.reconcileAttempt(id,amount);}
     @GetMapping("/tts") public Map<String,Object> tts(@RequestHeader(value="X-Admin-Token",required=false)String token){requireAdmin(token);return tts.adminConfig();}

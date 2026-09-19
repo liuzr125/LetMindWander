@@ -1,4 +1,4 @@
-const { dailyTaskService, vocabularyBookService, growthService } = require('../../services/index');
+const { dailyTaskService, vocabularyBookService, growthService, wordMemoryService } = require('../../services/index');
 const { formatDate, formatChineseDate } = require('../../utils/date');
 
 const GROUPS = {
@@ -18,8 +18,8 @@ const GAP_LABELS = {
 };
 
 Page({
-  data: { loading: true, today: '', dateText: '', pack: null, packActive: false, hasGaps: false, groups: [], remainingMinutes: 0, error: '', growth: null, growthError: '' },
-  onShow() { this.load(); this.loadGrowth(); },
+  data: { loading: true, today: '', dateText: '', pack: null, packActive: false, hasGaps: false, groups: [], remainingMinutes: 0, error: '', growth: null, growthError: '', memoryEnabled: true, memorySummary: null },
+  onShow() { this.load(); this.loadGrowth(); this.loadMemoryEntry(); },
   load() {
     const now = new Date(); const today = formatDate(now);
     this.setData({ loading: true, today, dateText: formatChineseDate(now), error: '' });
@@ -43,6 +43,14 @@ Page({
   loadGrowth() {
     growthService.overview().then((growth) => this.setData({ growth, growthError: '' }))
       .catch((error) => this.setData({ growth: null, growthError: error.message || '成长数据暂时不可用' }));
+  },
+  loadMemoryEntry() {
+    wordMemoryService.config().then((config) => {
+      const enabled = !!(config && config.enabled);
+      this.setData({ memoryEnabled: enabled });
+      if (!enabled) return null;
+      return wordMemoryService.sources().then((summary) => this.setData({ memorySummary: summary || null }));
+    }).catch(() => this.setData({ memorySummary: null }));
   },
   activate() { wx.showLoading({ title: '正在激活' }); dailyTaskService.activate(this.data.today).then(() => { wx.showToast({ title: '今日任务已激活', icon: 'success' }); return this.load(); }).catch(error => wx.showToast({ title: error.message || '激活失败', icon: 'none' })).finally(() => wx.hideLoading()); },
   openGroup(event) {
@@ -69,6 +77,7 @@ Page({
   openBookSelector() { wx.navigateTo({ url: `/pages/word/books/index?date=${this.data.today}` }); },
   adjustToday() { wx.navigateTo({ url: '/pages/plan/index?mode=today' }); },
   openLearn() { wx.switchTab({ url: '/pages/learn/index' }); },
+  openWordMemory() { wx.navigateTo({ url: '/pages/word/memory/setup/index?returnTo=' + encodeURIComponent('/pages/today/index') }); },
   openJournalHistory() { wx.navigateTo({ url: '/pages/journal/history/index' }); },
   openGrowth() { wx.navigateTo({ url: '/pages/growth/index' }); }
 });

@@ -165,6 +165,20 @@ public class MediaService {
         Timestamp now=Timestamp.from(Instant.now());jdbcTemplate.update("INSERT INTO media_asset(id,owner_id,purpose,object_key,mime_type,byte_size,sha256,state,origin_url,license_note,created_at,updated_at) VALUES(?,NULL,?,?,?,?,?,'ready',?,?,?,?)",id,purpose,objectKey,mimeType,bytes.length,sha256(bytes),originUrl,licenseNote,now,now);return id;
     }
 
+    /** 词库批处理使用稳定 object_key；成功重试会复用已有资源，不会重复请求或写入媒体表。 */
+    @Transactional
+    public String storeVocabularyAudio(String purpose,String objectKey,byte[] bytes,String originUrl,String licenseNote){
+        if(!"word_audio".equals(purpose)&&!"example_audio".equals(purpose))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AUDIO_PURPOSE","词库音频用途不正确");
+        if(objectKey==null||!objectKey.matches("english/audio/[A-Za-z0-9/_-]+\\.mp3"))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AUDIO_OBJECT_KEY","音频对象路径不正确");
+        if(bytes==null||bytes.length==0||bytes.length>MAX_AVATAR_BYTES)throw new ApiException(HttpStatus.BAD_GATEWAY,"INVALID_TTS_AUDIO","语音服务返回的音频不可用");
+        List<String> existing=jdbcTemplate.query("SELECT id FROM media_asset WHERE object_key=? AND state='ready' LIMIT 1",(rs,n)->rs.getString(1),objectKey);
+        if(!existing.isEmpty())return existing.get(0);
+        putToOss(objectKey,"audio/mpeg",bytes);
+        String id=CryptoUtils.randomId();Timestamp now=Timestamp.from(Instant.now());
+        jdbcTemplate.update("INSERT INTO media_asset(id,owner_id,purpose,object_key,mime_type,byte_size,sha256,state,origin_url,license_note,created_at,updated_at) VALUES(?,NULL,?,?,?,?,?,'ready',?,?,?,?)",id,purpose,objectKey,"audio/mpeg",bytes.length,sha256(bytes),originUrl,licenseNote,now,now);
+        return id;
+    }
+
     public void requireOwnedAvatar(String ownerId, String url) {
         String base = publicBaseUrl.replaceAll("/+$", "") + "/";
         String id = url.startsWith(base) ? url.substring(base.length()) : "";

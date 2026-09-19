@@ -40,7 +40,7 @@ public class ContentService {
             for (ContentDetailView.WordSenseView sense : view.getSenses()) sense.setExamples(contents.selectExamples(sense.getId()));
             attachPronunciations(view);
         }
-        if ("english_article".equals(view.getContentType())) {attachArticleBlocks(view);if(view.getArticleAudioAssetId()!=null)view.setArticleAudioUrl(media.referenceUrl(view.getArticleAudioAssetId()));}
+        if ("english_article".equals(view.getContentType())) {attachArticleBlocks(view);if(view.getArticleAudioAssetId()!=null)view.setArticleAudioUrl(media.signedUrl(view.getArticleAudioAssetId(),ownerId));}
         return view;
     }
 
@@ -62,7 +62,7 @@ public class ContentService {
         attachArticleTokens(view);
     }
 
-    private void attachArticleTokens(ContentDetailView view){Set<String> terms=new LinkedHashSet<String>();for(ContentDetailView.ArticleBlockView block:view.getArticleBlocks()){Matcher matcher=ARTICLE_TOKEN.matcher(block.getText());while(matcher.find()){String token=matcher.group();if(token.matches("[A-Za-z]+(?:'[A-Za-z]+)?"))terms.add(token.toLowerCase(Locale.ROOT));}}Map<String,ArticleWordLookupRow> words=new HashMap<String,ArticleWordLookupRow>();if(!terms.isEmpty())for(ArticleWordLookupRow row:contents.selectWordsByTerms(new ArrayList<String>(terms)))if(row.getTerm()!=null)words.put(row.getTerm().toLowerCase(Locale.ROOT),row);for(ContentDetailView.ArticleBlockView block:view.getArticleBlocks()){Matcher matcher=ARTICLE_TOKEN.matcher(block.getText());while(matcher.find()){String text=matcher.group();ContentDetailView.ArticleTokenView token=new ContentDetailView.ArticleTokenView();token.setText(text);boolean isWord=text.matches("[A-Za-z]+(?:'[A-Za-z]+)?");token.setWord(isWord);if(isWord){ArticleWordLookupRow row=words.get(text.toLowerCase(Locale.ROOT));if(row!=null){token.setKnown(true);token.setContentId(row.getContentId());token.setSpeechKey(row.getSpeechKey());token.setPhonetic(row.getPhonetic());token.setMeaning(row.getMeaning());if(row.getAudioAssetId()!=null)token.setAudioUrl(media.referenceUrl(row.getAudioAssetId()));}}block.getTokens().add(token);}}}
+    private void attachArticleTokens(ContentDetailView view){Set<String> terms=new LinkedHashSet<String>();for(ContentDetailView.ArticleBlockView block:view.getArticleBlocks()){Matcher matcher=ARTICLE_TOKEN.matcher(block.getText());while(matcher.find()){String token=matcher.group();if(token.matches("[A-Za-z]+(?:'[A-Za-z]+)?"))terms.add(token.toLowerCase(Locale.ROOT));}}Map<String,ArticleWordLookupRow> words=new HashMap<String,ArticleWordLookupRow>();if(!terms.isEmpty())for(ArticleWordLookupRow row:contents.selectWordsByTerms(new ArrayList<String>(terms)))if(row.getTerm()!=null)words.put(row.getTerm().toLowerCase(Locale.ROOT),row);for(ContentDetailView.ArticleBlockView block:view.getArticleBlocks()){Matcher matcher=ARTICLE_TOKEN.matcher(block.getText());while(matcher.find()){String text=matcher.group();ContentDetailView.ArticleTokenView token=new ContentDetailView.ArticleTokenView();token.setText(text);boolean isWord=text.matches("[A-Za-z]+(?:'[A-Za-z]+)?");token.setWord(isWord);if(isWord){ArticleWordLookupRow row=words.get(text.toLowerCase(Locale.ROOT));if(row!=null){token.setKnown(true);token.setContentId(row.getContentId());token.setSpeechKey(row.getSpeechKey());token.setPhonetic(row.getPhonetic());token.setMeaning(row.getMeaning());if(row.getAudioAssetId()!=null)token.setAudioUrl(media.signedUrl(row.getAudioAssetId(),null));}}block.getTokens().add(token);}}}
 
     private String text(JsonNode node,String...names){for(String name:names){JsonNode value=node.get(name);if(value!=null&&!value.isNull()&&!value.asText().trim().isEmpty())return value.asText();}return null;}
 
@@ -70,8 +70,9 @@ public class ContentService {
         List<PronunciationRow> rows = contents.selectPronunciations(view.getVersionId());
         if (rows == null || rows.isEmpty()) return;
         for (PronunciationRow row : rows) {
-            String url = row.getAssetId() == null ? null : media.referenceUrl(row.getAssetId());
+            String url = row.getAssetId() == null ? null : media.signedUrl(row.getAssetId(), null);
             PronunciationView p = new PronunciationView();
+            p.setAssetId(row.getAssetId());
             p.setAccent(row.getAccent());
             p.setPhonetic(row.getPhonetic());
             p.setAudioUrl(url);
@@ -92,13 +93,29 @@ public class ContentService {
     @Transactional
     public ContentDetailView understood(String ownerId, String contentId, ContentActionRequest request) {
         ContentDetailView view = required(ownerId, contentId);
-        String key = "word".equals(view.getContentType()) ? "word:" + contentId
-                : "english_article".equals(view.getContentType()) ? "article:" + contentId : "tech:" + contentId;
-        contents.markUnderstood(CryptoUtils.randomId(), ownerId, contentId, key, view.getVersionId(), Instant.now());
+        Instant now = Instant.now();
+        contents.markUnderstood(CryptoUtils.randomId(), ownerId, contentId, learningKey(view, contentId), view.getVersionId(), now);
+        appendLearningEvent(ownerId, contentId, request == null ? null : request.getTaskId(), "understood", now);
         if (request != null && request.getTaskId() != null) {
             dailyTasks.completeContentTask(ownerId, request.getTaskId(), contentId, request.getExpectedVersion());
         }
         return get(ownerId, contentId);
+    }
+
+    /** 词条即时反馈只完成本次学习暴露；根据反馈重新安排后续巩固，不把“不认识/模糊”记成答对。 */
+    @Transactional
+    public ContentDetailView wordFeedback(String ownerId,String contentId,ContentActionRequest request) {
+        ContentDetailView view=required(ownerId,contentId);
+        if(!"word".equals(view.getContentType()))throw new ApiException(HttpStatus.BAD_REQUEST,"NOT_WORD","仅英语词条支持记忆反馈");
+        String feedback=request==null?null:request.getFeedback();
+        FeedbackRule rule=feedbackRule(feedback);
+        Instant now=Instant.now();
+        contents.upsertWordFeedback(CryptoUtils.randomId(),ownerId,contentId,learningKey(view,contentId),view.getVersionId(),
+                rule.learningStatus,rule.familiarity,now);
+        appendLearningEvent(ownerId,contentId,request.getTaskId(),feedback,now);
+        scheduleFeedback(ownerId,contentId,view,rule);
+        if(request.getTaskId()!=null)dailyTasks.completeContentTask(ownerId,request.getTaskId(),contentId,request.getExpectedVersion());
+        return get(ownerId,contentId);
     }
 
     @Transactional
@@ -163,5 +180,39 @@ public class ContentService {
         if ("tech".equals(contentType)) return "content";
         if ("english_article".equals(contentType)) return "article";
         return contentType;
+    }
+
+    private String learningKey(ContentDetailView view, String contentId) {
+        return "word".equals(view.getContentType()) ? "word:" + contentId
+                : "english_article".equals(view.getContentType()) ? "article:" + contentId : "tech:" + contentId;
+    }
+
+    private FeedbackRule feedbackRule(String feedback) {
+        if("unclear".equals(feedback))return new FeedbackRule("learning",0,0,1);
+        if("fuzzy".equals(feedback))return new FeedbackRule("learning",50,0,1);
+        if("remember".equals(feedback))return new FeedbackRule("understood",85,1,3);
+        throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_WORD_FEEDBACK","词条反馈仅支持 unclear、fuzzy 或 remember");
+    }
+
+    private void scheduleFeedback(String ownerId,String contentId,ContentDetailView view,FeedbackRule rule) {
+        String knowledgeId=contents.selectContentKnowledgeId(ownerId,contentId);
+        if(knowledgeId==null){knowledgeId=CryptoUtils.randomId();try{contents.insertContentKnowledge(knowledgeId,ownerId,contentId,view.getVersionId(),view.getTitle());}
+            catch(DuplicateKeyException ignored){knowledgeId=contents.selectContentKnowledgeId(ownerId,contentId);}}
+        LocalDate due=LocalDate.now(BUSINESS_ZONE).plusDays(rule.afterDays);
+        if(contents.updateFeedbackSchedule(ownerId,knowledgeId,rule.stage,due)==0){try{contents.insertFeedbackSchedule(CryptoUtils.randomId(),ownerId,knowledgeId,rule.stage,due);}
+            catch(DuplicateKeyException ignored){contents.updateFeedbackSchedule(ownerId,knowledgeId,rule.stage,due);}}
+    }
+
+    private void appendLearningEvent(String ownerId, String contentId, String taskId, String feedback, Instant now) {
+        String recordId = contents.selectLearningRecordId(ownerId, contentId);
+        Integer recordVersion = contents.selectLearningRecordVersion(ownerId, contentId);
+        if (recordId == null || recordVersion == null) throw new IllegalStateException("学习状态写入后无法读取");
+        contents.insertLearningEvent(CryptoUtils.randomId(), ownerId, recordId, recordVersion, taskId,
+                feedback, LocalDate.now(BUSINESS_ZONE), now);
+    }
+
+    private static class FeedbackRule {
+        final String learningStatus; final int familiarity,stage,afterDays;
+        FeedbackRule(String learningStatus,int familiarity,int stage,int afterDays){this.learningStatus=learningStatus;this.familiarity=familiarity;this.stage=stage;this.afterDays=afterDays;}
     }
 }

@@ -6,10 +6,12 @@ CREATE TABLE IF NOT EXISTS app_parameter (
   is_secret TINYINT UNSIGNED NOT NULL DEFAULT 1,
   description VARCHAR(200) NOT NULL,
   state VARCHAR(16) NOT NULL DEFAULT 'active',
+  del_is TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=正常，1=软删除',
   version_no INT UNSIGNED NOT NULL DEFAULT 1,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  UNIQUE KEY uk_app_parameter_key (param_key)
+  UNIQUE KEY uk_app_parameter_key (param_key),
+  KEY idx_app_parameter_visible (del_is, state, param_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用运行参数';
 
 -- 将尖括号中的占位值替换为真实值后执行；请勿将填充后的 SQL 提交到 Git。

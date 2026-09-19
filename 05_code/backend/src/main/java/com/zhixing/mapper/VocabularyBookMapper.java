@@ -45,7 +45,7 @@ public interface VocabularyBookMapper {
     VocabularyBookProgressView selectCurrentProgress(@Param("ownerId") String ownerId);
 
     @Select({"<script>",
-            "SELECT lc.id AS content_id,cv.word_term,cv.phonetic,cv.meaning,",
+            "SELECT lc.id AS content_id,cv.word_term,COALESCE(NULLIF(TRIM(cv.phonetic),''),(SELECT p.phonetic FROM pronunciation p WHERE p.content_version_id=cv.id AND p.state='ready' AND p.phonetic IS NOT NULL AND TRIM(p.phonetic)&lt;&gt;'' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,p.id LIMIT 1),'') AS phonetic,cv.meaning,",
             "CASE WHEN lr.learning_status IN ('understood','mastered') THEN TRUE ELSE FALSE END AS learned,",
             "lr.first_completed_at AS learned_at FROM vocabulary_book_word vbw ",
             "JOIN learning_content lc ON lc.id=vbw.content_id AND lc.content_type='word' AND lc.state='published' ",

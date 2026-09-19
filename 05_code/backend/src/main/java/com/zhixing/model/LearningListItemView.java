@@ -5,7 +5,7 @@ import java.time.Instant;
 public class LearningListItemView {
     private String contentId,versionId,contentType,title,summary,difficulty,stage,wordTerm,phonetic,meaning,exampleText,topicName,learningStatus;
     private Integer estimatedSeconds,familiarityPercent,wordCount;
-    private Boolean understood,inReview,inWordBook;
+    private Boolean understood,inReview,inWordBook,aliasMatch;
     private Instant publishedAt;
     public String getContentId(){return contentId;} public void setContentId(String v){contentId=v;}
     public String getVersionId(){return versionId;} public void setVersionId(String v){versionId=v;}
@@ -26,5 +26,6 @@ public class LearningListItemView {
     public Boolean getUnderstood(){return understood;} public void setUnderstood(Boolean v){understood=v;}
     public Boolean getInReview(){return inReview;} public void setInReview(Boolean v){inReview=v;}
     public Boolean getInWordBook(){return inWordBook;} public void setInWordBook(Boolean v){inWordBook=v;}
+    public Boolean getAliasMatch(){return aliasMatch;} public void setAliasMatch(Boolean v){aliasMatch=v;}
     public Instant getPublishedAt(){return publishedAt;} public void setPublishedAt(Instant v){publishedAt=v;}
 }

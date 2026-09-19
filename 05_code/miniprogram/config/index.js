@@ -1,9 +1,9 @@
 const ENVIRONMENTS = {
   develop: {
-    apiBaseUrl: 'https://7c3cc4b6.r26.cpolar.top/api'
+    apiBaseUrl: 'https://mindkitchen.vip.cpolar.cn/api'
   },
   trial: {
-    apiBaseUrl: 'https://7c3cc4b6.r26.cpolar.top/api'
+    apiBaseUrl: 'https://mindkitchen.vip.cpolar.cn/api'
   },
   release: {/*  */
     apiBaseUrl: 'https://api.example.com/api'

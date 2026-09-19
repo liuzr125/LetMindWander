@@ -208,6 +208,21 @@ CREATE TABLE IF NOT EXISTS learning_record (
   CONSTRAINT uk_learning_record UNIQUE (owner_id, learning_key)
 );
 
+CREATE TABLE IF NOT EXISTS learning_event (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  record_id CHAR(32) NOT NULL,
+  record_version INT NOT NULL,
+  task_id CHAR(32),
+  event_type VARCHAR(32) NOT NULL,
+  feedback VARCHAR(32),
+  business_date DATE NOT NULL,
+  occurred_at TIMESTAMP(3) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_learning_event UNIQUE (record_id, record_version)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_event_owner_day ON learning_event (owner_id,business_date);
+
 CREATE TABLE IF NOT EXISTS user_favorite (
   id CHAR(32) NOT NULL PRIMARY KEY,
   owner_id CHAR(32) NOT NULL, target_type VARCHAR(32) NOT NULL, target_id CHAR(32) NOT NULL,
@@ -316,6 +331,22 @@ CREATE TABLE IF NOT EXISTS word_notebook (
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_word_notebook UNIQUE (owner_id,word_key_hash)
 );
+
+CREATE TABLE IF NOT EXISTS word_alias (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_id CHAR(32) NOT NULL,
+  alias_term VARCHAR(80) NOT NULL,
+  normalized_alias VARCHAR(80) NOT NULL,
+  alias_hash BINARY(32) NOT NULL,
+  alias_type VARCHAR(32) NOT NULL,
+  state VARCHAR(16) NOT NULL DEFAULT 'active',
+  source_note VARCHAR(500),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_word_alias_hash UNIQUE (alias_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_word_alias_content ON word_alias (content_id,state);
+CREATE INDEX IF NOT EXISTS idx_word_alias_normalized ON word_alias (normalized_alias,state);
 
 -- V3.1 英语多词库：单词内容仍以 learning_content 为唯一事实源，词书只保存成员关系。
 CREATE TABLE IF NOT EXISTS vocabulary_book (
@@ -494,6 +525,7 @@ CREATE TABLE IF NOT EXISTS word_memory_evidence (
   first_attempt_id CHAR(32) NOT NULL,
   first_result VARCHAR(32) NOT NULL,
   hint_used SMALLINT NOT NULL DEFAULT 0,
+  answer_revealed SMALLINT NOT NULL DEFAULT 0,
   rule_version VARCHAR(32) NOT NULL,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_word_memory_evidence_episode UNIQUE (episode_id)
@@ -703,11 +735,13 @@ CREATE TABLE IF NOT EXISTS app_parameter (
   is_secret SMALLINT NOT NULL DEFAULT 1,
   description VARCHAR(200) NOT NULL,
   state VARCHAR(16) NOT NULL DEFAULT 'active',
+  del_is SMALLINT NOT NULL DEFAULT 0,
   version_no INT NOT NULL DEFAULT 1,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_app_parameter_key UNIQUE (param_key)
 );
+CREATE INDEX IF NOT EXISTS idx_app_parameter_visible ON app_parameter (del_is, state, param_key);
 
 CREATE TABLE IF NOT EXISTS friend_relation (
  id CHAR(32) NOT NULL PRIMARY KEY,
@@ -827,6 +861,102 @@ CREATE TABLE IF NOT EXISTS admin_audit (
  target_type VARCHAR(32) NOT NULL, target_id CHAR(32), result_code VARCHAR(32) NOT NULL,
  metadata_json CLOB, expires_at TIMESTAMP(3) NOT NULL, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- V3.16.2 词库导入暂存层：正式词典只存已发布内容，批次过程与失败项独立留痕。
+CREATE TABLE IF NOT EXISTS vocabulary_dataset_catalog (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  dataset_code VARCHAR(64) NOT NULL,
+  dataset_name VARCHAR(160) NOT NULL,
+  provider_name VARCHAR(160) NOT NULL,
+  source_type VARCHAR(32) NOT NULL,
+  source_url VARCHAR(2048),
+  data_format VARCHAR(32) NOT NULL,
+  parser_code VARCHAR(64) NOT NULL,
+  version_label VARCHAR(64) NOT NULL,
+  license_status VARCHAR(32) NOT NULL DEFAULT 'unknown',
+  license_note VARCHAR(1000) NOT NULL,
+  checksum BINARY(32),
+  item_count INT NOT NULL DEFAULT 0,
+  source_payload CLOB,
+  enabled SMALLINT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_vocabulary_dataset_code UNIQUE (dataset_code)
+);
+CREATE INDEX IF NOT EXISTS idx_vocabulary_dataset_available ON vocabulary_dataset_catalog (enabled,license_status,updated_at);
+
+CREATE TABLE IF NOT EXISTS vocabulary_import_batch (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  dataset_id CHAR(32) NOT NULL,
+  target_book_id CHAR(32) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  current_step VARCHAR(32) NOT NULL DEFAULT 'created',
+  options_json CLOB NOT NULL,
+  total_count INT NOT NULL DEFAULT 0,
+  success_count INT NOT NULL DEFAULT 0,
+  failed_count INT NOT NULL DEFAULT 0,
+  reused_count INT NOT NULL DEFAULT 0,
+  created_count INT NOT NULL DEFAULT 0,
+  alias_count INT NOT NULL DEFAULT 0,
+  skipped_count INT NOT NULL DEFAULT 0,
+  review_count INT NOT NULL DEFAULT 0,
+  sql_object_key VARCHAR(512),
+  manifest_object_key VARCHAR(512),
+  report_object_key VARCHAR(512),
+  last_error_code VARCHAR(64),
+  last_error_message VARCHAR(500),
+  created_by CHAR(32) NOT NULL,
+  started_at TIMESTAMP(3),
+  finished_at TIMESTAMP(3),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_vocabulary_import_batch_state ON vocabulary_import_batch (state,updated_at);
+
+CREATE TABLE IF NOT EXISTS vocabulary_import_item (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  batch_id CHAR(32) NOT NULL,
+  row_no INT NOT NULL,
+  raw_json CLOB NOT NULL,
+  word_term VARCHAR(80),
+  normalized_word VARCHAR(80),
+  word_key_hash BINARY(32),
+  decision VARCHAR(32) NOT NULL DEFAULT 'pending',
+  content_id CHAR(32),
+  review_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+  risk_flags_json CLOB,
+  error_code VARCHAR(64),
+  error_message VARCHAR(500),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_vocabulary_import_item_row UNIQUE (batch_id,row_no)
+);
+CREATE INDEX IF NOT EXISTS idx_vocabulary_import_item_batch ON vocabulary_import_item (batch_id,decision,review_status,row_no);
+
+CREATE TABLE IF NOT EXISTS tts_generation_task (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  batch_id CHAR(32) NOT NULL,
+  item_id CHAR(32) NOT NULL,
+  target_type VARCHAR(16) NOT NULL,
+  sense_no INT NOT NULL DEFAULT 1,
+  accent VARCHAR(16) NOT NULL,
+  provider_code VARCHAR(32) NOT NULL,
+  model_code VARCHAR(120),
+  voice VARCHAR(64) NOT NULL,
+  generation_mode VARCHAR(32) NOT NULL DEFAULT 'plain',
+  phoneme_alphabet VARCHAR(16),
+  phoneme_value VARCHAR(500),
+  object_key VARCHAR(512) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'pending',
+  attempt_count SMALLINT NOT NULL DEFAULT 0,
+  asset_id CHAR(32),
+  error_code VARCHAR(64),
+  error_message VARCHAR(500),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_tts_generation_object UNIQUE (object_key)
+);
+CREATE INDEX IF NOT EXISTS idx_tts_generation_retry ON tts_generation_task (batch_id,state,attempt_count);
 
 CREATE TABLE IF NOT EXISTS user_feedback (
  id CHAR(32) NOT NULL PRIMARY KEY, owner_id CHAR(32) NOT NULL, category VARCHAR(32) NOT NULL,

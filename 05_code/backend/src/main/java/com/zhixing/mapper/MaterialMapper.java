@@ -29,6 +29,7 @@ public interface MaterialMapper {
             "JOIN content_version cv ON cv.id=lc.published_version_id " +
             "WHERE vbw.book_id=#{bookId} AND lc.content_type='word' AND lc.state='published' " +
             "AND cv.review_status='approved' AND cv.difficulty=#{difficulty} " +
+            "AND NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status IN ('understood','mastered')) " +
             "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE') " +
             "ORDER BY vbw.sort_no,vbw.importance DESC,lc.published_at,lc.id LIMIT #{limit}")
     List<MaterialCandidate> selectWordContent(@Param("ownerId") String ownerId,@Param("bookId") String bookId,

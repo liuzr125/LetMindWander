@@ -15,9 +15,10 @@ import java.util.List;
 public interface LearningContentMapper extends BaseMapper<LearningContentEntity> {
     @Select({"<script>",
             "SELECT lc.id AS content_id,cv.id AS version_id,lc.content_type,cv.title,cv.summary,cv.difficulty,lc.stage,",
-            "cv.word_term,cv.phonetic,cv.meaning,cv.example_text,cv.estimated_seconds,lc.published_at,lr.learning_status,lr.familiarity_percent,",
+            "cv.word_term,COALESCE(NULLIF(TRIM(cv.phonetic),''),(SELECT pf.phonetic FROM pronunciation pf WHERE pf.content_version_id=cv.id AND pf.state='ready' AND pf.phonetic IS NOT NULL AND TRIM(pf.phonetic)&lt;&gt;'' ORDER BY CASE pf.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,pf.id LIMIT 1),'') AS phonetic,cv.meaning,cv.example_text,cv.estimated_seconds,lc.published_at,lr.learning_status,lr.familiarity_percent,",
             "CASE WHEN lr.learning_status IN ('understood','mastered') THEN TRUE ELSE FALSE END AS understood,",
             "CASE WHEN rs.state='active' THEN TRUE ELSE FALSE END AS in_review,CASE WHEN wn.state='active' THEN TRUE ELSE FALSE END AS in_word_book,",
+            "<choose><when test=\"keyword != null and keyword != ''\">CASE WHEN EXISTS (SELECT 1 FROM word_alias wam WHERE wam.content_id=lc.id AND wam.state='active' AND wam.normalized_alias=LOWER(TRIM(#{keyword}))) THEN TRUE ELSE FALSE END AS alias_match,</when><otherwise>FALSE AS alias_match,</otherwise></choose>",
             "(SELECT MIN(lt.name) FROM content_topic ct JOIN learning_topic lt ON lt.id=ct.topic_id AND lt.state='active' WHERE ct.content_version_id=cv.id) AS topic_name,",
             "CASE WHEN lc.content_type='english_article' AND cv.body IS NOT NULL AND TRIM(cv.body)&lt;&gt;'' ",
             "THEN LENGTH(TRIM(cv.body))-LENGTH(REPLACE(TRIM(cv.body),' ',''))+1 ELSE 0 END AS word_count ",
@@ -33,8 +34,8 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "<if test=\"notebook\">AND wn.state='active' </if>",
             "<if test=\"status == 'review'\">AND rs.state='active' AND rs.due_date&lt;=#{today} </if>",
             "<if test=\"status == 'familiar'\">AND COALESCE(lr.familiarity_percent,0)&gt;=80 </if>",
-            "<if test=\"keyword != null and keyword != ''\">AND (LOWER(cv.word_term) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR LOWER(cv.meaning) LIKE CONCAT('%',LOWER(#{keyword}),'%')) </if>",
-            "ORDER BY lc.published_at DESC,lc.id DESC LIMIT #{limit} OFFSET #{offset}",
+            "<if test=\"keyword != null and keyword != ''\">AND (LOWER(cv.word_term) LIKE CONCAT('%',LOWER(TRIM(#{keyword})),'%') OR LOWER(cv.meaning) LIKE CONCAT('%',LOWER(TRIM(#{keyword})),'%') OR EXISTS (SELECT 1 FROM word_alias wa WHERE wa.content_id=lc.id AND wa.state='active' AND wa.normalized_alias=LOWER(TRIM(#{keyword})))) </if>",
+            "ORDER BY <if test=\"keyword != null and keyword != ''\">CASE WHEN LOWER(cv.word_term)=LOWER(TRIM(#{keyword})) THEN 0 WHEN EXISTS (SELECT 1 FROM word_alias wa2 WHERE wa2.content_id=lc.id AND wa2.state='active' AND wa2.normalized_alias=LOWER(TRIM(#{keyword}))) THEN 1 ELSE 2 END,</if> lc.published_at DESC,lc.id DESC LIMIT #{limit} OFFSET #{offset}",
             "</script>"})
     List<LearningListItemView> selectLearningPage(@Param("ownerId") String ownerId,@Param("type") String type,
             @Param("topicId") String topicId,@Param("difficulty") String difficulty,@Param("stage") String stage,

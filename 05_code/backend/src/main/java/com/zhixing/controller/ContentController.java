@@ -39,6 +39,12 @@ public class ContentController {
         return contents.understood(user(auth), id, r);
     }
 
+    @PostMapping("/{id}/feedback")
+    public ContentDetailView feedback(@RequestHeader(value = "Authorization", required = false) String auth,@PathVariable String id,
+                                      @RequestBody ContentActionRequest r) {
+        return contents.wordFeedback(user(auth),id,r);
+    }
+
     @PostMapping("/{id}/favorite")
     public ContentDetailView favorite(@RequestHeader(value = "Authorization", required = false) String auth, @PathVariable String id, @RequestBody(required = false) ContentActionRequest r) {
         return contents.favorite(user(auth), id, r);

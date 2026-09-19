@@ -19,11 +19,11 @@ SELECT '00000000000000000000000000000032','deepseek','deepseek-v4-pro','DeepSeek
 WHERE NOT EXISTS (SELECT 1 FROM ai_model_config WHERE provider_code='deepseek' AND model_code='deepseek-v4-pro');
 
 INSERT INTO ai_model_price (id,provider_code,model_code,version_no,currency,input_per_million,output_per_million,pricing_json,effective_at)
-SELECT '00000000000000000000000000000041','deepseek','deepseek-flash',1,'CNY',0,0,'{"status":"pending_review","source":"https://api-docs.deepseek.com/quick_start/pricing/"}',CURRENT_TIMESTAMP
+SELECT '00000000000000000000000000000041','deepseek','deepseek-flash',1,'CNY',2,8,'{"schema":"deepseek-official-v1","source":"https://api-docs.deepseek.com/zh-cn/quick_start/pricing/","verified":true,"currency":"CNY","unit":"per_million_tokens","modelVersion":"DeepSeek-V4.1-Flash","timezone":"Asia/Shanghai","peakWindows":[{"days":"MON-FRI","start":"09:00","end":"12:00"},{"days":"MON-FRI","start":"14:00","end":"18:00"}],"offPeak":{"inputCacheHit":0.02,"inputCacheMiss":1,"output":4},"peak":{"inputCacheHit":0.04,"inputCacheMiss":2,"output":8},"fingerprint":"deepseek-flash|DeepSeek-V4.1-Flash|0.02|1|4|0.04|2|8"}',CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM ai_model_price WHERE provider_code='deepseek' AND model_code='deepseek-flash');
 
 INSERT INTO ai_model_price (id,provider_code,model_code,version_no,currency,input_per_million,output_per_million,pricing_json,effective_at)
-SELECT '00000000000000000000000000000042','deepseek','deepseek-v4-pro',1,'CNY',0,0,'{"status":"pending_review","source":"https://api-docs.deepseek.com/quick_start/pricing/"}',CURRENT_TIMESTAMP
+SELECT '00000000000000000000000000000042','deepseek','deepseek-v4-pro',1,'CNY',9,27,'{"schema":"deepseek-official-v1","source":"https://api-docs.deepseek.com/zh-cn/quick_start/pricing/","verified":true,"currency":"CNY","unit":"per_million_tokens","modelVersion":"DeepSeek-V4-Pro-0813","timezone":"Asia/Shanghai","peakWindows":[{"days":"MON-FRI","start":"09:00","end":"12:00"},{"days":"MON-FRI","start":"14:00","end":"18:00"}],"offPeak":{"inputCacheHit":0.15,"inputCacheMiss":4.5,"output":13.5},"peak":{"inputCacheHit":0.30,"inputCacheMiss":9.0,"output":27.0},"fingerprint":"deepseek-v4-pro|DeepSeek-V4-Pro-0813|0.15|4.5|13.5|0.30|9.0|27.0"}',CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM ai_model_price WHERE provider_code='deepseek' AND model_code='deepseek-v4-pro');
 
 INSERT INTO app_parameter(id,param_key,param_value,is_secret,description,state,version_no)

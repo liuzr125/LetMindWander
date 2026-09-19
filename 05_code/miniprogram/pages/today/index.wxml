@@ -30,6 +30,14 @@
     </view>
     <view wx:if="{{hasGaps}}" class="gap-card"><text class="gap-title">今日未安排</text><text wx:for="{{pack.gaps}}" wx:key="taskType">{{item.label}}：{{item.reason}}，少 {{item.gapCount}} 项</text></view>
   </block>
+  <view wx:if="{{memoryEnabled}}" class="home-section memory-entry" bindtap="openWordMemory">
+    <view class="section-icon memory-icon">Aa</view>
+    <view class="section-main">
+      <view class="section-title-row"><text class="section-title">单词记忆测试</text><text class="section-link">开始测试 ›</text></view>
+      <text wx:if="{{memorySummary && (memorySummary.todayLearnedCount || memorySummary.currentBookLearnedCount)}}" class="section-copy">今日已学 {{memorySummary.todayLearnedCount || 0}} 词 · 当前词书 {{memorySummary.currentBookLearnedCount || 0}} 词可测</text>
+      <text wx:else class="section-copy">测试已经学习过的单词，支持认义与拼写训练</text>
+    </view>
+  </view>
   <view class="home-section growth-entry" bindtap="openGrowth">
     <view class="section-icon growth-icon">↗</view>
     <view class="section-main">

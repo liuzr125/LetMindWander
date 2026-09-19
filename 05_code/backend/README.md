@@ -53,8 +53,11 @@ DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，�
 - `POST /api/ai/ask`：需要 AI 同意、`Idempotency-Key`、日额度、并发名额与月预算。
 - `GET /api/ai/ask/history`：仅返回本人近期提问。正文最多保留 24 小时，计量与费用记录继续保留。
 - `/api/admin/ai/models`：模型、规格、地址、凭据状态和价格版本管理。
+- `GET /api/admin/ai/pricing/status`：返回 DeepSeek 官网价格同步状态。服务端在北京时间每天 22:00 核验官网价格；MySQL 后端启动时也会补核验，避免笔记本休眠错过定时点。
 - `/api/admin/ai/budget` 与 `/api/admin/ai/usage`：月预算、脱敏调用日志和结算费用。
 - 短文中的“解释这段内容”复用同一接口、授权、额度、预算和日志机制，仅发送用户点击的当前段落。
+
+DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录入。每次请求会按北京时间实际发起时刻冻结高峰/空闲价格版本，并使用供应商返回的缓存命中 token 分项结算；官网抓取或页面解析失败时继续使用最后一个已验证版本，不以空值覆盖。可用 `AI_PRICING_SYNC_ENABLED=false` 停止同步，或用 `AI_PRICING_SYNC_CRON` 覆盖 cron 表达式。
 
 ## Web 词书管理查看
 
