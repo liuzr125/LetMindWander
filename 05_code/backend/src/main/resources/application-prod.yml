@@ -19,6 +19,9 @@ spring:
 
 app:
   admin-token: ${ADMIN_TOKEN}
+  admin-bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:superadmin}
+  admin-bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  admin-session-ttl: ${ADMIN_SESSION_TTL:PT8H}
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
   registration-store: redis
   wechat:

@@ -1,0 +1,38 @@
+<view class="settings-page">
+  <view wx:if="{{loading}}" class="state">正在加载学习设置…</view>
+  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <block wx:else>
+    <view class="settings-intro">
+      <text class="intro-title">词条学习设置</text>
+      <text class="intro-copy">设置会同步到当前账号，并从下一个进入的词条开始完整生效。</text>
+    </view>
+
+    <view class="settings-card">
+      <view class="section-head"><text class="section-title">新词学习</text><text class="section-caption">进入词条、答案展示与自动发音</text></view>
+      <view class="setting-row">
+        <view><text class="setting-title">进入时先遮住答案</text><text class="setting-note">开启后先回想，再主动显示释义和例句</text></view>
+        <switch checked="{{wordStudyPreferences.defaultAnswerMode === 'hidden'}}" disabled="{{studySaving}}" bindchange="changeDefaultHidden" color="#168d69" />
+      </view>
+      <view class="setting-row">
+        <view><text class="setting-title">进入时自动播放发音</text><text class="setting-note">关闭后只在点击发音按钮时播放</text></view>
+        <switch checked="{{wordStudyPreferences.autoPlayEnabled}}" disabled="{{studySaving}}" bindchange="changeAutoPlayEnabled" color="#168d69" />
+      </view>
+      <view wx:if="{{wordStudyPreferences.autoPlayEnabled}}" class="picker-list">
+        <picker mode="selector" range="{{studyAccentOptions}}" value="{{studyAccentIndex}}" disabled="{{studySaving}}" bindchange="changeStudyAccent"><view class="picker-row"><text>默认口音</text><text>{{studyAccentOptions[studyAccentIndex]}}⌄</text></view></picker>
+        <picker mode="selector" range="{{studyCountOptions}}" value="{{studyCountIndex}}" disabled="{{studySaving}}" bindchange="changeStudyCount"><view class="picker-row"><text>播放次数</text><text>{{studyCountOptions[studyCountIndex]}} 次⌄</text></view></picker>
+        <picker mode="selector" range="{{studyIntervalOptions}}" value="{{studyIntervalIndex}}" disabled="{{studySaving}}" bindchange="changeStudyInterval"><view class="picker-row"><text>每遍间隔</text><text>{{studyIntervalOptions[studyIntervalIndex]}}⌄</text></view></picker>
+      </view>
+      <text class="section-footnote">每一遍播放结束后，才开始计算下一遍的间隔；离开词条会取消剩余连播。</text>
+    </view>
+
+    <view class="settings-card">
+      <view class="section-head"><text class="section-title">学习卡片展示</text><text class="section-caption">选择词条页需要显示的辅助记忆内容</text></view>
+      <view wx:for="{{cardPreferenceTypes}}" wx:key="type" class="setting-row">
+        <view><text class="setting-title">{{item.title}}</text><text class="setting-note">无已审核内容时不会出现空卡片</text></view>
+        <switch checked="{{item.enabled}}" data-type="{{item.type}}" bindchange="changeCardPreference" disabled="{{cardSaving}}" color="#168d69" />
+      </view>
+    </view>
+
+    <view class="save-status"><text wx:if="{{studySaving || cardSaving}}">正在保存…</text><text wx:elif="{{saveMessage}}">✓ {{saveMessage}}</text><text wx:else>修改后自动保存，无需额外提交</text></view>
+  </block>
+</view>

@@ -1,8 +1,6 @@
 <view class="invite-page" style="padding-top: {{topInset}}px;">
   <view class="brand">
-    <view class="brand-logo" aria-label="脑袋开小灶标志">
-      <view class="stem"></view><view class="leaf leaf-left"></view><view class="leaf leaf-right"></view>
-    </view>
+    <image class="brand-logo" src="/assets/brand-logo.png" mode="aspectFill" aria-label="脑袋开小灶标志" />
     <text class="brand-name">脑袋开小灶</text>
     <text class="brand-slogan">每天学一点，让知识留得住</text>
   </view>

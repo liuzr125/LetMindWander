@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 public class AiService {
     private static final ZoneId BUSINESS_ZONE=ZoneId.of("Asia/Shanghai");
     private static final String GLOBAL_SCOPE="00000000000000000000000000000000";
+    private static final String SYSTEM_SCOPE="ffffffffffffffffffffffffffffffff";
     private static final Pattern CODE=Pattern.compile("[A-Za-z0-9._:-]{1,120}");
     private final JdbcTemplate jdbc;private final ObjectMapper json;private final AppProperties properties;private final AppParameterService parameters;private final AiGateway gateway;private final TransactionTemplate transactions;
     public AiService(JdbcTemplate jdbc,ObjectMapper json,AppProperties properties,AppParameterService parameters,AiGateway gateway,PlatformTransactionManager transactionManager){this.jdbc=jdbc;this.json=json;this.properties=properties;this.parameters=parameters;this.gateway=gateway;this.transactions=new TransactionTemplate(transactionManager);}
@@ -52,6 +53,17 @@ public class AiService {
         try{
             AiGatewayResult answer=gateway.ask(reservation.model,reservation.apiKey,question);
             return transactions.execute(status->settleSuccess(reservation,answer));
+        }catch(ApiException exception){transactions.executeWithoutResult(status->settleFailure(reservation,exception.getCode()));throw exception;}
+        catch(RuntimeException exception){transactions.executeWithoutResult(status->settleFailure(reservation,"AI_PROVIDER_ERROR"));throw exception;}
+    }
+
+    /** 系统内容生成不借用某个用户的 AI 同意，但仍必须通过全局配额、并发与月度预算门禁。 */
+    public String generateSystemContent(String systemPrompt,String prompt,String requestKey){
+        Reservation reservation=transactions.execute(status->reserveSystem(prompt,requestKey));
+        try{
+            AiGatewayResult answer=gateway.ask(reservation.model,reservation.apiKey,systemPrompt,prompt);
+            transactions.execute(status->settleSuccess(reservation,answer));
+            return answer.answer;
         }catch(ApiException exception){transactions.executeWithoutResult(status->settleFailure(reservation,exception.getCode()));throw exception;}
         catch(RuntimeException exception){transactions.executeWithoutResult(status->settleFailure(reservation,"AI_PROVIDER_ERROR"));throw exception;}
     }
@@ -93,6 +105,26 @@ public class AiService {
         Map<String,Object> result=new LinkedHashMap<String,Object>();result.put("logs",logs);List<Map<String,Object>> budgets=jdbc.queryForList("SELECT id,month_start,currency,limit_amount,reserved_amount,spent_amount,row_version FROM ai_month_budget WHERE month_start=?",month);result.put("budget",budgets.isEmpty()?null:budgets.get(0));return result;
     }
 
+    /** Administrator-only audit list. Conversation content is fetched only for an explicitly selected record. */
+    public Map<String,Object> adminQuestionAudit(int page,int size,String rawKeyword){
+        int safePage=Math.max(page,1),safeSize=Math.min(Math.max(size,1),100),offset=(safePage-1)*safeSize;String keyword=rawKeyword==null?"":rawKeyword.trim();
+        String where=" FROM ai_job j LEFT JOIN ai_attempt a ON a.job_id=j.id AND a.attempt_no=1 LEFT JOIN ai_model_price p ON p.id=a.price_id LEFT JOIN ai_model_config m ON m.provider_code=p.provider_code AND m.model_code=p.model_code LEFT JOIN app_user u ON u.id=j.owner_id WHERE j.action_code='ask_question'";
+        List<Object> args=new ArrayList<Object>();if(!keyword.isEmpty()){where+=" AND (LOCATE(?,j.input_text)>0 OR LOCATE(?,COALESCE(u.nickname,''))>0 OR LOCATE(?,COALESCE(u.short_id,''))>0)";args.add(keyword);args.add(keyword);args.add(keyword);}
+        Integer total=jdbc.queryForObject("SELECT COUNT(*)"+where,Integer.class,args.toArray());
+        List<Object> pageArgs=new ArrayList<Object>(args);pageArgs.add(safeSize);pageArgs.add(offset);
+        String select="SELECT j.id job_id,j.owner_id,j.state job_state,j.error_code,j.created_at,a.state attempt_state,p.model_code,m.display_name,m.specification,u.short_id,u.nickname";
+        List<Map<String,Object>> items=new ArrayList<Map<String,Object>>();for(Map<String,Object> row:jdbc.queryForList(select+where+" ORDER BY j.created_at DESC LIMIT ? OFFSET ?",pageArgs.toArray()))items.add(auditSummary(row));
+        Map<String,Object> result=new LinkedHashMap<String,Object>();result.put("items",items);result.put("total",total==null?0:total);result.put("page",safePage);result.put("pageSize",safeSize);return result;
+    }
+
+    public Map<String,Object> adminQuestionAuditDetail(String jobId){
+        List<Map<String,Object>> rows=jdbc.queryForList("SELECT j.id job_id,j.owner_id,j.input_text,j.output_json,j.state job_state,j.error_code,j.created_at,a.state attempt_state,a.provider_request_id,a.input_tokens,a.output_tokens,a.reserved_amount,a.settled_amount,a.started_at,a.finished_at,p.currency,p.model_code,m.display_name,m.specification,u.short_id,u.nickname FROM ai_job j LEFT JOIN ai_attempt a ON a.job_id=j.id AND a.attempt_no=1 LEFT JOIN ai_model_price p ON p.id=a.price_id LEFT JOIN ai_model_config m ON m.provider_code=p.provider_code AND m.model_code=p.model_code LEFT JOIN app_user u ON u.id=j.owner_id WHERE j.id=? AND j.action_code='ask_question'",jobId);
+        if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"AI_AUDIT_RECORD_NOT_FOUND","未找到 AI 调用记录");
+        Map<String,Object> row=rows.get(0),item=auditSummary(row);item.put("question",value(row,"input_text"));item.put("inputTokens",value(row,"input_tokens"));item.put("outputTokens",value(row,"output_tokens"));item.put("reservedAmount",value(row,"reserved_amount"));item.put("settledAmount",value(row,"settled_amount"));item.put("currency",value(row,"currency"));item.put("providerRequestId",value(row,"provider_request_id"));item.put("finishedAt",value(row,"finished_at"));String output=string(row,"output_json");if(output!=null&&!output.isEmpty())try{item.put("answer",json.readTree(output).path("answer").asText());}catch(Exception ignored){}return item;
+    }
+
+    private Map<String,Object> auditSummary(Map<String,Object> row){Map<String,Object> item=new LinkedHashMap<String,Object>();item.put("jobId",value(row,"job_id"));item.put("userId",value(row,"owner_id"));item.put("nickname",value(row,"nickname"));item.put("shortId",value(row,"short_id"));item.put("state",value(row,"attempt_state")!=null?value(row,"attempt_state"):value(row,"job_state"));item.put("errorCode",value(row,"error_code"));item.put("modelName",value(row,"display_name"));item.put("modelCode",value(row,"model_code"));item.put("specification",value(row,"specification"));item.put("createdAt",value(row,"created_at"));return item;}
+
     @Transactional
     public Map<String,Object> saveBudget(BigDecimal limit,String currency){
         if(limit==null||limit.signum()<=0)throw bad("INVALID_AI_BUDGET","月预算必须大于 0");if(currency==null||!currency.matches("[A-Za-z]{3}"))throw bad("INVALID_CURRENCY","货币代码必须是 3 位字母");
@@ -122,6 +154,28 @@ public class AiService {
         jdbc.update("UPDATE ai_daily_quota SET reserved_count=reserved_count-1,used_count=used_count+1,updated_at=CURRENT_TIMESTAMP WHERE quota_date=? AND scope_key IN (?,?)",today,ownerId,GLOBAL_SCOPE);
         jdbc.update("UPDATE ai_attempt SET state='sending',started_at=CURRENT_TIMESTAMP,quota_reserved=0 WHERE id=?",attemptId);
         Reservation result=new Reservation();result.jobId=jobId;result.attemptId=attemptId;result.ownerId=ownerId;result.budgetId=string(budget,"id");result.reserved=reserved;result.model=model;result.apiKey=apiKey;result.peakPeriod=isPeakPeriod(now);return result;
+    }
+
+    protected Reservation reserveSystem(String prompt,String requestKey){
+        Map<String,Object> modelRow=modelRow(null);AiRuntimeModel model=runtime(modelRow);String apiKey=parameters.required(model.apiKeyParamKey);
+        if(model.inputPerMillion.signum()==0&&model.outputPerMillion.signum()==0)throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"AI_PRICE_NOT_CONFIGURED","模型价格尚未核实，不能执行每日短文生成");
+        LocalDate today=LocalDate.now(BUSINESS_ZONE),month=today.withDayOfMonth(1);
+        ensureQuota(today,SYSTEM_SCOPE,properties.getAi().getGlobalDailyLimit());ensureQuota(today,GLOBAL_SCOPE,properties.getAi().getGlobalDailyLimit());
+        ensureGuard(SYSTEM_SCOPE,1);ensureGuard(GLOBAL_SCOPE,properties.getAi().getGlobalConcurrency());
+        reserveQuota(today,SYSTEM_SCOPE);reserveQuota(today,GLOBAL_SCOPE);reserveGuard(SYSTEM_SCOPE);reserveGuard(GLOBAL_SCOPE);
+        List<Map<String,Object>> budgets=jdbc.queryForList("SELECT * FROM ai_month_budget WHERE month_start=? AND currency=? FOR UPDATE",month,model.currency);
+        if(budgets.isEmpty())throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"AI_BUDGET_NOT_CONFIGURED","本月 AI 预算尚未配置，每日短文任务已停止");
+        Map<String,Object> budget=budgets.get(0);int estimatedInput=Math.max(1,prompt.codePointCount(0,prompt.length())+512);
+        BigDecimal reserved=cost(model,estimatedInput,model.maxOutputTokens);
+        if(jdbc.update("UPDATE ai_month_budget SET reserved_amount=reserved_amount+?,row_version=row_version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND spent_amount+reserved_amount+?<=limit_amount",reserved,string(budget,"id"),reserved)!=1)
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"AI_MONTH_BUDGET_EXCEEDED","本月 AI 预算已用完，每日短文任务已停止");
+        String jobId=CryptoUtils.randomId(),attemptId=CryptoUtils.randomId(),key=requestKey==null||requestKey.trim().isEmpty()?CryptoUtils.randomToken(18):requestKey.trim();Instant now=Instant.now();
+        try{jdbc.update("INSERT INTO ai_job(id,owner_id,scope_key,action_code,source_type,source_id,source_version,source_fingerprint,consent_version,prompt_version,input_text,state,attempt_count,queue_expires_at,payload_expires_at,request_key_hash) VALUES(?,?,?,'generate_english_articles','article_generation',?,1,?,'SYSTEM_CONTENT_V1','ARTICLE_DAILY_V1',?,'running',1,?,?,?)",jobId,properties.getAdminPrincipalId(),SYSTEM_SCOPE,CryptoUtils.randomId(),CryptoUtils.sha256(prompt),prompt,Timestamp.from(now.plusSeconds(600)),Timestamp.from(now.plus(Duration.ofDays(30))),CryptoUtils.sha256(key));}
+        catch(DuplicateKeyException e){throw conflict("AI_REQUEST_DUPLICATE","该词书今日短文任务已执行");}
+        jdbc.update("INSERT INTO ai_attempt(id,job_id,attempt_no,trigger_type,owner_id,price_id,budget_id,quota_date,state,reserved_amount,timeout_at,quota_reserved,concurrency_held) VALUES(?,?,1,'scheduled',?,?,?,?, 'reserved',?,?,1,1)",attemptId,jobId,SYSTEM_SCOPE,model.priceId,string(budget,"id"),today,reserved,Timestamp.from(now.plusSeconds(model.timeoutSeconds)));
+        jdbc.update("UPDATE ai_daily_quota SET reserved_count=reserved_count-1,used_count=used_count+1,updated_at=CURRENT_TIMESTAMP WHERE quota_date=? AND scope_key IN (?,?)",today,SYSTEM_SCOPE,GLOBAL_SCOPE);
+        jdbc.update("UPDATE ai_attempt SET state='sending',started_at=CURRENT_TIMESTAMP,quota_reserved=0 WHERE id=?",attemptId);
+        Reservation result=new Reservation();result.jobId=jobId;result.attemptId=attemptId;result.ownerId=SYSTEM_SCOPE;result.budgetId=string(budget,"id");result.reserved=reserved;result.model=model;result.apiKey=apiKey;result.peakPeriod=isPeakPeriod(now);return result;
     }
 
     protected Map<String,Object> settleSuccess(Reservation r,AiGatewayResult answer){

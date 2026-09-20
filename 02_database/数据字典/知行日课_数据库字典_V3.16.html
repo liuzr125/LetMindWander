@@ -4,18 +4,26 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>&#x77E5;&#x884C;&#x65E5;&#x8BFE; V3.16.3 &#x6570;&#x636E;&#x5E93;&#x5B57;&#x5178;</title>
+    <title>&#x77E5;&#x884C;&#x65E5;&#x8BFE; V3.16.10 &#x5408;&#x5E76;&#x7248;&#x6570;&#x636E;&#x5E93;&#x5B57;&#x5178;</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.16.3 数据库字典</h1>
-      <p>包含 V3.16.2 词库自动化与 V3.16.3 系统参数软删除增量 · MySQL 5.7.25 · DATETIME(3) 使用 UTC</p>
+      <h1>知行日课 V3.16.10 合并版数据库字典</h1>
+      <p>当前唯一合并维护入口：完整承接 V3.14、V3.15，并包含 V3.16.1 记忆学习闭环、V3.16.2 词库自动化、V3.16.3 系统参数软删除、V3.16.4 在线词书快照、V3.16.5 单词学习卡片、V3.16.6 正式词书目录扩展、V3.16.7 每日分级短文与全词书卡片覆盖审计、V3.16.8 分类展示偏好、V3.16.9 新词默认展示与发音连播设置及 V3.16.10 开放词汇证据与全库关系卡回填。2026-09-21 已同步每日短文任务开关、可配置篇数和统一运行历史语义。V3.14、V3.15 文件仅作为历史快照，不再分别补写新结构。</p>
     </header>
     <main>
       <nav>
+        <a href="#online-vocabulary-v3164">V3.16.4 在线词书目录<small>热门书目、逐词快照、结构化义项与例句</small></a>
+        <a href="#word_learning_card">V3.16.5 单词学习卡片<small>辨析、词族、助记、日常表达与来源审核</small></a>
+        <a href="#daily-graded-articles">V3.16.7 每日分级短文<small>按正式词书、日期与可配置槽位生成原创短文</small></a>
+        <a href="#word_learning_card_coverage">V3.16.7 卡片覆盖审计<small>小初高、四级、六级去重词条的基础卡与质量缺口</small></a>
+        <a href="#word-learning-card-preference">V3.16.8 卡片分类与展示偏好<small>六类逐词覆盖状态、账号级选择展示</small></a>
+        <a href="#word-study-preference">V3.16.9 新词学习偏好<small>默认展示或遮住、自动发音口音／次数／间隔</small></a>
+        <a href="#word-lexical-evidence">V3.16.10 词汇关系证据<small>固定数据集快照、近义／相近、派生与词形来源</small></a>
+        <a href="#article-temporary-token">短文临时 Token 音频<small>2026-09-20 · OSS 与数据库保存规则</small></a>
         <a href="#v316-changelog">V3.16&#x53D8;&#x66F4;<small>&#x82F1;&#x8BED;&#x8BCD;&#x5E93;&#x4E0E;TTS&#x589E;&#x5F3A;</small></a>
         <a href="#v3162-changelog">V3.16.2 增量<small>词库导入自动化</small></a>
         <a href="#v3163-changelog">V3.16.3 增量<small>系统参数软删除</small></a>
@@ -101,8 +109,29 @@
         <a href="#word_notebook">word_notebook<small>&#x4E2A;&#x4EBA;&#x751F;&#x8BCD;&#x672C;</small></a>
         <a href="#word_sense">word_sense<small>&#x5355;&#x8BCD;&#x8BCD;&#x4E49;&#x5206;&#x7EC4;</small></a>
         <a href="#follow_recording">follow_recording</a>
+        <a href="#admin-rbac">admin_role / admin_account / admin_menu<small>管理端登录、角色与菜单授权</small></a>
+        <a href="#admin-session">admin_session<small>管理端会话</small></a>
+        <a href="#content-collection-schedule">content_collection_schedule<small>每日官方技术资料采集计划</small></a>
+        <a href="#content-collection-run">content_collection_run<small>每日官方技术资料采集运行账本</small></a>
       </nav>
       <article>
+        <section id="article-temporary-token">
+          <h2>短文临时 NLS Token 生成与持久化</h2>
+          <p><strong>小程序按需合成（2026-09-20）：</strong>系统参数新增约定键 <code>ALIYUN_NLS_TEMPORARY_TOKEN</code>，复用 app_parameter 表，不增加列。由管理员在“系统参数 → 保存 / 更新临时 Token”或“AI 模型与费用 → 语音合成 → 保存 Token 到系统参数”录入；服务端强制 is_secret=1、AES-GCM 加密保存 param_value，列表不返回原文，参数写请求不记入访问日志。</p>
+          <p>小程序仅调用 POST /api/learning/contents/{id}/speech，不接收或提交 NLS Token。已有 ready 音频优先复用；没有时后端实时读取 state=active 且 del_is=0 的参数，解密后调用 NLS，再上传 OSS、保存媒体地址与内容关联。无有效参数或 Token 被拒绝时明确报错，不回退 AccessKey；更新参数即时生效，重启无需再次录入，但不会延长供应商有效期。删除保持 del_is=1 的软删除规则。</p>
+          <p>音频保存字段：短文为 content_version.article_audio_asset_id；短文点词词汇（如 glossary:working）为 article_word_glossary.audio_asset_id、audio_voice、audio_generated_at；词条为 pronunciation.asset_id。均关联 media_asset.object_key，tts_usage_log 记录逐次生成结果。保存的是音频资源与关联，不将 Token 放入媒体地址或日志。</p>
+          <p><strong>批量生成：</strong>管理端支持本页多选或当前难度、搜索条件下的全部分页。先读取并确认范围，再输入一次 Token，浏览器串行调用现有单篇接口；已有音频跳过，每篇成功立即上传 OSS 并保存关联。无新增批次表或 Token 字段，沿用下述媒体、版本及逐篇用量日志。</p>
+          <p>批量 Token 仅保留在当前运行内存，不落库或浏览器存储；本批结束即释放。Token、鉴权、OSS、网络或服务端错误会停止后续请求；单篇文本校验错误记录后继续。停止等待当前请求完成，失败及未处理项可重新输入 Token 继续，成功项不重复提交。页面关闭后不后台执行；已保存音频可刷新恢复，临时进度不持久化。</p>
+          <p class="meta">2026-09-20 · 复用现有表结构，无新增字段或数据库迁移。</p>
+          <p>管理端 POST /api/admin/content/articles/{contentId}/speech 的 JSON 请求体必须包含 nlsToken。仅本次请求使用，不依赖其他页面试听会话，不回退至 AccessKey 获取 Token。Token 不落库、不写入访问日志、不进入 URL，也不保存到浏览器本地存储；失败后重新输入。</p>
+          <p>使用服务端已配置的 AppKey、音色与采样率调用 NLS，成功后将 MP3 上传 OSS，再保存以下关联。NLS Token 不提供 OSS 上传权限，OSS 仍需独立的服务端凭据。当前单次正文上限 300 字符，超过时明确拒绝，不截断正文。</p>
+          <div class="scroll"><table><thead><tr><th>表 / 字段</th><th>保存规则</th></tr></thead><tbody>
+            <tr><td>media_asset.object_key</td><td>永久对象路径 tts/english_article/{assetId}.mp3；媒体类型 audio/mpeg、purpose=article_audio、state=ready，同时保存字节数和 SHA-256。仅 OSS 上传成功后写入。</td></tr>
+            <tr><td>content_version.article_audio_asset_id</td><td>关联 media_asset.id；同时更新 article_audio_voice、article_audio_generated_at，绑定生成时读取的已发布版本。</td></tr>
+            <tr><td>tts_usage_log</td><td>记录目标、内容版本、音色、字符数、成功资产 ID 或失败错误码，不含临时 Token。</td></tr>
+          </tbody></table></div>
+          <p>接口返回 assetId、audioUrl、voice、cached。audioUrl 是媒体服务稳定访问地址，播放时解析 OSS 地址；数据库保存 object_key 而非会过期的签名 URL。刷新列表后由版本关联恢复播放入口；已有同音色 ready 资产则复用。合成或 OSS 上传失败不写入新的短文音频关联。</p>
+        </section>
         <section id="v316-changelog">
           <h2>V3.16 <span>&#x82F1;&#x8BED;&#x8BCD;&#x5E93;&#x4E0E; TTS &#x8FFD;&#x8E2A;&#x589E;&#x5F3A;</span></h2>
           <p class="meta">&#x57FA;&#x4E8E; V3.15 &#x589E;&#x91CF;&#x5347;&#x7EA7;&#xFF1A;&#x65B0;&#x589E; word_alias&#xFF1B;&#x6269;&#x5C55; tts_usage_log &#x4EE5;&#x8FFD;&#x8E2A;&#x6A21;&#x578B;&#x3001;&#x53E3;&#x97F3;&#x548C; CMU/phoneme &#x7CBE;&#x786E;&#x53D1;&#x97F3;&#xFF1B;pronunciation &#x7EE7;&#x7EED;&#x6CBF;&#x7528;&#x65E2;&#x6709; sense/example &#x7EA7;&#x7ED3;&#x6784;&#x3002;</p>
@@ -544,6 +573,17 @@
             </table>
           </div>
           <p class="indexes"><b>索引：</b>uk_app_parameter_key(param_key); idx_app_parameter_visible(del_is, state, param_key)</p>
+          <h3>每日分词书短文运行参数（V3.16.7）</h3>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>param_key</th><th>迁移种子值</th><th>约束与运行语义</th></tr></thead>
+              <tbody>
+                <tr><td><code>article_generation.per_book_count</code></td><td><code>5</code></td><td>每本有效词书每天的目标篇数；管理端只允许 1–20。服务按最多 5 篇一批调用模型，但数据库槽位总数以当前参数值为准。</td></tr>
+                <tr><td><code>article_generation.enabled</code></td><td><code>true</code></td><td>每日短文任务开关；<code>false</code> 时定时调度直接返回且不调用模型，手动补齐请求也会被拒绝。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="meta">两项均为普通参数（<code>is_secret=0</code>、<code>state=active</code>、<code>del_is=0</code>）。迁移脚本重复执行时只补齐描述和启用状态，不覆盖管理员已经保存的 <code>param_value</code>。</p>
         </section>
         <section id="app_user">
           <h2>app_user <span>&#x5C0F;&#x7A0B;&#x5E8F;&#x7528;&#x6237;</span></h2>
@@ -13053,6 +13093,238 @@
             </table>
           </div>
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_follow_recording_owner_content(owner_id, content_id); idx_follow_recording_asset(asset_id, state); idx_follow_recording_owner_state(owner_id, state)</p>
+        </section>
+        <section id="online-vocabulary-v3164">
+          <h2>V3.16.4 在线词书目录与结构化词条快照（2026-09-20）</h2>
+          <p>复用 vocabulary_book、vocabulary_dataset_catalog、word_sense、word_example、pronunciation，不再建立第二套正式单词库。热门教材书目与可下载词表分开；书名相近不代表同一版次。下载仅暂存，不发布、不调用 TTS。缺音标保留空值；来源读音记号未核验为 IPA，不按字母猜测，不用于强制音素合成。</p>
+          <h3>vocabulary_online_book — 在线词书／教材目录</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>book_code</td><td>VARCHAR(64)，主键</td><td>独立来源书目编码，不能当作考试年份、ISBN 或英语一／二分类。</td></tr>
+            <tr><td>book_name / edition_label / provider_name</td><td>VARCHAR(160)，非空</td><td>来源书名、版本说明、提供方；未核实版次须明示。</td></tr>
+            <tr><td>category</td><td>VARCHAR(32)，非空</td><td>popular 热门候选书目（不是销量排名）；dataset 可下载候选词表。</td></tr>
+            <tr><td>source_url</td><td>VARCHAR(2048)，非空</td><td>可核对的书目／仓库页面。</td></tr>
+            <tr><td>download_path / source_revision</td><td>VARCHAR(200) / VARCHAR(64)，可空</td><td>白名单归档文件和固定 Git 提交；服务端不接受任意 URL、重定向或本地文件路径。仅元数据书籍为空。</td></tr>
+            <tr><td>expected_count / actual_count</td><td>INT 可空 / INT 默认 0</td><td>目录声称行数／实际下载行数，不代表唯一单词数或当年大纲覆盖量。</td></tr>
+            <tr><td>license_status / license_note</td><td>VARCHAR(32) 默认 unknown / VARCHAR(1000)</td><td>元数据书目 metadata_only；公开镜像 unknown。不得把公开下载或开源代码许可当作词典数据发布授权。</td></tr>
+            <tr><td>latest_dataset_id</td><td>CHAR(32)，可空</td><td>最近成功快照，对应 vocabulary_dataset_catalog.id；旧批次继续使用原快照。</td></tr>
+            <tr><td>quality_summary</td><td>LONGTEXT，可空</td><td>rows、missingPhonetic、missingExample、needsSenseMapping；仅质量统计，不宣称审核通过。</td></tr>
+            <tr><td>last_synced_at</td><td>TIMESTAMP(3)，可空</td><td>最近成功同步时间。</td></tr>
+            <tr><td>del_is</td><td>SMALLINT 默认 0，非空</td><td>0 正常，1 软删除；查询过滤，初始化不恢复已删除项。</td></tr>
+            <tr><td>created_at / updated_at</td><td>TIMESTAMP(3)，默认 CURRENT_TIMESTAMP</td><td>创建／更新时间，应用负责更新 updated_at。</td></tr>
+          </tbody></table>
+          <h3>vocabulary_online_word — 来源词条快照</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id / dataset_id / book_code</td><td>CHAR(32) / CHAR(32) / VARCHAR(64)，非空</td><td>记录主键、数据集快照、来源词书。只新增快照，不覆盖正式单词。</td></tr>
+            <tr><td>row_no / source_word_id</td><td>INT 非空 / VARCHAR(120) 可空</td><td>原始行序与来源词条编号。</td></tr>
+            <tr><td>word_term / normalized_word</td><td>VARCHAR(80)，非空</td><td>来源词头／小写检索词；正式导入仍执行独立规范化与去重。</td></tr>
+            <tr><td>phonetic_us / phonetic_uk</td><td>VARCHAR(200)，可空</td><td>保留来源美音／英音记号；无数据为空，不伪造音标。</td></tr>
+            <tr><td>phonetic_status</td><td>VARCHAR(32)，source_unverified</td><td>来源音标待核验，不能标成已确认 IPA。</td></tr>
+            <tr><td>normalized_json / raw_json / quality_flags_json</td><td>LONGTEXT，非空</td><td>word-entry-v1 规范对象、完整来源词条 JSON、缺失／歧义标记。</td></tr>
+            <tr><td>del_is / created_at</td><td>SMALLINT 默认 0 / TIMESTAMP(3)</td><td>软删除标志、快照创建时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(id)；uk_online_word_row(dataset_id,row_no)；同一词在不同词书、不同来源版本可并存。快照 ID 由书目编码、来源版本及规范化载荷（含来源证据）确定；数据库事务锁定书目行，同一版本重复同步复用快照，不重复插入词条。online_snapshot 的 vocabulary_dataset_catalog.source_payload 为 NULL：批次直接读取逐词 normalized_json，核对 item_count，避免整本词典超过 max_allowed_packet；checksum 校验规范载荷及来源证据。raw_json 单独保留完整来源对象。</p>
+          <h3>规范化契约及现有表映射</h3>
+          <table><thead><tr><th>word-entry-v1 字段</th><th>目标与约束</th></tr></thead><tbody>
+            <tr><td>word / phoneticUs / phoneticUk</td><td>content_version.word_term / pronunciation.phonetic（按 accent）；content_version.phonetic 为兼容摘要，不取代分口音数据。</td></tr>
+            <tr><td>senses[].partOfSpeech / meaning</td><td>word_sense，每个义项独立保存；content_version.meaning 仅保留首义摘要，全文保留在 word_sense。</td></tr>
+            <tr><td>senses[].examples[].sentence / translation</td><td>word_example，按义项及例句序号保留全部内容。</td></tr>
+            <tr><td>sourceExamples / requiresContentReview / qualityFlags</td><td>来源没有明确义项归属的例句独立保留，不任意绑定第一义项；requiresContentReview=true 阻止直接通过审核，需修正数据源后重新导入。</td></tr>
+            <tr><td>sourceRecord / sourceWordId / phoneticStatus</td><td>暂存层保留来源证据；原始音标不自动转换成 SSML 音素。</td></tr>
+          </tbody></table>
+          <p>tts_generation_task 新增 example_no INT NOT NULL DEFAULT 0：0 表示义项发音，正整数表示义项内例句序号；已有 sense_no 保留。按义项／例句／英美口音创建独立任务，成功资产继续关联 pronunciation → media_asset → OSS object_key。每次生成至多 10 条 pending/failed 任务；不自动消费整个词库。暂停恢复保留已完成任务和审核结果。</p>
+          <p>授权门禁：下载始终 unknown；核验授权前禁止收费音频和正式发布。热门教材仅元数据，不借用通用词表冒充。已存在正式单词只复用并补充词书成员关系，禁止覆盖已有义项、音频和学习记录；来源额外内容保留在快照，后续需单独审核合并。</p>
+          <p>接口（均仅管理员）：GET /api/admin/vocabulary/online-books；POST /{code}/sync；GET /{code}/words?page=1&amp;pageSize=20&amp;keyword=...。公开小程序不暴露原始词库快照。迁移：05_code/backend/sql/V3.16.4_online_vocabulary_catalog.sql；只新增表和列，无物理删除。普通 TTS 不保证多音词义项读音正确，仍需发音审核或经过验证的音素方案。</p>
+        </section>
+        <section id="word_learning_card">
+          <h2>word_learning_card — V3.16.5 单词学习卡片（2026-09-20）</h2>
+          <p>辅助学习材料独立存储，绑定已发布词条的精确 content_version_id，不覆盖正式义项／例句／音频。新版本需重新审核关联；卡片阅读和口头自练不写入掌握分。继续复用现有学习自评、记忆训练及间隔复习链路。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>卡片唯一 ID。</td></tr>
+            <tr><td>content_version_id / card_key</td><td>CHAR(32) / VARCHAR(80)，非空</td><td>词条版本与版本内稳定材料键；联合唯一。种子重复导入不覆盖已编辑项、不恢复软删除。</td></tr>
+            <tr><td>card_type</td><td>VARCHAR(24)，非空</td><td>mnemonic 助记、synonym 近义／相近表达、confusable 易混词、derivative 派生／词族、usage 日常表达、quote 影视或歌词引用。</td></tr>
+            <tr><td>sense_label</td><td>VARCHAR(160)，非空</td><td>适用义项／词性／关系类型。复数、过去分词、复合表达不能笼统冒充派生词。</td></tr>
+            <tr><td>title / related_term</td><td>VARCHAR(160) 非空 / VARCHAR(80) 可空</td><td>展示标题、相关词；不自动创建正式词条、关联词音频或新学习任务。</td></tr>
+            <tr><td>body</td><td>VARCHAR(1200)，非空</td><td>简短辨析、助记或已核验引用。自编联想不得冒充词源。</td></tr>
+            <tr><td>example_text / example_translation</td><td>VARCHAR(500)，可空</td><td>配套英文与中文，原创／引用身份须明确；不是 word_example 的自动发布入口。</td></tr>
+            <tr><td>recall_prompt</td><td>VARCHAR(300)，可空</td><td>鼓励回想／替换造句的口头提示，不作自动评分题。</td></tr>
+            <tr><td>source_kind / source_title</td><td>VARCHAR(24) 默认 original / VARCHAR(200) 非空</td><td>original 原创、reference 知识点参考、film 电影、lyric 歌词；出处标题／作品名／原创署名。</td></tr>
+            <tr><td>source_url / source_locator</td><td>VARCHAR(2048) / VARCHAR(200)，可空</td><td>HTTPS 证据来源；影视版本、年份、时间点或歌词位置。引用两项必填；非 HTTPS 链接不下发。</td></tr>
+            <tr><td>source_verified</td><td>SMALLINT 默认 0</td><td>0 未核验、1 已核验；非原创来源必须为 1。</td></tr>
+            <tr><td>rights_status / rights_note</td><td>VARCHAR(24) 默认 unknown / VARCHAR(1000) 可空</td><td>unknown 禁发；original、licensed、public_domain。发布必须有使用说明；影视歌词仅允许 licensed/public_domain 且有核验依据。标注出处不代表获得授权。</td></tr>
+            <tr><td>review_status / reviewed_by / reviewed_at</td><td>VARCHAR(24) 默认 draft / VARCHAR(80) / TIMESTAMP(3) 可空</td><td>draft/approved/rejected；审核主体及时间。approved、非空审核主体与时间为读取门禁。初始原创材料记录 ai-assisted-editorial-v1，不冒称人工审核。</td></tr>
+            <tr><td>state / sort_no</td><td>VARCHAR(24) 默认 draft / INT 默认 0</td><td>draft/published/withdrawn；组内展示顺序。</td></tr>
+            <tr><td>del_is</td><td>SMALLINT 默认 0</td><td>0 正常、1 软删除；不物理删除。</td></tr>
+            <tr><td>created_at / updated_at</td><td>TIMESTAMP(3)，默认 CURRENT_TIMESTAMP(3)</td><td>创建／修改时间；应用或维护 SQL 负责更新时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(id)；uk_word_card_version_key(content_version_id,card_key)；idx_word_card_public(content_version_id,del_is,state,review_status,sort_no)。关联为应用层约束，未添加物理外键。接口 GET /api/learning/contents/{id}/learning-cards 要求用户会话，仅返回已发布且审核通过的词条当前版本；每类最多 6 张。页面首次只展示每组一张，相近词／词族默认折叠。</p>
+          <p>迁移：05_code/backend/sql/V3.16.5_word_learning_cards.sql。初始文件 word-learning-cards.json 为 candy、beautiful、learn、apple 共 18 张原创／知识点参考模板，按现有已发布词条及中文释义匹配显式导入，不承诺全词库覆盖。无未经核验影视台词或歌词，无自动付费合成；原 pronunciation → media_asset → OSS 数据保持不变。维护说明：05_code/backend/tools/WORD_LEARNING_CARDS.md。</p>
+        </section>
+        <section id="daily-graded-articles">
+          <h2>english_article_book / english_article_generation_run — V3.16.7 每日分级短文（2026-09-20）</h2>
+          <p>每天按启用的正式词书生成分级英语短文；默认在 Asia/Shanghai 22:30 运行。联网内容只提供选题索引，英文正文由系统原创生成；不得复制第三方正文。短文仍保存到 learning_content / content_version，以下两表只负责词书归属、每日槽位、目标词快照及运行审计。迁移同时登记 content_source：知行日课每日分词书英语短文（source_type=ai_original），并在 app_parameter 登记任务开关与每本目标篇数。</p>
+          <h3>english_article_book — 短文与词书的每日槽位关系</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>应用生成的关系记录 ID。</td></tr>
+            <tr><td>content_id</td><td>CHAR(32)，非空</td><td>对应 learning_content.id；实际正文与发布版本继续由既有内容表管理。</td></tr>
+            <tr><td>book_id</td><td>CHAR(32)，非空</td><td>对应 vocabulary_book.id；生成难度和目标词范围以该正式词书为准。</td></tr>
+            <tr><td>generated_date</td><td>DATE，非空</td><td>业务生成日期；与 book_id、slot_no 共同限制每日可配置固定槽位。</td></tr>
+            <tr><td>slot_no</td><td>TINYINT UNSIGNED，非空</td><td>每日槽位编号；当前服务层限制为 1–20，具体上限取当次 <code>article_generation.per_book_count</code>。单次模型请求最多生成 5 篇只是批处理边界，不是数据库槽位上限；MySQL 5.7 不依赖 CHECK 约束。</td></tr>
+            <tr><td>target_words_json</td><td>JSON，非空</td><td>本篇选用的词书目标词快照；后续词书变化不改写历史短文。</td></tr>
+            <tr><td>topic_snapshot_json</td><td>JSON，非空</td><td>选题标题、来源链接及受限摘要等生成时证据快照，不保存第三方正文。</td></tr>
+            <tr><td>created_at</td><td>DATETIME(3)，CURRENT_TIMESTAMP(3)</td><td>UTC 创建时间。</td></tr>
+          </tbody></table>
+          <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_book_daily_slot(book_id, generated_date, slot_no); idx_article_book_content(content_id, book_id); idx_article_book_daily(generated_date, book_id)</p>
+          <h3>english_article_generation_run — 每日生成运行审计</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>一次运行的应用生成 ID。</td></tr>
+            <tr><td>trigger_key</td><td>VARCHAR(80)，非空、唯一</td><td>调度幂等键；相同触发不得重复生成同一轮内容。</td></tr>
+            <tr><td>run_date</td><td>DATE，非空</td><td>本次生成对应的业务日期。</td></tr>
+            <tr><td>state</td><td>VARCHAR(16)，running</td><td>运行状态，由服务层维护 running、success、partial、failed 等受控值。</td></tr>
+            <tr><td>book_count</td><td>INT UNSIGNED，0</td><td>本轮纳入处理的正式词书数量。</td></tr>
+            <tr><td>generated_count / skipped_count / failed_count</td><td>INT UNSIGNED，0</td><td>成功生成、幂等跳过与失败数量。</td></tr>
+            <tr><td>error_message</td><td>VARCHAR(1000)，可空</td><td>本轮失败摘要；不写入模型密钥、临时 Token 或完整第三方响应。</td></tr>
+            <tr><td>started_at / finished_at</td><td>DATETIME(3)，非空 / 可空</td><td>运行开始和结束时间，统一使用 UTC。</td></tr>
+            <tr><td>created_at</td><td>DATETIME(3)，CURRENT_TIMESTAMP(3)</td><td>审计记录创建时间。</td></tr>
+          </tbody></table>
+          <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_generation_trigger(trigger_key); idx_article_generation_date(run_date, created_at)</p>
+          <h3>参数、停用与运行历史</h3>
+          <table><thead><tr><th>能力</th><th>持久化位置</th><th>说明</th></tr></thead><tbody>
+            <tr><td>每日篇数</td><td><code>app_parameter</code>（<code>param_key=article_generation.per_book_count</code>）</td><td>默认 5、范围 1–20；修改后，下一次定时运行与“补齐今日短文”均按新数量补足缺少槽位，不重复插入已有槽位。</td></tr>
+            <tr><td>启用／禁用</td><td><code>app_parameter</code>（<code>param_key=article_generation.enabled</code>）</td><td>禁用按钮写入 <code>false</code>；停用后没有新的定时运行记录，也不会调用模型。重新启用后恢复调度。</td></tr>
+            <tr><td>统一运行历史</td><td><code>english_article_generation_run</code></td><td>定时和手动触发均写入同一运行表，并与其他任务一起在管理端“运行历史”展示；详情按钮读取该行和实时任务状态，不另建重复的详情表。</td></tr>
+            <tr><td>篇目明细</td><td><code>english_article_book</code> + <code>learning_content</code> / <code>content_version</code></td><td>可依据运行记录的 <code>run_date</code> 在数据层核对词书、槽位及已发布短文；当前未保存 run_id 到篇目关系，不能把同一天的多次手动补齐精确归因到单篇。正文、摘要、来源和音频仍复用内容链路。</td></tr>
+          </tbody></table>
+          <p>迁移：05_code/backend/sql/V3.16.7_daily_graded_articles.sql。两表未声明物理外键，关联完整性由服务层与生成事务校验；正文发布、来源审核、音频生成、OSS 资产及用量日志继续复用既有内容与媒体链路。</p>
+        </section>
+        <section id="word_learning_card_coverage">
+          <h2>word_learning_card / word_learning_card_coverage — V3.16.7 全词书基础覆盖（2026-09-20）</h2>
+          <p>适用范围为 vocabulary_book.level_code 属于 primary、junior、senior、cet4、cet6 且处于 active 的正式词书。通过 vocabulary_book_word → learning_content.published_version_id 去重；同一单词同时属于多个词书时只生成一组卡片，范围合并写入 target_scope_codes。只处理已发布、未撤回、审核通过的词条版本。历史兼容内容允许多个 learning_content 指向同一规范 published_version_id；接口沿用正文既有版本指针读取卡片，不复制版本或卡片。</p>
+          <h3>word_learning_card 新增字段</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>example_id</td><td>CHAR(32)，可空</td><td>关联当前词条版本下的既有 word_example；接口按 word_sense.content_version_id 再校验归属。不会复制、改写例句，也不会把其他词条例句泄漏进来。</td></tr>
+            <tr><td>generator_version</td><td>VARCHAR(40)，可空</td><td>确定性生成器版本。系统基础卡使用 school-cet-baseline-v1；人工卡可为空。</td></tr>
+          </tbody></table>
+          <p>新增 source_kind=content 表示引用当前已发布词条例句；rights_status=inherited 表示沿用该词条已审核来源与授权状态。只有 example_id 真实属于相同 content_version_id 时接口才下发例句。系统为每个目标词确保两类基础卡：mnemonic（中英双向主动回想）和 usage（基于现有例句的替换迁移练习）。它不新增英文句子、释义、音标、发音或学习记录。</p>
+          <h3>word_learning_card_coverage — 每词覆盖验收</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>content_version_id</td><td>CHAR(32)，主键</td><td>被验收的精确已发布词条版本。</td></tr>
+            <tr><td>target_scope_codes</td><td>VARCHAR(200)，非空</td><td>去重并按正式词书顺序记录所属范围，例如 primary,cet4。</td></tr>
+            <tr><td>required_card_count / published_card_count</td><td>INT，2 / 0</td><td>基础要求固定为 mnemonic + usage 两类；已发布卡片总数可包含经过审核的扩展卡。</td></tr>
+            <tr><td>baseline_status</td><td>VARCHAR(24)，pending</td><td>complete 表示两类基础卡均可用；blocked 表示缺失，具体原因见 issues_json。软删除卡不会被重建，因此会进入 blocked。</td></tr>
+            <tr><td>example_status / source_example_id</td><td>VARCHAR(24) / CHAR(32) 可空</td><td>linked 表示已关联首条已发布例句；missing 时仍提供口头造句指令，但不伪造标准句。</td></tr>
+            <tr><td>relation_status</td><td>VARCHAR(32)，evidence_required</td><td>complete 表示三类关系卡均可用；partial 表示部分可用；evidence_not_available 表示已查固定证据版本仍无安全候选；evidence_required 表示尚未导入证据。禁止仅凭拼写批量生成后冒充词义关系。</td></tr>
+            <tr><td>quotation_status</td><td>VARCHAR(32)，optional_not_required</td><td>影视台词、歌词不是每词必填项；只有真实出处、定位及授权核验完整时才发布。</td></tr>
+            <tr><td>generator_version</td><td>VARCHAR(40)，非空</td><td>本轮验收／生成规则版本。</td></tr>
+            <tr><td>issues_json</td><td>LONGTEXT，非空</td><td>JSON 数组：missing_mnemonic、missing_usage、missing_example_reference 等机器可读缺口。</td></tr>
+            <tr><td>del_is</td><td>SMALLINT 默认 0</td><td>软删除标记；不物理删除。</td></tr>
+            <tr><td>generated_at / updated_at</td><td>TIMESTAMP(3)</td><td>最近生成验收及更新时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(content_version_id)；idx_word_card_coverage_status(del_is,baseline_status,relation_status)；idx_word_card_coverage_generator(generator_version,generated_at)。迁移：05_code/backend/sql/V3.16.7_word_learning_card_coverage.sql。显式工具：InstallWordLearningCardCoverage --apply-local。幂等键为 content_version_id + card_key；重复运行不覆盖人工内容，也不恢复软删除。</p>
+          <p>重要边界：“所有词达到同一标准”是所有词具有可验证的基础训练与覆盖状态，不是强迫每个词拥有近义词、派生词或影视歌词。后几类并非对每个单词都客观存在，且自动猜测会污染正式数据。覆盖表把该差异显式化，而不是用虚构数据把缺口藏起来。</p>
+        </section>
+        <section id="word-learning-card-preference">
+          <h2>word_learning_card_type_coverage / user_word_learning_card_preference — V3.16.8 分类覆盖与选择展示（2026-09-20）</h2>
+          <p>每个小学、初中、高中、四级、六级去重已发布词条，对 mnemonic、synonym、confusable、derivative、usage、quote 六类分别建立覆盖记录。覆盖记录不是虚构卡片：只有通过发布、审核、来源与权利门禁的 word_learning_card 才计入 published_count。用户展示开关只过滤接口和页面，不删除公共卡片、不修改审核结论、不影响学习记录。</p>
+          <h3>word_learning_card_type_coverage — 每词每类覆盖状态</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>content_version_id / card_type</td><td>CHAR(32) / VARCHAR(24)，联合主键</td><td>精确词条版本与六类卡片类型；每个目标词固定六行。</td></tr>
+            <tr><td>requirement_level</td><td>VARCHAR(24)，非空</td><td>required：mnemonic、usage；evidence_required：synonym、confusable、derivative；optional：quote。</td></tr>
+            <tr><td>published_count</td><td>INT，默认 0</td><td>通过发布门禁的真实卡片数；草稿、软删除、未审核、权利未知材料不计入。</td></tr>
+            <tr><td>coverage_status</td><td>VARCHAR(32)，非空</td><td>available、missing_required、evidence_required、evidence_not_available、optional_not_available。</td></tr>
+            <tr><td>status_note</td><td>VARCHAR(300)，非空</td><td>面向维护与审计的状态说明；缺关系证据时明确禁止按拼写自动编造。</td></tr>
+            <tr><td>generator_version</td><td>VARCHAR(40)，非空</td><td>当前覆盖规则 school-cet-card-standard-v3；关系卡生成器为 oewn-card-enrichment-v4。</td></tr>
+            <tr><td>del_is / generated_at / updated_at</td><td>SMALLINT / TIMESTAMP(3)</td><td>软删除、最近生成与更新时间。</td></tr>
+          </tbody></table>
+          <h3>user_word_learning_card_preference — 账号级卡片展示选择</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>owner_id / card_type</td><td>CHAR(32) / VARCHAR(24)，联合主键</td><td>用户与卡片类型；每个账号最多六行。</td></tr>
+            <tr><td>enabled</td><td>SMALLINT，默认 1</td><td>1 展示，0 隐藏；首次无记录时六类默认展示，允许全部关闭。</td></tr>
+            <tr><td>row_version</td><td>INT，默认 1</td><td>每次修改递增，用于审计与后续并发控制。</td></tr>
+            <tr><td>del_is</td><td>SMALLINT，默认 0</td><td>软删除标识，不物理删除。</td></tr>
+            <tr><td>created_at / updated_at</td><td>TIMESTAMP(3)</td><td>创建及更新时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(content_version_id,card_type)、idx_word_card_type_coverage_status(card_type,del_is,coverage_status)、idx_word_card_type_coverage_generator(generator_version,generated_at)；PRIMARY(owner_id,card_type)、idx_user_word_card_preference_owner(owner_id,del_is,enabled)。接口：GET/PUT /api/learning/card-preferences；卡片接口按当前账号启用类型过滤。迁移：05_code/backend/sql/V3.16.8_word_learning_card_preferences.sql。</p>
+        </section>
+        <section id="word-study-preference">
+          <h2>user_word_study_preference — V3.16.9 新词默认展示与发音连播设置（2026-09-20）</h2>
+          <p>账号级保存新词页进入行为。首次无记录时默认展示答案、开启自动播放、英式发音、3 次、每遍结束后间隔 1500 毫秒。间隔从上一遍音频 ended 事件开始计算，禁止固定计时并发播放；离页、切词、手动播放或关闭开关都会取消剩余连播。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>owner_id</td><td>CHAR(32)，主键</td><td>小程序账号；每个账号最多一条有效设置。</td></tr>
+            <tr><td>default_answer_mode</td><td>VARCHAR(16)，visible</td><td>visible 默认展示图 1 的答案内容；hidden 默认进入图 2 的遮住回想状态。</td></tr>
+            <tr><td>auto_play_enabled</td><td>SMALLINT，1</td><td>1 进入新词自动播放；0 不自动播放，手动发音仍可用。</td></tr>
+            <tr><td>auto_play_accent</td><td>VARCHAR(8)，uk</td><td>uk 英式、us 美式；当前词缺少所选口音时使用已有词头发音，不生成或猜测音频。</td></tr>
+            <tr><td>auto_play_count</td><td>SMALLINT，3</td><td>可设置 1–5 次；3 只是默认值，不写死在播放流程。</td></tr>
+            <tr><td>auto_play_interval_ms</td><td>INT，1500</td><td>两遍发音之间 1000–2000 毫秒；小程序提供 1、1.5、2 秒选项。</td></tr>
+            <tr><td>row_version</td><td>INT，1</td><td>每次修改递增，供审计与后续并发控制。</td></tr>
+            <tr><td>del_is</td><td>SMALLINT，0</td><td>软删除标识，不物理删除。</td></tr>
+            <tr><td>created_at / updated_at</td><td>TIMESTAMP(3)</td><td>创建与最近更新时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(owner_id)、idx_user_word_study_preference_active(del_is,updated_at)。接口：GET/PUT /api/learning/word-study-preferences。服务端校验 default_answer_mode、口音、次数及 1–2 秒间隔范围。迁移：05_code/backend/sql/V3.16.9_word_study_preferences.sql。</p>
+        </section>
+        <section id="word-lexical-evidence">
+          <h2>lexical_dataset_snapshot / word_lexical_relation_evidence — V3.16.10 开放词汇证据（2026-09-20）</h2>
+          <p>为小学、初中、高中、四级、六级当前已发布词条补充可追溯关系卡。数据源固定为 Open English WordNet 2025 官方 JSON，导入前强制校验 SHA-256；保存版本、来源、许可与定位。近义／相近和派生／词形只使用与当前首义词性一致的第一义项，不用冷门义项凑覆盖率。易混词仅比较本库词头的 Damerau-Levenshtein 拼写距离，正文明确声明不是近义、词源或派生关系。</p>
+          <p>当前本地回填：6,766 个目标词条版本；mnemonic 与 usage 均为 6,766；synonym 5,951；confusable 6,315；derivative 3,045。三种关系卡全部具备 2,830 个、部分具备 3,846 个、没有安全候选 90 个。无证据的类别保持 evidence_not_available，不生成占位事实；quote 仍为可选，未批量复制电影台词或歌词。</p>
+          <h3>lexical_dataset_snapshot — 数据集固定快照</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>dataset_code</td><td>VARCHAR(64)，主键</td><td>固定数据集编码；当前为 oewn-2025。</td></tr>
+            <tr><td>dataset_name / dataset_version</td><td>VARCHAR(160) / VARCHAR(40)</td><td>数据集名称与版本，不使用“最新版”覆盖历史证据。</td></tr>
+            <tr><td>source_url</td><td>VARCHAR(2048)，非空</td><td>官方版本化下载地址。</td></tr>
+            <tr><td>license_code / license_url / attribution</td><td>VARCHAR(40) / VARCHAR(2048) / VARCHAR(1000)</td><td>许可代码、官方许可页及必须保留的署名文本；当前记录 CC BY 4.0 与 Princeton WordNet / OEWN 归属说明。</td></tr>
+            <tr><td>checksum_sha256</td><td>CHAR(64)，非空</td><td>导入文件校验值；不匹配时拒绝写入。</td></tr>
+            <tr><td>import_status / relation_count / imported_at</td><td>VARCHAR(24) / INT / TIMESTAMP(3)</td><td>pending、importing、complete；有效关系数及导入完成时间。</td></tr>
+            <tr><td>del_is / created_at / updated_at</td><td>SMALLINT / TIMESTAMP(3)</td><td>软删除与审计时间；不物理删除数据集记录。</td></tr>
+          </tbody></table>
+          <h3>word_lexical_relation_evidence — 词汇关系证据</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>由数据集、词头、关系、相关词和词性确定性生成。</td></tr>
+            <tr><td>dataset_code / headword_norm</td><td>VARCHAR(64) / VARCHAR(160)</td><td>证据数据集与规范化小写词头。</td></tr>
+            <tr><td>relation_type / related_term</td><td>VARCHAR(24) / VARCHAR(160)</td><td>synonym、similar、hypernym、derivation、inflection 及相关表达。</td></tr>
+            <tr><td>part_of_speech</td><td>VARCHAR(8)，空串</td><td>OEWN 词性 n、v、a、r 等；生成时必须与当前首义词性兼容。</td></tr>
+            <tr><td>source_sense_id / source_synset_id</td><td>VARCHAR(200) / VARCHAR(32)，可空</td><td>官方 sense key 与 synset ID。</td></tr>
+            <tr><td>sense_rank / relation_rank</td><td>SMALLINT，0</td><td>原数据中的义项顺序和候选顺序；当前自动发布只采用 sense_rank=0，候选保持官方顺序。</td></tr>
+            <tr><td>source_locator / evidence_note</td><td>VARCHAR(240) / VARCHAR(500)</td><td>可复核定位与关系说明，不复制整段词典正文。</td></tr>
+            <tr><td>del_is / created_at / updated_at</td><td>SMALLINT / TIMESTAMP(3)</td><td>重新导入先软删除旧证据，再以确定性键恢复仍存在项；无物理删除。</td></tr>
+          </tbody></table>
+          <p>索引：lexical_dataset_snapshot PRIMARY(dataset_code)；word_lexical_relation_evidence PRIMARY(id)、uk_lexical_relation(dataset_code,headword_norm,relation_type,related_term,part_of_speech)、idx_lexical_relation_headword、idx_lexical_relation_dataset。迁移：05_code/backend/sql/V3.16.10_word_lexical_evidence.sql。显式工具：InstallWordLearningCardEnrichment --apply-local --download-official；下载后核验固定 SHA-256，拒绝非本机 letMindWander 开发库。生成卡绑定精确 content_version_id，旧生成器卡仅 del_is=1 软删除。</p>
+        </section>
+        <section id="admin-rbac">
+          <h2>管理端 RBAC 与登录账号 — V3.16 合并补充</h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.4_admin_rbac.sql</code>。管理端账号与小程序用户分离；密码仅保存 PBKDF2 哈希。超级管理员默认拥有全部菜单（含 AI 使用追溯），管理员默认不拥有 AI 使用追溯菜单，后续由超级管理员按角色授权。</p>
+          <h3 id="admin_role">admin_role — 管理端角色</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>角色 ID。</td></tr><tr><td>code</td><td>VARCHAR(32)，唯一</td><td>稳定角色代码；预置 SUPER_ADMIN、ADMIN。</td></tr><tr><td>name / description</td><td>VARCHAR(80) / VARCHAR(255)</td><td>角色展示名称及职责说明。</td></tr><tr><td>is_system / enabled / sort_order</td><td>TINYINT(1) / TINYINT(1) / SMALLINT UNSIGNED</td><td>系统内置标记、启用状态和排序；仅超级管理员为系统内置角色。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、uk_admin_role_code(code)。</p>
+          <h3 id="admin_account">admin_account — 管理端登录账号</h3>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>管理账号 ID。</td></tr><tr><td>username</td><td>VARCHAR(40)，唯一</td><td>登录账号名。</td></tr><tr><td>password_hash</td><td>VARCHAR(255)</td><td>PBKDF2 密码哈希；禁止保存明文或可逆密码。</td></tr><tr><td>role_id</td><td>CHAR(32)</td><td>逻辑关联 admin_role.id。</td></tr><tr><td>enabled / last_login_at / password_updated_at</td><td>TINYINT(1) / DATETIME(3) / DATETIME(3)</td><td>启用状态、最近登录和密码更新时间。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、uk_admin_account_username(username)、idx_admin_account_role(role_id)。</p>
+          <h3 id="admin_menu">admin_menu / <span id="admin_role_menu">admin_role_menu</span> — 菜单与角色授权</h3>
+          <table><thead><tr><th>表</th><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>admin_menu</td><td>id</td><td>CHAR(32)，主键</td><td>菜单 ID。</td></tr><tr><td>admin_menu</td><td>code</td><td>VARCHAR(32)，唯一</td><td>稳定菜单代码；<code>ai_audit</code> 对应“AI 使用追溯”。</td></tr><tr><td>admin_menu</td><td>name / path / icon</td><td>VARCHAR(80) / VARCHAR(120) / VARCHAR(12)</td><td>菜单名称、管理端路由和图标。</td></tr><tr><td>admin_menu</td><td>sort_order / enabled / created_at / updated_at</td><td>SMALLINT / TINYINT(1) / DATETIME(3)</td><td>展示排序、启用状态及 UTC 审计时间。</td></tr>
+            <tr><td>admin_role_menu</td><td>role_id / menu_id</td><td>CHAR(32) / CHAR(32)，联合主键</td><td>角色与菜单的多对多授权；逻辑关联 admin_role.id、admin_menu.id。</td></tr><tr><td>admin_role_menu</td><td>created_at</td><td>DATETIME(3)</td><td>授权创建时间（UTC）。</td></tr>
+          </tbody></table><p>索引：admin_menu PRIMARY(id)、uk_admin_menu_code(code)；admin_role_menu PRIMARY(role_id,menu_id)。</p>
+        </section>
+        <section id="admin-session">
+          <h2 id="admin_session">admin_session — 管理端会话</h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.4_admin_rbac.sql</code>。登录令牌仅在当前浏览器保存，数据库只保存令牌哈希；修改密码或会话撤销后原会话立即失效。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>会话 ID。</td></tr><tr><td>account_id</td><td>CHAR(32)</td><td>逻辑关联 admin_account.id。</td></tr><tr><td>token_hash</td><td>CHAR(64)，唯一</td><td>访问令牌的 SHA-256 哈希，不保存令牌原文。</td></tr><tr><td>expires_at / revoked_at / last_seen_at</td><td>DATETIME(3)</td><td>失效、撤销及最后访问时间（UTC）。</td></tr><tr><td>created_at</td><td>DATETIME(3)</td><td>创建时间（UTC）。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、uk_admin_session_token(token_hash)、idx_admin_session_active(account_id,expires_at,revoked_at)。</p>
+        </section>
+        <section id="content-collection-schedule">
+          <h2 id="content_collection_schedule">content_collection_schedule — 每日官方技术资料采集计划</h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.3_content_collection_schedule.sql</code>。预置任务“每日官方技术资料采集”，Asia/Shanghai 每日 22:00 执行；页面的运行详情、任务名称和 Cron 均从该任务契约读取。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>定时任务 ID。</td></tr><tr><td>name</td><td>VARCHAR(100)</td><td>任务显示名。</td></tr><tr><td>cron_expression / timezone</td><td>VARCHAR(80) / VARCHAR(40)</td><td>Spring Cron 与业务时区；当前为 <code>0 0 22 * * *</code>、Asia/Shanghai。</td></tr><tr><td>per_run_limit / state</td><td>SMALLINT UNSIGNED / VARCHAR(32)</td><td>每来源抓取上限（默认 10）与 active/paused 状态。</td></tr><tr><td>last_run_at / next_run_at</td><td>DATETIME(3)，可空</td><td>最近和下一次运行时间（UTC）。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、idx_collection_schedule_state(state)。</p>
+        </section>
+        <section id="content-collection-run">
+          <h2 id="content_collection_run">content_collection_run — 每日官方技术资料采集运行账本</h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.3_content_collection_schedule.sql</code>。运行历史以此表为唯一事实来源；管理端通过 schedule_id 关联任务名称，因此每条历史可准确展示“执行任务”。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id / schedule_id</td><td>CHAR(32) / CHAR(32)</td><td>运行 ID；逻辑关联 content_collection_schedule.id。</td></tr><tr><td>trigger_key</td><td>VARCHAR(80)</td><td><code>daily:业务日期</code> 或 <code>manual:随机 ID</code>；同一任务和触发键唯一，保证幂等。</td></tr><tr><td>state</td><td>VARCHAR(32)，running</td><td>running、success、partial、failed。</td></tr><tr><td>fetched_count / inserted_count / skipped_count</td><td>INT UNSIGNED，0</td><td>抓取、实际新入库、去重跳过数量。</td></tr><tr><td>error_code / error_message</td><td>VARCHAR(64) / VARCHAR(500)，可空</td><td>稳定错误码和受限错误描述。</td></tr><tr><td>started_at / finished_at</td><td>DATETIME(3)，可空</td><td>执行开始与结束时间（UTC）。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、uk_collection_run_trigger(schedule_id,trigger_key)、idx_collection_run_history(schedule_id,created_at,id)。采集结果写入既有 learning_content、content_version 等表，均以 pending 状态等待人工审核；AI 使用追溯复用既有 ai_job、ai_attempt，不新增审计副本表。</p>
         </section>
       </article>
     </main>

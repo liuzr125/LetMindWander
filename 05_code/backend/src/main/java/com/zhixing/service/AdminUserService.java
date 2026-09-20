@@ -1,6 +1,7 @@
 package com.zhixing.service;
 
 import com.zhixing.common.ApiException;
+import com.zhixing.common.CryptoUtils;
 import com.zhixing.model.AdminUserPageView;
 import com.zhixing.model.AdminUserView;
 import com.zhixing.model.AdminUserLearningView;
@@ -11,9 +12,11 @@ import com.zhixing.model.WordNotebookSummaryView;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +61,17 @@ public class AdminUserService {
         WordNotebookSummaryView notebook=learning.notebookSummary(userId);result.setNotebook(notebook);
         LearningPageView notebookItems=learning.page(userId,"word","","","",true,"","",notebookPage,notebookPageSize);result.setNotebookItems(notebookItems);
         result.setToday(today(userId));return result;
+    }
+    @Transactional
+    public AdminUserView setAiAuthorization(String rawUserId,boolean enabled,String adminId){
+        String userId=rawUserId==null?"":rawUserId.trim();
+        if(userId.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_USER_ID","用户 ID 不能为空");
+        Instant now=Instant.now();
+        int updated=jdbc.update("UPDATE app_user SET ai_consent_version=?,ai_consented_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",enabled?"ADMIN_AI_ACCESS_V1":null,enabled?Timestamp.from(now):null,userId);
+        if(updated==0)throw new ApiException(HttpStatus.NOT_FOUND,"ADMIN_USER_NOT_FOUND","用户不存在");
+        jdbc.update("INSERT INTO admin_audit(id,admin_id,action_code,target_type,target_id,result_code,metadata_json,expires_at) VALUES(?,?,?,?,?,'succeeded',?,?)",CryptoUtils.randomId(),adminId,"ai_authorization_update","app_user",userId,"{\"enabled\":"+enabled+"}",Timestamp.from(now.plusSeconds(180L*24*3600)));
+        List<AdminUserView> rows=jdbc.query("SELECT id,seq_no,short_id,nickname,mobile,status,ai_consent_version,last_login_at,created_at FROM app_user WHERE id=?",(rs,row)->mapUser(rs),userId);
+        return rows.get(0);
     }
     private AdminUserLearningView.TodayProgressView today(String userId){
         LocalDate date=LocalDate.now(BUSINESS_ZONE);

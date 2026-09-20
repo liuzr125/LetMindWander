@@ -25,6 +25,9 @@ class F10WordMemoryIntegrationTest {
 
     @Test void reviewedQuestionsHintsFirstAnswerRetriesIdempotencyAndResultsFormAClosedLoop() throws Exception {
         Session user=register();seed();markLearned(user,WORD);
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_item WHERE owner_id=? AND bookmark_content_id=?",Integer.class,user.userId,WORD));
+        mvc.perform(get("/api/knowledge").header("Authorization",bearer(user.token)))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
         mvc.perform(get("/api/word-memory/hints").header("Authorization",bearer(user.token)).param("contentId",WORD))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].methodType").value("association"));
         String created=mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","session-1")
@@ -74,6 +77,26 @@ class F10WordMemoryIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\",\"spelling\"],\"source\":\"word_detail\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.currentEpisode.dimension").value("meaning"));
         assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM word_memory_question WHERE content_version_id=? AND question_version=1000000",Integer.class,VERSION));
+    }
+
+    @Test void meaningAnswerAcceptsOneNormalizedSenseButNotAnArbitrarySubstring() throws Exception {
+        Session user=register();seed();markLearned(user,WORD);
+        jdbc.update("UPDATE word_memory_question SET expected_answer=?,accepted_answers_json=NULL,answer_policy='meaning_flexible' WHERE id=?","adv. 上下文；语境",MEANING);
+        JsonNode accepted=json.readTree(mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-accepted")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",accepted.path("sessionId").asText(),accepted.path("currentEpisode").path("id").asText())
+                .header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-attempt-accepted").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"（名词）语境\",\"expectedVersion\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("independent_correct"));
+
+        JsonNode rejected=json.readTree(mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-rejected")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",rejected.path("sessionId").asText(),rejected.path("currentEpisode").path("id").asText())
+                .header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-attempt-rejected").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"上\",\"expectedVersion\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("incorrect")).andExpect(jsonPath("$.canRetry").value(true));
     }
 
     @Test void arbitraryClientContentIdsCannotBypassLearnedWordScope() throws Exception {

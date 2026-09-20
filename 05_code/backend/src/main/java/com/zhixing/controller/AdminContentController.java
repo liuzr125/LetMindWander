@@ -19,8 +19,21 @@ public class AdminContentController {
     @GetMapping("/coverage") public ContentCoverageView coverage(@RequestHeader(value="X-Admin-Token",required=false)String token){admin(token);return contents.coverage();}
     @GetMapping("/technical") public AdminTechnicalContentPageView technical(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String topic,@RequestParam(required=false)String keyword,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.technical(topic,keyword,page,pageSize);}
     @GetMapping("/technical/{contentId}") public AdminTechnicalContentView technicalDetail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId){admin(token);return contents.technicalDetail(contentId);}
-    @GetMapping("/articles") public AdminTechnicalContentPageView articles(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String difficulty,@RequestParam(required=false)String keyword,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.articles(difficulty,keyword,page,pageSize);}
+    @GetMapping("/articles") public AdminTechnicalContentPageView articles(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String difficulty,@RequestParam(required=false)String bookId,@RequestParam(required=false)String keyword,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.articles(difficulty,bookId,keyword,page,pageSize);}
     @GetMapping("/articles/{contentId}") public AdminTechnicalContentView articleDetail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId){admin(token);return contents.articleDetail(contentId);}
-    @PostMapping("/articles/{contentId}/speech") public java.util.Map<String,Object> articleSpeech(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId){admin(token);contents.articleDetail(contentId);return tts.speech(properties.getAdminPrincipalId(),contentId);}
+    @GetMapping("/tts-status") public java.util.Map<String,Object> ttsStatus(@RequestHeader(value="X-Admin-Token",required=false)String token){admin(token);return tts.productionStatus();}
+    @PostMapping("/articles/{contentId}/speech")
+    public java.util.Map<String,Object> articleSpeech(@RequestHeader(value="X-Admin-Token",required=false) String token,
+            @PathVariable String contentId, @RequestBody(required=false) ArticleSpeechRequest request) {
+        admin(token);
+        contents.articleDetail(contentId);
+        return tts.speechWithTemporaryToken(properties.getAdminPrincipalId(), contentId,
+                request == null ? null : request.getNlsToken());
+    }
+    public static class ArticleSpeechRequest {
+        private String nlsToken;
+        public String getNlsToken() { return nlsToken; }
+        public void setNlsToken(String nlsToken) { this.nlsToken = nlsToken; }
+    }
     private void admin(String token){if(!CryptoUtils.constantTimeEquals(properties.getAdminToken(),token))throw new ApiException(HttpStatus.UNAUTHORIZED,"ADMIN_UNAUTHORIZED","管理员访问令牌无效");}
 }

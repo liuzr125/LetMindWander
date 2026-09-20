@@ -1,0 +1,28 @@
+[
+  {"word":"candy","meaningContains":"糖","cards":[
+    {"key":"scene-v1","type":"mnemonic","sense":"名词 · 糖果","title":"把词和一个动作连起来","body":"想象剥开糖纸，手心里有一块糖。看着 candy 说出“一块糖”，再合上提示回想。这是自编画面联想，不是词根或词源。","prompt":"不看提示，怎样说“一块糖”？"},
+    {"key":"sweets-v1","type":"synonym","sense":"名词 · 糖果；英美表达","title":"candy（美） ↔ sweets（英）","related":"sweets","body":"谈论糖果时，美式常说 candy，英式常说 sweets。sweet 单独作形容词时表示“甜的”，不能在所有句子里替换 candy。","sourceTitle":"Collins：candy 词条（知识点参考）","sourceUrl":"https://www.collinsdictionary.com/us/dictionary/english/candy"},
+    {"key":"candle-v1","type":"confusable","sense":"拼写易混 · 不是近义词","title":"candy 糖果 ≠ candle 蜡烛","related":"candle","body":"它们开头都有 cand，但结尾不同。用“糖果吃进嘴里、蜡烛点亮房间”区分意思，不要因字母相似把它们归成同一词义。","example":"There is candy beside the candle.","translation":"蜡烛旁边有糖果。","prompt":"哪一个是蜡烛？它的结尾怎么写？","sourceTitle":"Oxford Learner’s Dictionaries：candle（知识点参考）","sourceUrl":"https://www.oxfordlearnersdictionaries.com/definition/english/candle"},
+    {"key":"candied-v1","type":"derivative","sense":"词族拓展 · 分词形容词，不是名词复数","title":"candy → candied","related":"candied","body":"candy 还可作动词，表示用糖处理食物。candied 是其过去式／过去分词，也可作形容词，表示糖渍的；例：candied fruit。先把常用名词 candy 学稳，再记这一层。","example":"I put some candied fruit in the cake.","translation":"我在蛋糕里放了些糖渍水果。","sourceTitle":"Collins：candy 动词及词形（知识点参考）","sourceUrl":"https://www.collinsdictionary.com/us/dictionary/english/candy"},
+    {"key":"candies-v1","type":"derivative","sense":"屈折变化 · 不是派生新词","title":"candy → candies","related":"candies","body":"candies 是 candy 的复数词形，不是另一个派生词。表达具体数量时，也可以用 pieces of candy。","sourceTitle":"Collins：candy 复数（知识点参考）","sourceUrl":"https://www.collinsdictionary.com/us/dictionary/english/candy"},
+    {"key":"ask-v1","type":"usage","sense":"日常场景 · 礼貌地要一块糖","title":"Can I have a piece of candy?","body":"把 a piece of candy 作为一小块表达一起记，先练会这一句。","example":"Can I have a piece of candy, please?","translation":"请问，我可以拿一块糖吗？","prompt":"如果是两块糖，你会怎样改这句话？"},
+    {"key":"offer-v1","type":"usage","sense":"日常场景 · 分享糖果","title":"Would you like some candy?","body":"Would you like…? 可以用来礼貌地询问对方要不要某样东西。","example":"Would you like some candy after lunch?","translation":"午饭后你想吃点糖果吗？","prompt":"把 candy 换成一种你会分享的食物。"}
+  ]},
+  {"word":"beautiful","meaningContains":"美","cards":[
+    {"key":"scene-v1","type":"mnemonic","sense":"形容词 · 美丽的","title":"想一个你觉得美的地方","body":"把 beautiful 和一个真实场景连起来：窗外的花、一次日落。先口头说一个自己的句子，再遮住中文回想；这比只盯着译文多了一次主动输出。","prompt":"用 beautiful 描述你见过的一个地方。"},
+    {"key":"pretty-v1","type":"synonym","sense":"形容词 · 漂亮的；有语境差别","title":"beautiful 与 pretty","related":"pretty","body":"两者都可形容好看；beautiful 常表达更强的赞美，pretty 常指悦目、漂亮。pretty 还可作副词表示“相当”，这种用法不能换成 beautiful。","example":"The garden is beautiful, and the room is pretty small.","translation":"花园很美，而房间相当小。"},
+    {"key":"family-v1","type":"derivative","sense":"派生词 · 留意词性","title":"beauty → beautiful → beautifully","related":"beautifully","body":"beauty 是名词“美”；beautiful 是形容词“美丽的”；beautifully 是副词，可描述动作做得很优美。不要把 -ful 写成 -full。","example":"She sings beautifully.","translation":"她唱得很动听。","prompt":"描述“唱得好听”用 beautiful 还是 beautifully？"},
+    {"key":"day-v1","type":"usage","sense":"日常场景 · 赞叹天气","title":"What a beautiful day!","body":"用 What a + 形容词 + 单数可数名词 来表达感叹。","example":"What a beautiful day! Let's take a walk.","translation":"多美好的一天啊！我们去散步吧。"}
+  ]},
+  {"word":"learn","meaningContains":"学","cards":[
+    {"key":"scene-v1","type":"mnemonic","sense":"动词 · 学习、学会","title":"和你正在学的技能连起来","body":"想一件你正在学会的事，把 learn to 和动作一起说出来。联想只是提示；再遮住句子，把自己的说法复述一次。","prompt":"你最近在学会做什么？"},
+    {"key":"study-v1","type":"synonym","sense":"动词 · 相关但不总能互换","title":"learn 与 study","related":"study","body":"study 常强调研究或用功学习的过程；learn 常强调获得知识或学会技能。learn to swim 是“学游泳”，不通常说 study to swim 来表达同一个意思。","example":"I study English every day and learn new words.","translation":"我每天学习英语，也学习新单词。"},
+    {"key":"learner-v1","type":"derivative","sense":"派生词 · 动词变名词","title":"learn → learner","related":"learner","body":"learn 表示学习；learner 表示学习者。这里 -er 指做这件事的人，但不要把这个规则套到所有以 er 结尾的单词。","example":"Every learner needs time to practise.","translation":"每个学习者都需要时间练习。"},
+    {"key":"skill-v1","type":"usage","sense":"日常场景 · 说说正在学的技能","title":"I'm learning to…","body":"用 I'm learning to + 动词，描述正在学着做某事。","example":"I'm learning to cook for my family.","translation":"我正在学着给家人做饭。","prompt":"把 cook 换成你自己的一个目标。"}
+  ]},
+  {"word":"apple","meaningContains":"苹果","cards":[
+    {"key":"scene-v1","type":"mnemonic","sense":"名词 · 苹果","title":"拿一个苹果，连词一起说","body":"想象手里拿着一个苹果，连着说 an apple。an 是因为 apple 开头是元音音素；不要只凭首字母猜所有单词的冠词。","prompt":"“一个苹果”应该用 a 还是 an？"},
+    {"key":"family-v1","type":"derivative","sense":"复合表达 · 不是派生后缀","title":"apple juice / apple tree","body":"apple juice 是苹果汁，apple tree 是苹果树。apple 在这里说明后面的名词；这是组合用法，不是给 apple 加后缀产生的新词。","example":"There is an apple tree in our garden.","translation":"我们的花园里有一棵苹果树。"},
+    {"key":"snack-v1","type":"usage","sense":"日常场景 · 挑选零食","title":"I'd like an apple, please.","body":"I'd like… 是礼貌地表达“我想要……”的常用说法。","example":"I'd like an apple and a glass of water, please.","translation":"我想要一个苹果和一杯水，谢谢。","prompt":"把苹果换成你今天想吃的水果。"}
+  ]}
+]

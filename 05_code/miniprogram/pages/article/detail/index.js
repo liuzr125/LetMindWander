@@ -2,7 +2,7 @@ const { contentService, authService } = require('../../../services/index');
 const FOLLOW_CONSENT_KEY = 'follow_recording_consent_v1';
 
 Page({
-  data: { loading: true, acting: false, audioLoading: false, error: '', contentId: '', taskId: '', taskVersion: 1, detail: null, showTranslation: true, publishedDate: '', speeds: [0.75, 1, 1.25, 1.5], speed: 1, articlePlaying: false, selectedWord: null, recording: false, recordPath: '', recordUrl: '', recordPlaying: false, recordUploading: false, recordSaved: false, recordDurationMs: 0 },
+  data: { loading: true, acting: false, audioLoading: false, wordAudioLoading: false, error: '', contentId: '', taskId: '', taskVersion: 1, detail: null, showTranslation: true, publishedDate: '', speeds: [0.75, 1, 1.25, 1.5], speed: 1, articlePlaying: false, selectedWord: null, recording: false, recordPath: '', recordUrl: '', recordPlaying: false, recordUploading: false, recordSaved: false, recordDurationMs: 0 },
   onLoad(options) {
     this.articleAudio = wx.createInnerAudioContext(); this.wordAudio = wx.createInnerAudioContext(); this.recordAudio = wx.createInnerAudioContext();
     [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => { audio.obeyMuteSwitch = false; });
@@ -22,14 +22,31 @@ Page({
   noop() {},
   changeSpeed(event) { const speed = Number(event.currentTarget.dataset.speed) || 1; this.setData({ speed }); if (this.articleAudio) this.articleAudio.playbackRate = speed; },
   playArticle() {
+    if (this.data.audioLoading) return;
     if (this.data.articlePlaying) { this.articleAudio.pause(); this.setData({ articlePlaying: false }); return; }
     const url = this.data.detail.articleAudioUrl;
     if (url) return this.startArticleAudio(url);
     this.setData({ audioLoading: true }); contentService.speech(this.data.contentId).then((result) => { this.setData({ audioLoading: false, 'detail.articleAudioUrl': result.audioUrl }); this.startArticleAudio(result.audioUrl); }).catch((error) => { this.setData({ audioLoading: false }); wx.showToast({ title: error.message || '音频生成失败', icon: 'none', duration: 3000 }); });
   },
   startArticleAudio(url) { this.articleAudio.stop(); this.articleAudio.src = url; this.articleAudio.playbackRate = this.data.speed; this.articleAudio.play(); this.setData({ articlePlaying: true }); },
-  playWord() { const word = this.data.selectedWord; const target = word && (word.contentId || word.speechKey); if (!target) return wx.showToast({ title: '该词暂无词典数据', icon: 'none' }); if (word.audioUrl) return this.startWordAudio(word.audioUrl); contentService.speech(target).then((result) => { this.setData({ 'selectedWord.audioUrl': result.audioUrl }); this.startWordAudio(result.audioUrl); }).catch((error) => wx.showToast({ title: error.message || '单词发音失败', icon: 'none' })); },
-  startWordAudio(url) { this.wordAudio.stop(); this.wordAudio.src = url; this.wordAudio.playbackRate = 1; this.wordAudio.play(); },
+  playWord() {
+    if (this.data.wordAudioLoading) return;
+    const word = this.data.selectedWord;
+    const target = word && (word.contentId || word.speechKey);
+    if (!target) return wx.showToast({ title: '该词暂无词典数据', icon: 'none' });
+    if (word.audioUrl) return this.startWordAudio(word.audioUrl);
+    this.setData({ wordAudioLoading: true });
+    // Token stays on the server; the response contains only the persisted media reference.
+    contentService.speech(target).then((result) => {
+      const current = this.data.selectedWord;
+      if (!current || (current.contentId || current.speechKey) !== target) return;
+      this.setData({ 'selectedWord.audioUrl': result.audioUrl });
+      this.startWordAudio(result.audioUrl);
+    }).catch((error) => wx.showModal({
+      title: '暂时无法生成发音', content: error.message || '请稍后重试或联系管理员更新语音配置', showCancel: false
+    })).finally(() => this.setData({ wordAudioLoading: false }));
+  },
+  startWordAudio(url) { this.articleAudio.stop(); this.recordAudio.stop(); this.wordAudio.stop(); this.wordAudio.src = url; this.wordAudio.playbackRate = 1; this.wordAudio.play(); this.setData({ articlePlaying: false, recordPlaying: false }); },
   ensureFollowConsent() { if (wx.getStorageSync(FOLLOW_CONSENT_KEY)) return Promise.resolve(); return new Promise((resolve, reject) => wx.showModal({ title: '保存跟读录音到云端', content: '录音将上传至阿里云 OSS 私有存储，仅本人可访问。同一短文的新录音会替换旧录音，你可随时删除。是否同意？', confirmText: '同意并录音', success: (result) => { if (!result.confirm) { const error = new Error('已取消'); error.cancelled = true; reject(error); return; } authService.consent({ purpose: 'follow_recording_upload', documentVersion: 'FOLLOW_RECORDING_V1', decision: 'grant' }).then(() => { wx.setStorageSync(FOLLOW_CONSENT_KEY, true); resolve(); }).catch(reject); }, fail: reject })); },
   startFollow() { if (this.data.recording || this.data.recordUploading) return; this.ensureFollowConsent().then(() => { this.recordAudio.stop(); this.recorder.start({ duration: 60000, sampleRate: 16000, numberOfChannels: 1, encodeBitRate: 48000, format: 'mp3' }); this.setData({ recording: true, recordPath: '', recordPlaying: false }); }).catch((error) => { if (!error.cancelled) wx.showToast({ title: error.message || '授权保存失败', icon: 'none' }); }); },
   stopFollow() { if (this.data.recording) this.recorder.stop(); },

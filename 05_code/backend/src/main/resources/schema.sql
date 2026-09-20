@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS content_version (
   license_snapshot VARCHAR(1000) NOT NULL,
   body_hash BINARY(32) NOT NULL,
   review_status VARCHAR(32) NOT NULL DEFAULT 'draft',
+  reviewed_at TIMESTAMP(3),
   article_blocks CLOB,
   article_audio_asset_id CHAR(32),
   article_audio_voice VARCHAR(64),
@@ -191,6 +192,37 @@ CREATE TABLE IF NOT EXISTS content_topic (
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_content_topic UNIQUE (content_version_id, topic_id)
 );
+
+CREATE TABLE IF NOT EXISTS english_article_book (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_id CHAR(32) NOT NULL,
+  book_id CHAR(32) NOT NULL,
+  generated_date DATE NOT NULL,
+  slot_no SMALLINT NOT NULL,
+  target_words_json CLOB NOT NULL,
+  topic_snapshot_json CLOB NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_article_book_daily_slot UNIQUE (book_id,generated_date,slot_no)
+);
+CREATE INDEX IF NOT EXISTS idx_article_book_content ON english_article_book (content_id,book_id);
+CREATE INDEX IF NOT EXISTS idx_article_book_daily ON english_article_book (generated_date,book_id);
+
+CREATE TABLE IF NOT EXISTS english_article_generation_run (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  trigger_key VARCHAR(80) NOT NULL,
+  run_date DATE NOT NULL,
+  state VARCHAR(16) NOT NULL DEFAULT 'running',
+  book_count INT NOT NULL DEFAULT 0,
+  generated_count INT NOT NULL DEFAULT 0,
+  skipped_count INT NOT NULL DEFAULT 0,
+  failed_count INT NOT NULL DEFAULT 0,
+  error_message VARCHAR(1000),
+  started_at TIMESTAMP(3) NOT NULL,
+  finished_at TIMESTAMP(3),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_article_generation_trigger UNIQUE (trigger_key)
+);
+CREATE INDEX IF NOT EXISTS idx_article_generation_date ON english_article_generation_run (run_date,created_at);
 
 CREATE TABLE IF NOT EXISTS learning_record (
   id CHAR(32) NOT NULL PRIMARY KEY,
@@ -727,7 +759,7 @@ CREATE TABLE IF NOT EXISTS tts_usage_log (
 );
 CREATE INDEX IF NOT EXISTS idx_tts_usage_time ON tts_usage_log (created_at);
 
--- 运行参数：按当前部署要求明文保存。应用不提供对外读取接口；数据库账户应最小授权。
+-- 运行参数：敏感值以 AES-GCM 加密保存；ALIYUN_NLS_TEMPORARY_TOKEN 强制 is_secret=1，禁止向小程序下发。
 CREATE TABLE IF NOT EXISTS app_parameter (
   id CHAR(32) NOT NULL PRIMARY KEY,
   param_key VARCHAR(100) NOT NULL,
@@ -856,6 +888,47 @@ CREATE TABLE IF NOT EXISTS ai_concurrency_guard (
  CONSTRAINT uk_ai_concurrency_guard UNIQUE(scope_key)
 );
 
+-- V3.4 管理端账号、角色、菜单和会话。测试初始化与 MySQL 迁移保持相同字段口径。
+CREATE TABLE IF NOT EXISTS admin_role (
+ id CHAR(32) NOT NULL PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(80) NOT NULL,
+ description VARCHAR(255), is_system SMALLINT NOT NULL DEFAULT 0, enabled SMALLINT NOT NULL DEFAULT 1,
+ sort_order SMALLINT NOT NULL DEFAULT 0, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT uk_admin_role_code UNIQUE(code)
+);
+
+CREATE TABLE IF NOT EXISTS admin_account (
+ id CHAR(32) NOT NULL PRIMARY KEY, username VARCHAR(40) NOT NULL, password_hash VARCHAR(255) NOT NULL,
+ role_id CHAR(32) NOT NULL, enabled SMALLINT NOT NULL DEFAULT 1, last_login_at TIMESTAMP(3),
+ password_updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT uk_admin_account_username UNIQUE(username)
+);
+CREATE INDEX IF NOT EXISTS idx_admin_account_role ON admin_account(role_id);
+
+CREATE TABLE IF NOT EXISTS admin_menu (
+ id CHAR(32) NOT NULL PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(80) NOT NULL,
+ path VARCHAR(120) NOT NULL, icon VARCHAR(12), sort_order SMALLINT NOT NULL DEFAULT 0,
+ enabled SMALLINT NOT NULL DEFAULT 1, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT uk_admin_menu_code UNIQUE(code)
+);
+
+CREATE TABLE IF NOT EXISTS admin_role_menu (
+ role_id CHAR(32) NOT NULL, menu_id CHAR(32) NOT NULL,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(role_id,menu_id)
+);
+
+CREATE TABLE IF NOT EXISTS admin_session (
+ id CHAR(32) NOT NULL PRIMARY KEY, account_id CHAR(32) NOT NULL, token_hash CHAR(64) NOT NULL,
+ expires_at TIMESTAMP(3) NOT NULL, revoked_at TIMESTAMP(3), last_seen_at TIMESTAMP(3) NOT NULL,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT uk_admin_session_token UNIQUE(token_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_admin_session_active ON admin_session(account_id,expires_at,revoked_at);
+
 CREATE TABLE IF NOT EXISTS admin_audit (
  id CHAR(32) NOT NULL PRIMARY KEY, admin_id CHAR(32) NOT NULL, action_code VARCHAR(32) NOT NULL,
  target_type VARCHAR(32) NOT NULL, target_id CHAR(32), result_code VARCHAR(32) NOT NULL,
@@ -939,6 +1012,7 @@ CREATE TABLE IF NOT EXISTS tts_generation_task (
   item_id CHAR(32) NOT NULL,
   target_type VARCHAR(16) NOT NULL,
   sense_no INT NOT NULL DEFAULT 1,
+  example_no INT NOT NULL DEFAULT 0,
   accent VARCHAR(16) NOT NULL,
   provider_code VARCHAR(32) NOT NULL,
   model_code VARCHAR(120),
@@ -1000,3 +1074,176 @@ CREATE TABLE IF NOT EXISTS resource_run (
  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT uk_resource_run_trigger UNIQUE(schedule_id,trigger_key)
 );
+-- V3.16.3 在线词书目录与不可变词条快照；不改动既有正式词库。
+CREATE TABLE IF NOT EXISTS vocabulary_online_book (
+  book_code VARCHAR(64) NOT NULL PRIMARY KEY,
+  book_name VARCHAR(160) NOT NULL,
+  edition_label VARCHAR(160) NOT NULL,
+  provider_name VARCHAR(160) NOT NULL,
+  category VARCHAR(32) NOT NULL,
+  sort_no INT NOT NULL DEFAULT 0,
+  source_url VARCHAR(2048) NOT NULL,
+  download_path VARCHAR(200),
+  source_revision VARCHAR(64),
+  expected_count INT,
+  license_status VARCHAR(32) NOT NULL DEFAULT 'unknown',
+  license_note VARCHAR(1000) NOT NULL,
+  latest_dataset_id CHAR(32),
+  actual_count INT NOT NULL DEFAULT 0,
+  quality_summary LONGTEXT,
+  last_synced_at TIMESTAMP(3),
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS vocabulary_online_word (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  dataset_id CHAR(32) NOT NULL,
+  book_code VARCHAR(64) NOT NULL,
+  row_no INT NOT NULL,
+  source_word_id VARCHAR(120),
+  word_term VARCHAR(80) NOT NULL,
+  normalized_word VARCHAR(80) NOT NULL,
+  phonetic_us VARCHAR(200),
+  phonetic_uk VARCHAR(200),
+  phonetic_status VARCHAR(32) NOT NULL DEFAULT 'source_unverified',
+  normalized_json LONGTEXT NOT NULL,
+  raw_json LONGTEXT NOT NULL,
+  quality_flags_json LONGTEXT NOT NULL,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_online_word_row UNIQUE (dataset_id,row_no)
+);
+
+CREATE TABLE IF NOT EXISTS word_learning_card (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_version_id CHAR(32) NOT NULL,
+  card_key VARCHAR(80) NOT NULL,
+  card_type VARCHAR(24) NOT NULL,
+  sense_label VARCHAR(160) NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  related_term VARCHAR(80),
+  body VARCHAR(1200) NOT NULL,
+  example_text VARCHAR(500),
+  example_translation VARCHAR(500),
+  recall_prompt VARCHAR(300),
+  example_id CHAR(32),
+  source_kind VARCHAR(24) NOT NULL DEFAULT 'original',
+  source_title VARCHAR(200) NOT NULL,
+  source_url VARCHAR(2048),
+  source_locator VARCHAR(200),
+  source_verified SMALLINT NOT NULL DEFAULT 0,
+  rights_status VARCHAR(24) NOT NULL DEFAULT 'unknown',
+  rights_note VARCHAR(1000),
+  generator_version VARCHAR(40),
+  review_status VARCHAR(24) NOT NULL DEFAULT 'draft',
+  reviewed_by VARCHAR(80),
+  reviewed_at TIMESTAMP(3),
+  state VARCHAR(24) NOT NULL DEFAULT 'draft',
+  sort_no INT NOT NULL DEFAULT 0,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_word_card_version_key UNIQUE (content_version_id,card_key)
+);
+CREATE INDEX IF NOT EXISTS idx_word_card_public ON word_learning_card(content_version_id,del_is,state,review_status,sort_no);
+
+CREATE TABLE IF NOT EXISTS word_learning_card_coverage (
+  content_version_id CHAR(32) NOT NULL PRIMARY KEY,
+  target_scope_codes VARCHAR(200) NOT NULL,
+  required_card_count INT NOT NULL DEFAULT 2,
+  published_card_count INT NOT NULL DEFAULT 0,
+  baseline_status VARCHAR(24) NOT NULL DEFAULT 'pending',
+  example_status VARCHAR(24) NOT NULL DEFAULT 'missing',
+  relation_status VARCHAR(32) NOT NULL DEFAULT 'evidence_required',
+  quotation_status VARCHAR(32) NOT NULL DEFAULT 'optional_not_required',
+  source_example_id CHAR(32),
+  generator_version VARCHAR(40) NOT NULL,
+  issues_json LONGTEXT NOT NULL,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  generated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_word_card_coverage_status ON word_learning_card_coverage(del_is,baseline_status,relation_status);
+CREATE INDEX IF NOT EXISTS idx_word_card_coverage_generator ON word_learning_card_coverage(generator_version,generated_at);
+
+CREATE TABLE IF NOT EXISTS word_learning_card_type_coverage (
+  content_version_id CHAR(32) NOT NULL,
+  card_type VARCHAR(24) NOT NULL,
+  requirement_level VARCHAR(24) NOT NULL,
+  published_count INT NOT NULL DEFAULT 0,
+  coverage_status VARCHAR(32) NOT NULL,
+  status_note VARCHAR(300) NOT NULL,
+  generator_version VARCHAR(40) NOT NULL,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  generated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (content_version_id,card_type)
+);
+CREATE INDEX IF NOT EXISTS idx_word_card_type_coverage_status ON word_learning_card_type_coverage(card_type,del_is,coverage_status);
+CREATE INDEX IF NOT EXISTS idx_word_card_type_coverage_generator ON word_learning_card_type_coverage(generator_version,generated_at);
+
+CREATE TABLE IF NOT EXISTS lexical_dataset_snapshot (
+  dataset_code VARCHAR(64) NOT NULL PRIMARY KEY,
+  dataset_name VARCHAR(160) NOT NULL,
+  dataset_version VARCHAR(40) NOT NULL,
+  source_url VARCHAR(2048) NOT NULL,
+  license_code VARCHAR(40) NOT NULL,
+  license_url VARCHAR(2048) NOT NULL,
+  attribution VARCHAR(1000) NOT NULL,
+  checksum_sha256 CHAR(64) NOT NULL,
+  import_status VARCHAR(24) NOT NULL DEFAULT 'pending',
+  relation_count INT NOT NULL DEFAULT 0,
+  imported_at TIMESTAMP(3),
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS word_lexical_relation_evidence (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  dataset_code VARCHAR(64) NOT NULL,
+  headword_norm VARCHAR(160) NOT NULL,
+  relation_type VARCHAR(24) NOT NULL,
+  related_term VARCHAR(160) NOT NULL,
+  part_of_speech VARCHAR(8) NOT NULL DEFAULT '',
+  source_sense_id VARCHAR(200),
+  source_synset_id VARCHAR(32),
+  sense_rank SMALLINT NOT NULL DEFAULT 0,
+  relation_rank SMALLINT NOT NULL DEFAULT 0,
+  source_locator VARCHAR(240) NOT NULL,
+  evidence_note VARCHAR(500) NOT NULL,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_lexical_relation UNIQUE (dataset_code,headword_norm,relation_type,related_term,part_of_speech)
+);
+CREATE INDEX IF NOT EXISTS idx_lexical_relation_headword ON word_lexical_relation_evidence(headword_norm,del_is,relation_type);
+CREATE INDEX IF NOT EXISTS idx_lexical_relation_dataset ON word_lexical_relation_evidence(dataset_code,del_is);
+
+CREATE TABLE IF NOT EXISTS user_word_learning_card_preference (
+  owner_id CHAR(32) NOT NULL,
+  card_type VARCHAR(24) NOT NULL,
+  enabled SMALLINT NOT NULL DEFAULT 1,
+  row_version INT NOT NULL DEFAULT 1,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (owner_id,card_type)
+);
+CREATE INDEX IF NOT EXISTS idx_user_word_card_preference_owner ON user_word_learning_card_preference(owner_id,del_is,enabled);
+
+CREATE TABLE IF NOT EXISTS user_word_study_preference (
+  owner_id CHAR(32) NOT NULL,
+  default_answer_mode VARCHAR(16) NOT NULL DEFAULT 'visible',
+  auto_play_enabled SMALLINT NOT NULL DEFAULT 1,
+  auto_play_accent VARCHAR(8) NOT NULL DEFAULT 'uk',
+  auto_play_count SMALLINT NOT NULL DEFAULT 3,
+  auto_play_interval_ms INT NOT NULL DEFAULT 1500,
+  row_version INT NOT NULL DEFAULT 1,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (owner_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_word_study_preference_active ON user_word_study_preference(del_is,updated_at);

@@ -29,6 +29,7 @@
     "pages/plan/history/index",
     "pages/content/detail/index",
     "pages/word/detail/index",
+    "pages/word/settings/index",
     "pages/word/books/index",
     "pages/word/books/progress/index",
     "pages/word/memory/setup/index",

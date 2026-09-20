@@ -45,7 +45,7 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
     List<com.zhixing.model.PronunciationRow> selectPronunciations(@Param("versionId") String versionId);
 
     @Select({"<script>","SELECT lc.id content_id,NULL speech_key,cv.word_term term,cv.phonetic,cv.meaning,",
-            "(SELECT p.asset_id FROM pronunciation p JOIN media_asset ma ON ma.id=p.asset_id AND ma.state='ready' WHERE p.content_version_id=cv.id AND p.state='ready' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END LIMIT 1) audio_asset_id ",
+            "(SELECT p.asset_id FROM pronunciation p JOIN media_asset ma ON ma.id=p.asset_id AND ma.state='ready' WHERE p.content_version_id=cv.id AND p.state='ready' AND p.example_id IS NULL AND p.target_key NOT LIKE 'example:%' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,CASE WHEN p.sense_id IS NULL THEN 0 ELSE 1 END,p.id LIMIT 1) audio_asset_id ",
             "FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id WHERE lc.content_type='word' AND lc.state='published' AND LOWER(cv.word_term) IN ",
             "<foreach collection='terms' item='term' open='(' separator=',' close=')'>#{term}</foreach>",
             "UNION ALL SELECT NULL content_id,CONCAT('glossary:',g.term) speech_key,g.term,g.phonetic,g.meaning,g.audio_asset_id FROM article_word_glossary g WHERE g.term IN ",

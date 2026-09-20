@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { request } from '../../services/request.js'
+import { showError } from '../../services/notification.js'
 
 const books = ref([])
 const selectedBookId = ref('')
@@ -77,9 +78,9 @@ function safeUrl(value, allowBlob = false) {
 }
 async function playAudio(url) {
   const playable = safeUrl(url, true)
-  if (!playable) { detailError.value = '音频地址无效或协议不受支持'; return }
+  if (!playable) { detailError.value = '音频地址无效或协议不受支持'; showError(new Error(detailError.value)); return }
   try { if (currentAudio) currentAudio.pause(); currentAudio = new Audio(playable); await currentAudio.play() }
-  catch { detailError.value = '音频播放失败，请检查媒体服务或浏览器权限' }
+  catch { detailError.value = '音频播放失败，请检查媒体服务或浏览器权限'; showError(new Error(detailError.value)) }
 }
 async function generateSpeech() {
   if (!detail.value?.contentId || speechLoading.value) return
@@ -88,7 +89,7 @@ async function generateSpeech() {
   catch (e) { detailError.value = e.message || '发音生成失败' }
   finally { speechLoading.value = false }
 }
-function stageText(value) { return ({primary:'小学',junior:'初中',senior:'高中'}[value]) || value || '未分级' }
+function stageText(value) { return ({primary:'小学',junior:'初中',senior:'高中',cet4:'四级',cet6:'六级',postgrad:'考研',ielts:'雅思',toefl:'托福',gre:'GRE',computer:'计算机'}[value]) || value || '未分级' }
 watch(pageSize, () => { page.value = 1; loadWords() })
 onMounted(() => loadBooks(false))
 onBeforeUnmount(() => { if (currentAudio) { currentAudio.pause(); currentAudio = null } })
@@ -97,7 +98,6 @@ onBeforeUnmount(() => { if (currentAudio) { currentAudio.pause(); currentAudio =
 <template>
   <section>
     <div class="page-heading"><div><h1>英语单词</h1><p>按词书查看成员、发布状态和审核状态；成员数以词书关系表实时统计为准。</p></div><button class="refresh" @click="loadBooks">刷新数据</button></div>
-    <div v-if="error" class="notice">{{ error }}</div>
     <div class="panel book-picker"><label><span>词书</span><select :value="selectedBookId" @change="chooseBookEvent"><option v-for="book in books" :key="book.bookId" :value="book.bookId">{{ book.bookName }}</option></select></label><p v-if="selectedBook">{{ selectedBook.levelCode || selectedBook.bookType }} · 成员 {{ selectedBook.memberCount }} · 可用 {{ selectedBook.availableCount }}</p><p v-else>暂无启用词书</p></div>
 
     <div v-if="selectedBook" class="panel summary-bar">
@@ -126,9 +126,8 @@ onBeforeUnmount(() => { if (currentAudio) { currentAudio.pause(); currentAudio =
     <article class="word-detail">
       <header><div><small>单词详情</small><h2>{{ detail?.wordTerm || '正在加载…' }}</h2><p v-if="detail">{{ detail.phonetic || '暂无音标' }}</p></div><button @click="closeDetail">×</button></header>
       <div v-if="detailLoading" class="detail-state">正在读取单词…</div>
-      <div v-else-if="detailError && !detail" class="detail-state error">{{ detailError }}</div>
+      <div v-else-if="detailError && !detail" class="detail-state">详情未加载，请关闭后重试</div>
       <template v-else-if="detail">
-        <div v-if="detailError" class="detail-error">{{ detailError }}</div>
         <div class="word-meta"><span>{{ stageText(detail.stage) }}</span><span>{{ detail.difficulty === 'advanced' ? '进阶' : '入门' }}</span><span>{{ detail.sourceName || '未标注来源' }}</span></div>
         <section class="pronunciation-section"><div><h3>音标与发音</h3><p>{{ detail.phonetic || '暂无音标' }}</p></div><div class="audio-actions"><button v-for="(audio,index) in detail.pronunciations" :key="`${audio.accent}-${index}`" @click="playAudio(audio.audioUrl)">▶ {{ (audio.accent || '发音').toUpperCase() }} {{ audio.phonetic || '' }}</button><button v-if="!detail.pronunciations?.length" :disabled="speechLoading" @click="generateSpeech">{{ speechLoading ? '生成中…' : '▶ 生成并播放' }}</button></div></section>
         <section><h3>基础释义</h3><p class="meaning">{{ detail.meaning || '暂无释义' }}</p></section>

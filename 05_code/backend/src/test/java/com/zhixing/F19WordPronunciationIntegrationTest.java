@@ -39,6 +39,8 @@ class F19WordPronunciationIntegrationTest {
         insertPronunciation("19000000000000000000000000000013",null,EXAMPLE_VERB,"example:"+EXAMPLE_VERB,"us",null,"19000000000000000000000000000023");
         insertPronunciation("19000000000000000000000000000014",null,EXAMPLE_NOUN,"example:"+EXAMPLE_NOUN,"uk",null,"19000000000000000000000000000024");
         insertPronunciation("19000000000000000000000000000015",null,EXAMPLE_NOUN,"example:"+EXAMPLE_NOUN,"us",null,"19000000000000000000000000000025");
+        jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,stage,state,current_version_id,published_version_id,published_at) VALUES(?,?,?,?,'senior','published',?,?,CURRENT_TIMESTAMP)",ARTICLE,"english_article",SOURCE,CryptoUtils.sha256(ARTICLE),ARTICLE_VERSION,ARTICLE_VERSION);
+        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,license_snapshot,body_hash,review_status,article_blocks,created_by) VALUES(?,?,1,'Resume article','Resume article','We resume work.','advanced',60,'测试许可',?,'approved',?,'00000000000000000000000000000002')",ARTICLE_VERSION,ARTICLE,CryptoUtils.sha256("We resume work."),"[{\"paragraph_id\":\"p1\",\"text\":\"We resume work.\",\"translation\":\"我们继续工作。\"}]");
     }
 
     @Test void keepsSenseAndExampleAudioBoundToTheirOwnMeaningAndAccent() {
@@ -55,6 +57,27 @@ class F19WordPronunciationIntegrationTest {
         assertThat(detail.getSenses().get(1).getExamples().get(0).getPronunciations()).extracting("accent").containsExactly("uk","us");
         assertThat(detail.getSenses().get(0).getPronunciations().get(0).getAudioUrl()).isEqualTo("signed:19000000000000000000000000000018");
         assertThat(detail.getSenses().get(1).getPronunciations().get(0).getAudioUrl()).isEqualTo("signed:19000000000000000000000000000020");
+
+        insertMedia("19000000000000000000000000000022");
+        ContentDetailView.ArticleTokenView withoutWordAudio=resumeToken(contents.get("00000000000000000000000000000001",ARTICLE));
+        assertThat(withoutWordAudio.getContentId()).isEqualTo(CONTENT);
+        assertThat(withoutWordAudio.getAudioUrl()).as("例句音频不能冒充单词发音").isNull();
+
+        insertMedia("19000000000000000000000000000018");
+        insertMedia("19000000000000000000000000000019");
+        ContentDetailView.ArticleTokenView withWordAudio=resumeToken(contents.get("00000000000000000000000000000001",ARTICLE));
+        assertThat(withWordAudio.getAudioUrl()).isEqualTo("signed:19000000000000000000000000000018");
+    }
+
+    private ContentDetailView.ArticleTokenView resumeToken(ContentDetailView detail) {
+        return detail.getArticleBlocks().get(0).getTokens().stream()
+                .filter(token -> "resume".equalsIgnoreCase(token.getText())).findFirst()
+                .orElseThrow(() -> new AssertionError("短文中缺少 resume 点词 token"));
+    }
+
+    private void insertMedia(String assetId) {
+        jdbc.update("INSERT INTO media_asset(id,purpose,object_key,mime_type,byte_size,sha256,state) VALUES(?,'word_audio',?,'audio/mpeg',1,?,'ready')",
+                assetId,"test/"+assetId,CryptoUtils.sha256(assetId));
     }
 
     private void insertPronunciation(String id,String senseId,String exampleId,String targetKey,String accent,String phonetic,String assetId) {
@@ -69,4 +92,6 @@ class F19WordPronunciationIntegrationTest {
     private static final String SENSE_NOUN="19000000000000000000000000000005";
     private static final String EXAMPLE_VERB="19000000000000000000000000000006";
     private static final String EXAMPLE_NOUN="19000000000000000000000000000007";
+    private static final String ARTICLE="19000000000000000000000000000026";
+    private static final String ARTICLE_VERSION="19000000000000000000000000000027";
 }

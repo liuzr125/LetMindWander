@@ -62,7 +62,7 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
       <button class="refresh" :disabled="loading" @click="load">↻ 刷新</button>
     </div>
 
-    <div v-if="error" class="panel state error"><strong>暂时无法读取用户学习信息</strong><span>{{ error }}</span><button @click="load">重新加载</button></div>
+    <div v-if="error" class="panel state"><strong>用户学习信息暂未加载</strong><button @click="load">重新加载</button></div>
     <div v-else-if="loading && !detail" class="panel state">正在读取用户学习信息…</div>
 
     <template v-else-if="detail">

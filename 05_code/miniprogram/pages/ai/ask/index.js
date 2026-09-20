@@ -1,7 +1,7 @@
-const { aiService, authService } = require('../../../services/index');
+const { aiService } = require('../../../services/index');
 
 Page({
-  data: { loading: true, sending: false, error: '', question: '', modelInfo: null, model: null, consentChecked: false, answer: null, history: [] },
+  data: { loading: true, sending: false, error: '', question: '', modelInfo: null, model: null, answer: null, history: [] },
   onLoad() {
     const pending = wx.getStorageSync('pendingAiQuestion');
     if (pending && pending.question) {
@@ -20,7 +20,7 @@ Page({
         if (!this.pendingAutoSend) return;
         this.pendingAutoSend = false;
         if (info.consentGranted && model && model.available) this.send();
-        else if (!info.consentGranted) wx.showToast({ title: '阅读并同意发送说明后即可解释', icon: 'none', duration: 3000 });
+        else if (!info.consentGranted) wx.showToast({ title: 'AI 功能尚未由管理员授权', icon: 'none', duration: 3000 });
       });
     }).catch((error) => this.setData({ loading: false, error: error.message || 'AI 配置加载失败' }));
   },
@@ -31,16 +31,14 @@ Page({
     return '可用';
   },
   inputQuestion(event) { this.setData({ question: event.detail.value }); },
-  consentChange(event) { this.setData({ consentChecked: (event.detail.value || []).includes('grant') }); },
   send() {
     const question = (this.data.question || '').trim(); const model = this.data.model;
     if (!question) return wx.showToast({ title: '请输入问题', icon: 'none' });
     if (!model || !model.available) return wx.showToast({ title: model ? model.statusText : '暂无可用模型', icon: 'none' });
-    if (!this.data.modelInfo.consentGranted && !this.data.consentChecked) return wx.showToast({ title: '请先同意 AI 内容发送说明', icon: 'none' });
+    if (!this.data.modelInfo.consentGranted) return wx.showToast({ title: 'AI 功能尚未由管理员授权', icon: 'none' });
     this.setData({ sending: true, answer: null });
-    const consent = this.data.modelInfo.consentGranted ? Promise.resolve() : authService.consent({ purpose: 'ai_send', documentVersion: this.data.modelInfo.consentVersion, decision: 'grant' });
-    consent.then(() => aiService.ask({ question }, `${Date.now()}-${Math.random().toString(36).slice(2)}`))
-      .then((answer) => { this.setData({ sending: false, answer, question: '', 'modelInfo.consentGranted': true }); return aiService.history(20); })
+    aiService.ask({ question }, `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      .then((answer) => { this.setData({ sending: false, answer, question: '' }); return aiService.history(20); })
       .then((history) => this.setData({ history: history.items || [] }))
       .catch((error) => { this.setData({ sending: false }); wx.showToast({ title: error.message || 'AI 回答失败', icon: 'none', duration: 3000 }); });
   }

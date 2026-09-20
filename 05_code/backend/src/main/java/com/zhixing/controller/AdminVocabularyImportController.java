@@ -22,6 +22,7 @@ public class AdminVocabularyImportController {
 
     @GetMapping("/datasets") public List<Map<String,Object>> datasets(@RequestHeader(value="X-Admin-Token",required=false) String token){admin(token);return imports.datasets();}
     @PostMapping("/datasets") public Map<String,Object> dataset(@RequestHeader(value="X-Admin-Token",required=false) String token,@RequestBody Map<String,Object> body){admin(token);return imports.createDataset(string(body,"datasetName"),string(body,"providerName"),string(body,"licenseStatus"),string(body,"licenseNote"),string(body,"payload"));}
+    @DeleteMapping("/datasets/{id}") public Map<String,Object> deleteDataset(@RequestHeader(value="X-Admin-Token",required=false) String token,@PathVariable String id){admin(token);return imports.deleteDataset(id,properties.getAdminPrincipalId());}
     @GetMapping("/import-batches") public List<Map<String,Object>> batches(@RequestHeader(value="X-Admin-Token",required=false) String token){admin(token);return imports.batches();}
     @PostMapping("/import-batches") public Map<String,Object> create(@RequestHeader(value="X-Admin-Token",required=false) String token,@RequestBody Map<String,Object> body){admin(token);return imports.createBatch(string(body,"datasetId"),string(body,"targetBookId"),map(body.get("options")),properties.getAdminPrincipalId());}
     @GetMapping("/import-batches/{id}") public Map<String,Object> batch(@RequestHeader(value="X-Admin-Token",required=false) String token,@PathVariable String id){admin(token);return imports.batch(id);}

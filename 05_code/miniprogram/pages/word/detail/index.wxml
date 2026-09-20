@@ -2,6 +2,7 @@
   <view wx:if="{{loading}}" class="state">正在加载词条…</view>
   <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
   <block wx:else>
+    <view class="word-settings-toolbar"><button class="word-settings-entry" bindtap="openLearningSettings" aria-label="打开学习设置"><text class="settings-gear"></text><text>设置</text></button></view>
     <view class="word-heading">
       <text class="word {{wordSizeClass}}">{{detail.wordTerm || detail.title}}</text>
     </view>
@@ -11,14 +12,20 @@
     </view>
     <view class="pronounce">
       <view wx:if="{{headerPronunciations.length}}" class="play-row">
-        <button wx:for="{{headerPronunciations}}" wx:key="accent" class="play-btn" bindtap="play" data-accent="{{item.accent}}"><text class="accent-badge">{{item.accent === 'uk' ? '英' : item.accent === 'us' ? '美' : item.accent}}</text><text class="header-phonetic">{{item.displayPhonetic}}</text><text class="header-play-icon"></text></button>
+        <button wx:for="{{headerPronunciations}}" wx:key="accent" class="play-btn {{item.accent === 'us' ? 'us' : 'uk'}}" bindtap="play" data-accent="{{item.accent}}"><text class="accent-badge">{{item.accent === 'uk' ? '英' : item.accent === 'us' ? '美' : item.accent}}</text><text class="header-phonetic">{{item.displayPhonetic}}</text><text class="header-play-icon"></text></button>
       </view>
       <text wx:elif="{{phoneticText}}" class="phonetic">{{phoneticText}}</text>
     </view>
+    <view class="recall-guide">
+      <view><text class="guide-label">{{recallActive ? '先回想，再核对' : '看懂 → 说一句 → 遮住回想'}}</text><text class="memory-caption">{{recallActive ? '说出这个词的意思，再用它造一个句子。想不起来也没关系。' : '今天记住一个用法就好；以后按复习计划再回想。'}}</text></view>
+      <button class="recall-button" bindtap="toggleRecall">{{recallActive ? '显示答案，核对一下' : '遮住答案，试着回想'}}</button>
+      <text wx:if="{{recallActive}}" class="memory-caption">本次是口头自练，不自动计分或标记掌握。</text>
+    </view>
+    <block wx:if="{{!recallActive}}">
     <text class="translation">{{detail.meaning}}</text>
     <view class="tags"><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text>{{detail.stage === 'primary' ? '小学' : detail.stage === 'junior' ? '初中' : detail.stage === 'senior' ? '高中' : '通用'}}</text></view>
     <view class="card">
-      <view class="card-head"><text class="card-title">释义</text><picker wx:if="{{detail.senses.length}}" mode="selector" range="{{exampleAccentOptions}}" value="{{exampleAccentIndex}}" bindchange="changeExampleAccent"><view class="accent-picker">例句发音 · {{exampleAccentOptions[exampleAccentIndex]}}⌄</view></picker></view>
+      <text class="card-title">释义</text>
       <block wx:if="{{detail.senses.length}}">
         <view wx:for="{{detail.senses}}" wx:for-item="sense" wx:for-index="senseIndex" wx:key="id" class="sense-block">
           <view class="sense"><text class="pos">{{sense.partOfSpeech}}</text><text>{{sense.meaning}}</text></view>
@@ -27,7 +34,7 @@
       <text wx:else class="meaning">{{detail.meaning}}</text>
     </view>
     <view wx:if="{{hasSenseExamples}}" class="card example-section">
-      <text class="card-title">例句</text>
+      <view class="card-head"><text class="card-title">例句</text><picker mode="selector" range="{{exampleAccentOptions}}" value="{{exampleAccentIndex}}" bindchange="changeExampleAccent"><view class="accent-picker">例句发音 · {{exampleAccentOptions[exampleAccentIndex]}}⌄</view></picker></view>
       <block wx:for="{{detail.senses}}" wx:for-item="sense" wx:for-index="senseIndex" wx:key="id">
         <block wx:for="{{sense.examples}}" wx:for-item="example" wx:for-index="exampleIndex" wx:key="id">
           <view class="sense-example"><view class="example-line"><text class="sentence">{{example.sentence}}</text><button wx:if="{{example.selectedPronunciation}}" class="example-audio" data-sense="{{senseIndex}}" data-example="{{exampleIndex}}" data-accent="{{example.selectedAccent}}" bindtap="playExample"><text class="header-play-icon"></text></button></view><text class="example-translation">{{example.translation}}</text><text wx:if="{{example.accentFallback}}" class="accent-fallback">所选口音缺失，已播放{{example.selectedAccent === 'uk' ? '英式' : '美式'}}音频</text></view>
@@ -42,9 +49,23 @@
     </view>
     <!-- 来源卡片：暂隐藏（恢复时删掉 wx:if="{{false}}"） -->
     <view wx:if="{{false}}" class="card source"><text class="card-title">来源</text><text>{{detail.originAuthor || '课程词表整理'}}</text></view>
-    <!-- 记忆提示卡片：暂隐藏（原条件 wx:if="{{memoryEnabled}}"） -->
-    <view wx:if="{{false}}" class="card memory-card">
-      <view class="memory-title" bindtap="toggleMemoryHint"><view><text class="card-title">记忆提示</text><text class="memory-caption">构词依据与自编联想会明确标识</text></view><text>{{memoryHintOpen ? '收起' : '展开'}}</text></view>
+    <view wx:if="{{cardsLoading || cardsError}}" class="supplement-state"><text>{{cardsError || '正在加载辅助卡片…'}}</text><button wx:if="{{cardsError}}" bindtap="loadLearningCards">重试卡片</button></view>
+    <view wx:for="{{learningCardGroups}}" wx:for-item="group" wx:key="type" class="card learning-card-group {{group.open ? 'is-open' : 'is-collapsed'}}">
+      <button class="group-toggle" data-type="{{group.type}}" bindtap="toggleCardGroup"><view><text class="card-title">{{group.title}}</text><text class="memory-caption">{{group.caption}}</text></view><text class="group-indicator">{{group.open ? '收起' : '展开'}} · {{group.count}}</text></button>
+      <block wx:if="{{group.open}}">
+        <view wx:for="{{group.visibleItems}}" wx:for-item="card" wx:key="id" class="learning-card-item">
+          <text class="sense-label">{{card.senseLabel}}</text>
+          <text class="learning-card-title">{{card.title}}</text>
+          <text class="learning-card-body">{{card.body}}</text>
+          <view wx:if="{{card.exampleText}}" class="usage-example"><text class="sentence" user-select>{{card.exampleText}}</text><text class="example-translation">{{card.exampleTranslation}}</text><text class="original-example-label" wx:if="{{card.sourceKind === 'original' || card.sourceKind === 'reference'}}">本应用原创例句</text><text class="original-example-label" wx:if="{{card.sourceKind === 'content'}}">当前已发布词条例句</text></view>
+          <text wx:if="{{card.recallPrompt}}" class="card-recall-prompt">试着说：{{card.recallPrompt}}</text>
+          <view class="card-attribution"><text>{{card.sourceTitle}}</text><text>{{card.sourceLabel}}</text><button class="source-button" data-id="{{card.id}}" bindtap="showCardSource">{{card.sourceUrl ? '查看出处与说明' : card.sourceKind === 'content' ? '例句来源说明' : '原创与使用说明'}}</button></view>
+        </view>
+        <button wx:if="{{group.count > 1}}" class="more-cards" data-type="{{group.type}}" bindtap="expandCardGroup">{{group.expanded ? '收起更多，只看一条' : '再看 ' + (group.count - 1) + ' 条'}}</button>
+      </block>
+    </view>
+    <view wx:if="{{memoryEnabled && memoryHints.length}}" class="card memory-card">
+      <view class="memory-title" bindtap="toggleMemoryHint"><view><text class="card-title">更多记忆提示</text><text class="memory-caption">辅助理解；不要把联想当作词源</text></view><text>{{memoryHintOpen ? '收起' : '展开'}}</text></view>
       <block wx:if="{{memoryHintOpen}}">
         <view wx:for="{{memoryHints}}" wx:key="id" class="memory-hint"><view class="memory-meta"><text>{{item.methodType}}</text><text>✓ 已审核</text></view><text>{{item.body}}</text></view>
         <text wx:if="{{!memoryHints.length}}" class="memory-empty">暂无已审核提示，仍可进行基础训练</text>
@@ -54,9 +75,10 @@
     <view wx:if="{{false}}" class="card action" bindtap="explain">
       <view><text class="card-title">解释当前内容</text><text>AI 辅助</text></view><text>›</text>
     </view>
+    </block>
     <view class="bottom-actions">
-      <text class="feedback-note">按真实记忆选择，保存后进入下一词</text>
-      <view class="feedback-buttons"><button class="unclear" data-value="unclear" bindtap="rateWord" loading="{{acting}}" disabled="{{acting}}">不认识</button><button class="fuzzy" data-value="fuzzy" bindtap="rateWord" disabled="{{acting}}">模糊</button><button class="remember" data-value="remember" bindtap="rateWord" disabled="{{acting}}">认识</button></view>
+      <text class="feedback-note">{{recallActive ? '先显示答案核对，再按真实记忆选择' : '这是自评，不代表已掌握；保存后进入下一词'}}</text>
+      <view class="feedback-buttons"><button class="unclear" data-value="unclear" bindtap="rateWord" loading="{{acting}}" disabled="{{acting || recallActive}}">不认识</button><button class="remember" data-value="remember" bindtap="rateWord" disabled="{{acting || recallActive}}">认识</button></view>
     </view>
   </block>
 </view>

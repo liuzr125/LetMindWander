@@ -19,17 +19,17 @@ import java.util.Set;
 @Service
 public class ConsentService {
     private static final Set<String> ALLOWED_PURPOSES = new HashSet<String>(Arrays.asList(
-            "privacy", "ai_send", "follow_recording_upload"));
+            "privacy", "follow_recording_upload"));
     private final UserConsentMapper consents;
     private final AppUserMapper users;
     public ConsentService(UserConsentMapper consents, AppUserMapper users) { this.consents = consents; this.users = users; }
 
     @Transactional
     public Map<String, Object> record(String userId, ConsentRequest request) {
+        if ("ai_send".equals(request.getPurpose())) throw new ApiException(HttpStatus.FORBIDDEN, "AI_AUTHORIZATION_ADMIN_REQUIRED", "AI 使用权限仅可由管理员在管理端授予");
         if (!ALLOWED_PURPOSES.contains(request.getPurpose())) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CONSENT_PURPOSE", "不支持的同意用途");
         if (!"grant".equals(request.getDecision()) && !"revoke".equals(request.getDecision())) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CONSENT_DECISION", "不支持的同意决定");
         Instant now = Instant.now(); UserConsentEntity entity = new UserConsentEntity(); entity.setId(CryptoUtils.randomId()); entity.setOwnerId(userId); entity.setPurpose(request.getPurpose()); entity.setDocumentVersion(request.getDocumentVersion()); entity.setDecision(request.getDecision()); entity.setOccurredAt(now); entity.setCreatedAt(now); consents.insert(entity);
-        if ("ai_send".equals(request.getPurpose())) users.updateAiConsent(userId, "grant".equals(request.getDecision()) ? request.getDocumentVersion() : null, "grant".equals(request.getDecision()) ? now : null);
         Map<String, Object> result = new LinkedHashMap<String, Object>(); result.put("purpose", request.getPurpose()); result.put("documentVersion", request.getDocumentVersion()); result.put("decision", request.getDecision()); result.put("occurredAt", now); return result;
     }
 

@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class AdminTechnicalContentView {
-    private String contentId,versionId,title,summary,body,difficulty,reviewStatus,articleAudioAssetId,articleAudioUrl;
+    private String contentId,versionId,title,summary,body,difficulty,reviewStatus,articleAudioAssetId,articleAudioUrl,audienceBookNames;
     private String sourceName,sourceType,sourceUrl,originUrl,originAuthor,licenseSnapshot;
     private Integer versionNo,estimatedSeconds;
     private Instant publishedAt,originPublishedAt,versionCreatedAt;
@@ -19,6 +19,7 @@ public class AdminTechnicalContentView {
     public String getReviewStatus(){return reviewStatus;} public void setReviewStatus(String v){reviewStatus=v;}
     public String getArticleAudioAssetId(){return articleAudioAssetId;} public void setArticleAudioAssetId(String v){articleAudioAssetId=v;}
     public String getArticleAudioUrl(){return articleAudioUrl;} public void setArticleAudioUrl(String v){articleAudioUrl=v;}
+    public String getAudienceBookNames(){return audienceBookNames;} public void setAudienceBookNames(String v){audienceBookNames=v;}
     public String getSourceName(){return sourceName;} public void setSourceName(String v){sourceName=v;}
     public String getSourceType(){return sourceType;} public void setSourceType(String v){sourceType=v;}
     public String getSourceUrl(){return sourceUrl;} public void setSourceUrl(String v){sourceUrl=v;}

@@ -8,9 +8,9 @@
       <textarea value="{{question}}" maxlength="8000" placeholder="例如：请用一个生活中的例子解释 RAG" bindinput="inputQuestion" />
       <view class="compose-foot"><text>{{question.length}} / 8000</text><button loading="{{sending}}" disabled="{{sending || !model || !model.available}}" bindtap="send">{{sending ? '正在思考' : '发送'}}</button></view>
     </view>
-    <checkbox-group wx:if="{{!modelInfo.consentGranted}}" class="consent" bindchange="consentChange"><label><checkbox value="grant" checked="{{consentChecked}}" color="#0869f7"/><text>我同意将本次输入发送给系统配置的 AI 供应商。可在“我的—隐私与数据”中撤回。</text></label></checkbox-group>
+    <view wx:if="{{!modelInfo.consentGranted}}" class="consent"><text>AI 使用权限尚未由管理员授权，请联系管理员开通。</text></view>
     <view wx:if="{{answer}}" class="answer-card"><view class="answer-head"><text>AI 回答</text><text>{{answer.modelName}} · {{answer.specification}}</text></view><text class="answer-body" user-select="true">{{answer.answer}}</text><text class="usage">{{answer.inputTokens}} 输入 + {{answer.outputTokens}} 输出 token · {{answer.cost}} {{answer.currency}}</text></view>
-    <view class="history-head"><text>提问记录</text><text>仅本人可见</text></view>
+    <view class="history-head"><text>提问记录</text></view>
     <view wx:if="{{!history.length}}" class="empty">还没有提问记录</view>
     <view wx:for="{{history}}" wx:key="id" class="history-card"><view class="history-meta"><text>{{item.modelName || item.modelCode}}</text><text>{{item.state === 'succeeded' ? '已完成' : '失败'}}</text></view><text class="question">{{item.question}}</text><text wx:if="{{item.answer}}" class="history-answer">{{item.answer}}</text><text class="usage">{{item.inputTokens || 0}} + {{item.outputTokens || 0}} token · {{item.cost || 0}} {{item.currency || ''}}</text></view>
   </block>

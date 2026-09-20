@@ -6,11 +6,16 @@
       <text class="dimension">{{current.dimension === 'meaning' ? '认义' : '拼写'}}</text>
       <text wx:if="{{current.wordTerm}}" class="word">{{current.wordTerm}}</text><text wx:if="{{current.meaning}}" class="meaning">{{current.meaning}}</text>
       <text class="prompt">{{current.prompt}}</text>
-      <input class="answer" value="{{answer}}" bindinput="answerChanged" bindconfirm="submit" confirm-type="done" cursor-spacing="28" placeholder="在这里输入答案" placeholder-class="answer-placeholder" maxlength="1000" disabled="{{feedback}}" />
+      <input class="answer" value="{{answer}}" bindinput="answerChanged" bindconfirm="submit" confirm-type="done" cursor-spacing="28" placeholder="在这里输入答案" placeholder-class="answer-placeholder" maxlength="1000" disabled="{{feedback}}" focus="{{editingRetry}}" />
       <view wx:if="{{!feedback}}" class="hint-row"><button data-type="first_letter" bindtap="revealHint" disabled="{{acting}}">首字母</button><button wx:if="{{current.hasClue}}" data-type="clue" bindtap="revealHint" disabled="{{acting}}">给点提示</button><button class="answer-hint" data-type="answer" bindtap="revealHint" disabled="{{acting}}">看答案</button></view>
       <view wx:if="{{hintContent}}" class="hint"><text>提示已记录，不计作独立答对</text><text class="hint-content">{{hintContent}}</text></view>
-      <button wx:if="{{!feedback}}" class="primary" loading="{{acting}}" disabled="{{acting}}" bindtap="submit">提交答案</button>
-      <view wx:else class="feedback {{feedback.correct ? 'correct' : 'wrong'}}"><text class="feedback-title">{{feedback.correct ? (feedback.result === 'independent_correct' ? '独立答对' : feedback.result === 'hinted_correct' ? '提示后答对' : '纠错完成') : '首答已记录为错误'}}</text><text wx:if="{{!feedback.correct && feedback.canRetry}}">错题会在其他首答后回补，最多追加 2 次。</text><button bindtap="next">{{feedback.nextEpisodeAvailable ? '继续下一题' : '刷新进度'}}</button></view>
+      <button wx:if="{{!feedback}}" class="primary" loading="{{acting}}" disabled="{{acting}}" bindtap="submit">{{editingRetry ? '重新提交答案' : '提交答案'}}</button>
+      <view wx:else class="feedback {{feedback.correct ? 'correct' : 'wrong'}}">
+        <text class="feedback-title">{{feedback.correct ? (feedback.result === 'independent_correct' ? '独立答对' : feedback.result === 'hinted_correct' ? '提示后答对' : '纠错完成') : (feedback.firstAttempt ? '首答已记录为错误' : '本次答案仍不正确')}}</text>
+        <text wx:if="{{!feedback.correct && feedback.canRetry}}">可以立即修改后重新提交；首答结果会保留，最多共作答 3 次。</text>
+        <view wx:if="{{!feedback.correct && feedback.canRetry}}" class="feedback-actions"><button class="retry" bindtap="editAnswer">修改答案</button><button bindtap="next">先做下一题</button></view>
+        <button wx:else bindtap="next">{{feedback.nextEpisodeAvailable ? '继续下一题' : '刷新进度'}}</button>
+      </view>
     </view>
     <view wx:else class="card finish"><text class="finish-title">已完成当前可用题目</text><text>结算只保留客观作答证据，不会暗改“已理解”或生词本。</text><button class="primary" bindtap="finish">查看本轮结果</button></view>
     <button class="partial" bindtap="finishPartial">现在结束（部分完成）</button>

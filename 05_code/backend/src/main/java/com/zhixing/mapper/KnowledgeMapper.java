@@ -19,6 +19,7 @@ public interface KnowledgeMapper extends BaseMapper<KnowledgeItemEntity> {
             "ki.version_no,ki.updated_at,CASE WHEN rs.state='active' THEN TRUE ELSE FALSE END AS in_review ",
             "FROM knowledge_item ki LEFT JOIN review_schedule rs ON rs.owner_id=ki.owner_id AND rs.knowledge_id=ki.id ",
             "WHERE ki.owner_id=#{ownerId} AND ki.state&lt;&gt;'deleted' ",
+            "AND ki.item_type&lt;&gt;'content_ref' ",
             "<if test=\"type != null and type != '' and type != 'all'\">",
             "<choose><when test=\"type == 'note'\">AND ki.item_type IN ('note','ai_note') </when>",
             "<otherwise>AND ki.item_type=#{type} </otherwise></choose></if>",

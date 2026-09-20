@@ -30,7 +30,7 @@ class F12AiAskIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.credentialConfigured").value(true));
         mvc.perform(put("/api/admin/ai/budget").header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"limitAmount\":100,\"currency\":\"CNY\"}"))
                 .andExpect(status().isOk());
-        mvc.perform(post("/api/consents").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"purpose\":\"ai_send\",\"documentVersion\":\"AI_SEND_V1\",\"decision\":\"grant\"}"))
+        mvc.perform(put("/api/admin/users/{id}/ai-authorization",session.userId).header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
                 .andExpect(status().isOk());
 
         mvc.perform(get("/api/ai/models").header("Authorization",bearer(session.token))).andExpect(status().isOk())

@@ -98,7 +98,7 @@ public class WordMemoryService {
             throw new ApiException(HttpStatus.CONFLICT,"MEMORY_BASE_CONTENT_MISSING","所选词条缺少已审核的基础释义，暂不能训练");
         String prompt="meaning".equals(dimension)?base.getWordTerm()+" 的中文含义是？":"请根据“"+base.getMeaning()+"”拼写英文单词";
         String expected="meaning".equals(dimension)?base.getMeaning():base.getWordTerm();
-        String policy="spelling".equals(dimension)?"case_insensitive":"exact";
+        String policy="spelling".equals(dimension)?"case_insensitive":"meaning_flexible";
         try{memory.insertGeneratedBaseQuestion(CryptoUtils.randomId(),base.getContentVersionId(),base.getSenseId(),dimension,prompt,expected,policy);}
         catch(DuplicateKeyException ignored){}
         WordMemoryEpisodeRow generated=memory.selectQuestion(contentId,dimension);
@@ -203,7 +203,17 @@ public class WordMemoryService {
 
     private boolean matches(WordMemoryEpisodeRow episode,String answer){List<String> accepted=new ArrayList<String>();accepted.add(episode.getExpectedAnswer());
         String raw=clean(episode.getAcceptedAnswersJson());if(raw!=null)try{accepted.addAll(json.readValue(raw,new TypeReference<List<String>>(){}));}catch(Exception e){throw new ApiException(HttpStatus.CONFLICT,"MEMORY_ANSWER_CONFIG_INVALID","题目答案配置异常，请联系管理员");}
-        boolean insensitive="case_insensitive".equals(episode.getAnswerPolicy());String actual=answer.trim();for(String expected:accepted)if(expected!=null&&(insensitive?expected.trim().equalsIgnoreCase(actual):expected.trim().equals(actual)))return true;return false;}
+        String actual=answer.trim();if("meaning".equals(episode.getDimension()))return matchesMeaning(actual,accepted);
+        boolean insensitive="case_insensitive".equals(episode.getAnswerPolicy());for(String expected:accepted)if(expected!=null&&(insensitive?expected.trim().equalsIgnoreCase(actual):expected.trim().equals(actual)))return true;return false;}
+    private boolean matchesMeaning(String actual,List<String> accepted){Set<String> actualVariants=meaningVariants(actual);if(actualVariants.isEmpty())return false;
+        for(String expected:accepted)for(String expectedVariant:meaningVariants(expected))if(actualVariants.contains(expectedVariant))return true;return false;}
+    private Set<String> meaningVariants(String value){LinkedHashSet<String> result=new LinkedHashSet<String>();String normalized=normalizeMeaning(value);if(normalized==null)return result;
+        addMeaningVariant(result,normalized);for(String part:normalized.split("[;,，；、/／|]+"))addMeaningVariant(result,part);return result;}
+    private void addMeaningVariant(Set<String> values,String value){String normalized=normalizeMeaning(value);if(normalized==null)return;values.add(normalized);
+        String withoutAffixes=normalized.replaceFirst("^(意思是|意为|表示|指的是|指|即为|即|是|在)","").replaceFirst("(的|地)$","");if(!withoutAffixes.isEmpty())values.add(withoutAffixes);}
+    private String normalizeMeaning(String value){String normalized=clean(value);if(normalized==null)return null;
+        normalized=normalized.toLowerCase(Locale.ROOT).replaceAll("(?i)^(adjective|adverb|noun|verb|interj|modal|prep|pron|conj|adj|adv|aux|num|art|vt|vi|int|n|v)\\.?\\s*","");
+        normalized=normalized.replaceAll("^[（(][^）)]{1,12}[）)]","").replaceAll("[\\s。.!！?？:：\"'“”‘’（）()【】\\[\\]]","");return clean(normalized);}
     private List<String> dimensions(List<String> raw){LinkedHashSet<String> result=new LinkedHashSet<String>();if(raw==null||raw.isEmpty())result.addAll(DIMENSIONS);else for(String item:raw){String value=clean(item);if(!DIMENSIONS.contains(value))throw bad("INVALID_MEMORY_DIMENSION","首版仅支持认义和拼写训练");result.add(value);}if(result.isEmpty())throw bad("MEMORY_DIMENSION_REQUIRED","至少选择一个训练维度");return new ArrayList<String>(result);}
     private WordMemorySessionRow required(String ownerId,String id){WordMemorySessionRow row=memory.selectSession(ownerId,id);if(row==null)throw notFound("MEMORY_SESSION_NOT_FOUND","训练会话不存在或无权访问");return row;}
     private WordMemorySessionRow requiredForUpdate(String ownerId,String id){WordMemorySessionRow row=memory.selectSessionForUpdate(ownerId,id);if(row==null)throw notFound("MEMORY_SESSION_NOT_FOUND","训练会话不存在或无权访问");return row;}

@@ -1689,7 +1689,8 @@ VALUES
 (MD5('vocabulary-book:TOEFL'),'TOEFL','TOEFL 托福','study_abroad','toefl','托福词库','待配置','正式导入前核验来源许可',80,0,'active',@seed_now,@seed_now),
 (MD5('vocabulary-book:GRE'),'GRE','GRE','study_abroad','gre','GRE高阶词库','待配置','正式导入前核验来源许可',90,0,'active',@seed_now,@seed_now),
 (MD5('vocabulary-book:OXFORD3000'),'OXFORD3000','Oxford 3000','general','oxford3000','通用核心英语词汇','Oxford 3000','正式导入前核验来源许可',100,0,'active',@seed_now,@seed_now),
-(MD5('vocabulary-book:OXFORD5000'),'OXFORD5000','Oxford 5000','general','oxford5000','中高级通用英语词汇','Oxford 5000','正式导入前核验来源许可',110,0,'active',@seed_now,@seed_now)
+(MD5('vocabulary-book:OXFORD5000'),'OXFORD5000','Oxford 5000','general','oxford5000','中高级通用英语词汇','Oxford 5000','正式导入前核验来源许可',110,0,'active',@seed_now,@seed_now),
+(MD5('vocabulary-book:COMPUTER'),'COMPUTER','计算机英语','technology','computer','程序开发与计算机基础术语','待配置','正式导入前核验来源许可',120,0,'active',@seed_now,@seed_now)
 ON DUPLICATE KEY UPDATE book_name=VALUES(book_name),description=VALUES(description),license_note=VALUES(license_note),sort_no=VALUES(sort_no),state='active',updated_at=@seed_now;
 
 -- 现有 K12 数据迁移到新词库

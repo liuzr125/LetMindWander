@@ -31,13 +31,14 @@ public class AdminContentService {
         AdminTechnicalContentPageView result=new AdminTechnicalContentPageView();result.setTotal(total);result.setPage(page);result.setPageSize(pageSize);result.setTotalPages(totalPages);result.setTopic(topic);result.setKeyword(keyword);result.setItems(items);return result;
     }
     public AdminTechnicalContentView technicalDetail(String contentId){AdminTechnicalContentView detail=contents.selectTechnicalDetail(contentId);if(detail==null)throw new ApiException(HttpStatus.NOT_FOUND,"TECH_CONTENT_NOT_FOUND","技术知识不存在或未发布");detail.setTopics(contents.selectTechnicalTopicNames(detail.getVersionId()));return detail;}
-    public AdminTechnicalContentPageView articles(String rawDifficulty,String rawKeyword,Integer rawPage,Integer rawPageSize){
+    public AdminTechnicalContentPageView articles(String rawDifficulty,String rawBookId,String rawKeyword,Integer rawPage,Integer rawPageSize){
         int page=rawPage==null?1:rawPage,pageSize=rawPageSize==null?20:rawPageSize;
         if(page<1||pageSize<1||pageSize>100)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PAGE","页码从 1 开始，每页可显示 1 至 100 条内容");
-        String difficulty=clean(rawDifficulty).toLowerCase(java.util.Locale.ROOT),keyword=clean(rawKeyword);
+        String difficulty=clean(rawDifficulty).toLowerCase(java.util.Locale.ROOT),bookId=clean(rawBookId),keyword=clean(rawKeyword);
         if(!difficulty.isEmpty()&&!"intro".equals(difficulty)&&!"advanced".equals(difficulty))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_DIFFICULTY","短文难度只能是 intro 或 advanced");
         if(keyword.length()>80)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_FILTER","搜索关键词过长");
-        List<AdminTechnicalContentView> all=contents.selectArticles(difficulty,keyword);
+        if(bookId.length()>32)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_BOOK_FILTER","词书筛选值不正确");
+        List<AdminTechnicalContentView> all=contents.selectArticles(difficulty,bookId,keyword);
         all.sort(Comparator.comparingInt((AdminTechnicalContentView item)->articleNumber(item.getTitle()))
                 .thenComparing(item->item.getTitle()==null?"":item.getTitle())
                 .thenComparing(item->item.getContentId()==null?"":item.getContentId()));

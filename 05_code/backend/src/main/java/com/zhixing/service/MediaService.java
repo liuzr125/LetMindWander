@@ -227,7 +227,7 @@ public class MediaService {
         }
     }
 
-    private OSS buildClient() {
+    protected OSS buildClient() {
         return new OSSClientBuilder().build(ossEndpoint, parameters.required("oss.access_key_id"), parameters.required("oss.access_key_secret"));
     }
 

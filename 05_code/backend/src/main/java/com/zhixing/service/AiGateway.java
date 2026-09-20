@@ -20,13 +20,17 @@ public class AiGateway {
     public AiGateway(ObjectMapper json,AppProperties properties){this.json=json;this.properties=properties;}
 
     public AiGatewayResult ask(AiRuntimeModel model,String apiKey,String question){
+        return ask(model,apiKey,"你是脑袋开小灶的学习助手。请用准确、简洁的中文回答；不确定时明确说明，不编造事实。",question);
+    }
+
+    public AiGatewayResult ask(AiRuntimeModel model,String apiKey,String systemPrompt,String question){
         if(properties.getAi().isMockEnabled()){
-            AiGatewayResult result=new AiGatewayResult();result.answer="这是测试环境的 AI 回答："+question;result.providerRequestId="mock-"+UUID.randomUUID();result.inputTokens=Math.max(1,question.length()/2);result.outputTokens=Math.max(1,result.answer.length()/2);result.cacheMissInputTokens=result.inputTokens;result.usage=new LinkedHashMap<String,Object>();result.usage.put("prompt_tokens",result.inputTokens);result.usage.put("completion_tokens",result.outputTokens);result.usage.put("prompt_cache_hit_tokens",0);result.usage.put("prompt_cache_miss_tokens",result.inputTokens);return result;
+            AiGatewayResult result=new AiGatewayResult();result.answer="这是测试环境的 AI 回答："+question;result.providerRequestId="mock-"+UUID.randomUUID();result.inputTokens=Math.max(1,(systemPrompt.length()+question.length())/2);result.outputTokens=Math.max(1,result.answer.length()/2);result.cacheMissInputTokens=result.inputTokens;result.usage=new LinkedHashMap<String,Object>();result.usage.put("prompt_tokens",result.inputTokens);result.usage.put("completion_tokens",result.outputTokens);result.usage.put("prompt_cache_hit_tokens",0);result.usage.put("prompt_cache_miss_tokens",result.inputTokens);return result;
         }
         if(model.baseUrl==null||!model.baseUrl.startsWith("https://"))throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"AI_ENDPOINT_INVALID","AI 模型地址必须使用 HTTPS");
         HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);headers.setBearerAuth(apiKey);
         Map<String,Object> body=new LinkedHashMap<String,Object>();body.put("model",model.modelCode);body.put("stream",false);body.put("max_tokens",model.maxOutputTokens);
-        List<Map<String,String>> messages=new ArrayList<Map<String,String>>();Map<String,String> system=new LinkedHashMap<String,String>();system.put("role","system");system.put("content","你是脑袋开小灶的学习助手。请用准确、简洁的中文回答；不确定时明确说明，不编造事实。");Map<String,String> user=new LinkedHashMap<String,String>();user.put("role","user");user.put("content",question);messages.add(system);messages.add(user);body.put("messages",messages);
+        List<Map<String,String>> messages=new ArrayList<Map<String,String>>();Map<String,String> system=new LinkedHashMap<String,String>();system.put("role","system");system.put("content",systemPrompt);Map<String,String> user=new LinkedHashMap<String,String>();user.put("role","user");user.put("content",question);messages.add(system);messages.add(user);body.put("messages",messages);
         try{
             SimpleClientHttpRequestFactory factory=new SimpleClientHttpRequestFactory();factory.setConnectTimeout(Math.min(10000,model.timeoutSeconds*1000));factory.setReadTimeout(model.timeoutSeconds*1000);RestTemplate http=new RestTemplate(factory);
             ResponseEntity<String> response=http.exchange(model.baseUrl,HttpMethod.POST,new HttpEntity<Map<String,Object>>(body,headers),String.class);

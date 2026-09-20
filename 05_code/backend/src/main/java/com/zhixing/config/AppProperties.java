@@ -11,6 +11,10 @@ public class AppProperties {
     private String privacyVersion = "PRIVACY_V1";
     private String adminToken = "dev-admin-token";
     private String adminPrincipalId = "00000000000000000000000000000002";
+    private String adminBootstrapUsername = "superadmin";
+    private String adminBootstrapPassword = "dev-admin-123456";
+    private Duration adminSessionTtl = Duration.ofHours(8);
+    private boolean adminLegacyTokenEnabled;
     private Duration sessionTtl = Duration.ofDays(30);
     private Duration registrationTtl = Duration.ofMinutes(10);
     private String registrationStore = "memory";
@@ -19,6 +23,7 @@ public class AppProperties {
     private final Sms sms = new Sms();
     private final WordMemory wordMemory = new WordMemory();
     private final Ai ai = new Ai();
+    private final ArticleGeneration articleGeneration = new ArticleGeneration();
     private final Tts tts = new Tts();
 
     public String getPrivacyVersion() { return privacyVersion; }
@@ -27,6 +32,10 @@ public class AppProperties {
     public void setAdminToken(String adminToken) { this.adminToken = adminToken; }
     public String getAdminPrincipalId() { return adminPrincipalId; }
     public void setAdminPrincipalId(String adminPrincipalId) { this.adminPrincipalId = adminPrincipalId; }
+    public String getAdminBootstrapUsername(){return adminBootstrapUsername;} public void setAdminBootstrapUsername(String value){adminBootstrapUsername=value;}
+    public String getAdminBootstrapPassword(){return adminBootstrapPassword;} public void setAdminBootstrapPassword(String value){adminBootstrapPassword=value;}
+    public Duration getAdminSessionTtl(){return adminSessionTtl;} public void setAdminSessionTtl(Duration value){adminSessionTtl=value;}
+    public boolean isAdminLegacyTokenEnabled(){return adminLegacyTokenEnabled;} public void setAdminLegacyTokenEnabled(boolean value){adminLegacyTokenEnabled=value;}
     public Duration getSessionTtl() { return sessionTtl; }
     public void setSessionTtl(Duration sessionTtl) { this.sessionTtl = sessionTtl; }
     public Duration getRegistrationTtl() { return registrationTtl; }
@@ -39,6 +48,7 @@ public class AppProperties {
     public Sms getSms() { return sms; }
     public WordMemory getWordMemory() { return wordMemory; }
     public Ai getAi() { return ai; }
+    public ArticleGeneration getArticleGeneration() { return articleGeneration; }
     public Tts getTts() { return tts; }
 
     public static class Wechat {
@@ -107,5 +117,14 @@ public class AppProperties {
         private boolean mockEnabled;
         public boolean isMockEnabled(){return mockEnabled;}
         public void setMockEnabled(boolean value){mockEnabled=value;}
+    }
+
+    public static class ArticleGeneration {
+        private boolean enabled = true;
+        private int perBookCount = 5;
+        private String cron = "0 30 22 * * *";
+        public boolean isEnabled(){return enabled;} public void setEnabled(boolean v){enabled=v;}
+        public int getPerBookCount(){return perBookCount;} public void setPerBookCount(int v){perBookCount=v;}
+        public String getCron(){return cron;} public void setCron(String v){cron=v;}
     }
 }

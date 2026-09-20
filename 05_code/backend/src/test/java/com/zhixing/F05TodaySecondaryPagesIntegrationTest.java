@@ -55,6 +55,8 @@ class F05TodaySecondaryPagesIntegrationTest {
         mvc.perform(post("/api/learning/contents/{id}/review",tech.path("contentId").asText()).header("Authorization",bearer(session.token))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"active\":true}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.inReview").value(true));
+        mvc.perform(get("/api/knowledge").header("Authorization",bearer(session.token)))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
         String packageId=jdbc.queryForObject("SELECT id FROM daily_package WHERE owner_id=? AND business_date=?",String.class,session.userId,LocalDate.parse(today));
         String knowledgeId=jdbc.queryForObject("SELECT id FROM knowledge_item WHERE owner_id=? AND bookmark_content_id=?",String.class,session.userId,tech.path("contentId").asText());
         String scheduleId=jdbc.queryForObject("SELECT id FROM review_schedule WHERE owner_id=? AND knowledge_id=?",String.class,session.userId,knowledgeId);

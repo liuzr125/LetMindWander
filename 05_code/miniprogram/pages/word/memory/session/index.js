@@ -1,7 +1,7 @@
 const { wordMemoryService } = require('../../../../services/index');
 
 Page({
-  data: { sessionId: '', loading: true, error: '', session: null, current: null, answer: '', hintContent: '', feedback: null, acting: false },
+  data: { sessionId: '', loading: true, error: '', session: null, current: null, answer: '', hintContent: '', feedback: null, editingRetry: false, acting: false },
   onLoad(options) { this.setData({ sessionId: options.id || '' }); this.load(); },
   load() {
     this.setData({ loading: true, error: '' });
@@ -9,7 +9,7 @@ Page({
       if (session.state === 'completed' || session.state === 'partial') return this.openResult();
       const current = session.currentEpisode || null;
       if (current) current.hasClue = (current.availableHints || []).indexOf('clue') >= 0;
-      this.startedAt = Date.now(); this.setData({ session, current, answer: '', hintContent: '', feedback: null, loading: false });
+      this.startedAt = Date.now(); this.setData({ session, current, answer: '', hintContent: '', feedback: null, editingRetry: false, loading: false });
     }).catch((error) => this.setData({ loading: false, error: error.message || '训练恢复失败' }));
   },
   answerChanged(event) { this.setData({ answer: event.detail.value }); },
@@ -25,8 +25,13 @@ Page({
     const current = this.data.current; const attemptNo = (current.attemptCount || 0) + 1; const key = `memory-attempt-${this.data.sessionId}-${current.id}-${attemptNo}`;
     this.setData({ acting: true });
     wordMemoryService.attempt(this.data.sessionId, current.id, { answer, durationMs: Math.max(0, Date.now() - this.startedAt), expectedVersion: this.data.session.version }, key)
-      .then((result) => { this.setData({ feedback: result, 'session.version': result.sessionVersion }); })
+      .then((result) => { this.setData({ feedback: result, editingRetry: false, 'current.attemptCount': result.attemptNo, 'session.version': result.sessionVersion }); })
       .catch((error) => this.handleError(error)).finally(() => this.setData({ acting: false }));
+  },
+  editAnswer() {
+    if (this.data.acting || !this.data.feedback || !this.data.feedback.canRetry) return;
+    this.startedAt = Date.now();
+    this.setData({ feedback: null, editingRetry: true });
   },
   next() { this.load(); },
   finish() { this.finishWith(false); },

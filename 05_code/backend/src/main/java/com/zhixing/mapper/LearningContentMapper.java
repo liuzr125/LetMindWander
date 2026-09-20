@@ -28,6 +28,7 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "LEFT JOIN knowledge_item ki ON ki.owner_id=#{ownerId} AND ki.bookmark_content_id=lc.id AND ki.state&lt;&gt;'deleted' ",
             "LEFT JOIN review_schedule rs ON rs.owner_id=#{ownerId} AND rs.knowledge_id=ki.id ",
             "WHERE lc.state='published' AND lc.content_type=#{type} ",
+            "<if test=\"type == 'english_article'\">AND EXISTS (SELECT 1 FROM english_article_book eab JOIN user_vocabulary_book uvb ON uvb.book_id=eab.book_id AND uvb.owner_id=#{ownerId} AND uvb.state='active' JOIN vocabulary_book active_book ON active_book.id=uvb.book_id AND active_book.state='active' WHERE eab.content_id=lc.id) </if>",
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
             "<if test=\"stage != null and stage != ''\">AND lc.stage=#{stage} </if>",
             "<if test=\"topicId != null and topicId != ''\">AND EXISTS (SELECT 1 FROM content_topic x WHERE x.content_version_id=cv.id AND x.topic_id=#{topicId}) </if>",
@@ -35,12 +36,13 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "<if test=\"status == 'review'\">AND rs.state='active' AND rs.due_date&lt;=#{today} </if>",
             "<if test=\"status == 'familiar'\">AND COALESCE(lr.familiarity_percent,0)&gt;=80 </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (LOWER(cv.word_term) LIKE CONCAT('%',LOWER(TRIM(#{keyword})),'%') OR LOWER(cv.meaning) LIKE CONCAT('%',LOWER(TRIM(#{keyword})),'%') OR EXISTS (SELECT 1 FROM word_alias wa WHERE wa.content_id=lc.id AND wa.state='active' AND wa.normalized_alias=LOWER(TRIM(#{keyword})))) </if>",
-            "ORDER BY <if test=\"keyword != null and keyword != ''\">CASE WHEN LOWER(cv.word_term)=LOWER(TRIM(#{keyword})) THEN 0 WHEN EXISTS (SELECT 1 FROM word_alias wa2 WHERE wa2.content_id=lc.id AND wa2.state='active' AND wa2.normalized_alias=LOWER(TRIM(#{keyword}))) THEN 1 ELSE 2 END,</if> lc.published_at DESC,lc.id DESC LIMIT #{limit} OFFSET #{offset}",
+            "ORDER BY <if test=\"keyword != null and keyword != ''\">CASE WHEN LOWER(cv.word_term)=LOWER(TRIM(#{keyword})) THEN 0 WHEN EXISTS (SELECT 1 FROM word_alias wa2 WHERE wa2.content_id=lc.id AND wa2.state='active' AND wa2.normalized_alias=LOWER(TRIM(#{keyword}))) THEN 1 ELSE 2 END,</if> lc.published_at DESC,lc.id DESC ",
+            "<if test=\"!allRows\">LIMIT #{limit} OFFSET #{offset}</if>",
             "</script>"})
     List<LearningListItemView> selectLearningPage(@Param("ownerId") String ownerId,@Param("type") String type,
             @Param("topicId") String topicId,@Param("difficulty") String difficulty,@Param("stage") String stage,
             @Param("notebook") boolean notebook,@Param("status") String status,@Param("keyword") String keyword,
-            @Param("today") LocalDate today,@Param("offset") int offset,@Param("limit") int limit);
+            @Param("today") LocalDate today,@Param("allRows") boolean allRows,@Param("offset") int offset,@Param("limit") int limit);
 
     @Select("SELECT DISTINCT lt.id,lt.name FROM learning_topic lt JOIN content_topic ct ON ct.topic_id=lt.id " +
             "JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.published_version_id=cv.id " +

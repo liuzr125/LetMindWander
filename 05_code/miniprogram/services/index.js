@@ -92,6 +92,11 @@ const dailyTaskService = {
 };
 
 const contentService = {
+  learningCards(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/learning-cards` }); },
+  cardPreferences() { return request({ url: '/learning/card-preferences' }); },
+  updateCardPreferences(payload) { return request({ url: '/learning/card-preferences', method: 'PUT', data: payload }); },
+  wordStudyPreferences() { return request({ url: '/learning/word-study-preferences' }); },
+  updateWordStudyPreferences(payload) { return request({ url: '/learning/word-study-preferences', method: 'PUT', data: payload }); },
   get(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}` }); },
   speech(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/speech`, method: 'POST', timeout: 65000 }); },
   followRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording` }); },

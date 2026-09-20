@@ -15,15 +15,20 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class LearningService {
     private static final ZoneId BUSINESS_ZONE=ZoneId.of("Asia/Shanghai");
     private static final Set<String> TYPES=new HashSet<String>(Arrays.asList("tech","word","english_article"));
+    private static final Pattern ARTICLE_NUMBER_BEFORE_COLON=Pattern.compile("(?<!\\d)(\\d+)(?=\\s*:)");
+    private static final Pattern ANY_NUMBER=Pattern.compile("\\d+");
     private final LearningContentMapper learning;
     private final AppParameterService parameters;
     private final ObjectMapper json;
@@ -49,9 +54,15 @@ public class LearningService {
         boolean inNotebook=Boolean.TRUE.equals(notebook);
         if(inNotebook&&!"word".equals(safeType))throw bad("NOTEBOOK_WORD_ONLY","生词本只支持英语词条");
         int safePage=page==null?1:Math.max(1,page);int safeSize=pageSize==null?20:Math.max(1,Math.min(pageSize,50));
+        boolean orderArticles="english_article".equals(safeType);int offset=(safePage-1)*safeSize;
         List<LearningListItemView> rows=learning.selectLearningPage(ownerId,safeType,clean(topicId),safeDifficulty,safeStage,
-                inNotebook,safeStatus,clean(keyword),LocalDate.now(BUSINESS_ZONE),(safePage-1)*safeSize,safeSize+1);
-        boolean hasMore=rows.size()>safeSize;if(hasMore)rows.remove(rows.size()-1);
+                inNotebook,safeStatus,clean(keyword),LocalDate.now(BUSINESS_ZONE),orderArticles,offset,safeSize+1);
+        boolean hasMore;
+        if(orderArticles){rows.sort(Comparator.comparingInt((LearningListItemView item)->articleNumber(item.getTitle()))
+                    .thenComparing(item->item.getTitle()==null?"":item.getTitle())
+                    .thenComparing(item->item.getContentId()==null?"":item.getContentId()));
+            int from=Math.min(offset,rows.size()),to=Math.min(from+safeSize,rows.size());hasMore=to<rows.size();rows=new ArrayList<LearningListItemView>(rows.subList(from,to));}
+        else{hasMore=rows.size()>safeSize;if(hasMore)rows.remove(rows.size()-1);}
         LearningPageView result=new LearningPageView();result.setPage(safePage);result.setPageSize(safeSize);result.setHasMore(hasMore);result.setItems(rows);return result;
     }
 
@@ -67,6 +78,9 @@ public class LearningService {
     private List<LearningFiltersView.OptionView> difficultyDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("intro","入门"),new LearningFiltersView.OptionView("advanced","进阶"));}
     private List<LearningFiltersView.OptionView> stageDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("primary","小学"),new LearningFiltersView.OptionView("junior","初中"),new LearningFiltersView.OptionView("senior","高中"));}
     private List<LearningFiltersView.OptionView> notebookStatusDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("review","待复习"),new LearningFiltersView.OptionView("familiar","已熟悉"));}
+    private int articleNumber(String title){if(title==null)return Integer.MAX_VALUE;Matcher preferred=ARTICLE_NUMBER_BEFORE_COLON.matcher(title);
+        if(preferred.find())return parseArticleNumber(preferred.group(1));Matcher fallback=ANY_NUMBER.matcher(title);return fallback.find()?parseArticleNumber(fallback.group()):Integer.MAX_VALUE;}
+    private int parseArticleNumber(String value){try{return Integer.parseInt(value);}catch(NumberFormatException ignored){return Integer.MAX_VALUE;}}
     private ApiException bad(String code,String message){return new ApiException(HttpStatus.BAD_REQUEST,code,message);}
     private String clean(String value){return value==null?"":value.trim();}
 }

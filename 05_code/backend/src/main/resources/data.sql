@@ -10,6 +10,33 @@ INSERT INTO learning_topic (id, scope_key, owner_id, name, normalized_name, stat
 SELECT '00000000000000000000000000000012', 'system', NULL, '计算机基础', '计算机基础', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM learning_topic WHERE scope_key = 'system' AND normalized_name = '计算机基础');
 
+INSERT INTO admin_role (id,code,name,description,is_system,enabled,sort_order)
+SELECT '00000000000000000000000000a1','SUPER_ADMIN','超级管理员','管理账号、角色、菜单及全部业务权限',1,1,10
+WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE code='SUPER_ADMIN');
+INSERT INTO admin_role (id,code,name,description,is_system,enabled,sort_order)
+SELECT '00000000000000000000000000a2','ADMIN','管理员','默认业务管理权限，不含账号与角色权限',0,1,20
+WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE code='ADMIN');
+
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b1','overview','概览','/overview','⌂',10,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='overview');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b2','content','内容与来源','/content','◇',20,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='content');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b3','words','英语单词','/words','Aa',30,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='words');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b4','imports','词库批次','/vocabulary-imports','⇄',40,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='imports');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b5','articles','英语短文','/articles','En',50,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='articles');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b6','users','用户状态','/users','●',60,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='users');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b7','jobs','任务与运行','/jobs','□',70,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='jobs');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b8','ai','AI 模型与费用','/ai','AI',80,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='ai');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000bb','ai_audit','AI 使用追溯','/ai-audit','◉',90,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='ai_audit');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b9','parameters','系统参数','/parameters','⚙',100,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='parameters');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000ba','roles','角色与权限','/roles','♙',110,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='roles');
+
+INSERT INTO admin_role_menu (role_id,menu_id)
+SELECT '00000000000000000000000000a1',id FROM admin_menu
+WHERE NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a1' AND menu_id=admin_menu.id);
+INSERT INTO admin_role_menu (role_id,menu_id)
+SELECT '00000000000000000000000000a2',id FROM admin_menu
+WHERE code IN ('overview','content','words','imports','articles','users','jobs','ai','parameters')
+AND NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a2' AND menu_id=admin_menu.id);
+
 INSERT INTO ai_model_config (id,provider_code,model_code,display_name,specification,base_url,api_key_param_key,enabled,is_default,max_output_tokens,timeout_seconds)
 SELECT '00000000000000000000000000000031','deepseek','deepseek-flash','DeepSeek Flash','flash','https://api.deepseek.com/chat/completions','AI_DEEPSEEK_API_KEY',1,1,1200,60
 WHERE NOT EXISTS (SELECT 1 FROM ai_model_config WHERE provider_code='deepseek' AND model_code='deepseek-flash');

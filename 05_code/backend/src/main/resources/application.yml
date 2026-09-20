@@ -56,6 +56,11 @@ app:
     consent-version: ${AI_CONSENT_VERSION:AI_SEND_V1}
     # Web 端录入的供应商密钥使用 AES-GCM 加密后入库；未配置时禁止从 Web 写入密钥。
     credential-encryption-key: ${AI_CREDENTIAL_ENCRYPTION_KEY:}
+  article-generation:
+    # 22:30 运行，等待 22:00 官方 RSS 采集完成；每本有词条的词书每日生成 5 篇。
+    enabled: ${ARTICLE_GENERATION_ENABLED:true}
+    per-book-count: ${ARTICLE_GENERATION_PER_BOOK_COUNT:5}
+    cron: "${ARTICLE_GENERATION_CRON:0 30 22 * * *}"
   media:
     # 阿里云 OSS：密钥仅从环境变量读取，不写入仓库。
     oss-endpoint: https://oss-cn-beijing.aliyuncs.com

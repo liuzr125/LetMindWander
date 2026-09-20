@@ -99,11 +99,6 @@ public class RegistrationService {
         }
 
         consent(userId, "privacy", context.getPrivacyVersion(), "grant", now);
-        if (aiConsent) {
-            consent(userId, "ai_send", context.getPrivacyVersion(), "grant", now);
-            jdbcTemplate.update("UPDATE app_user SET ai_consent_version = ?, ai_consented_at = ? WHERE id = ?",
-                    context.getPrivacyVersion(), Timestamp.from(now), userId);
-        }
         LOGGER.info("Invite redeemed and user created: userId={}", userId);
         return sessions.createForUser(userId);
     }

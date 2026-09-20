@@ -48,8 +48,12 @@ class F07LearningPageIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].contentId").value(WORD));
         mvc.perform(get("/api/learning/notebook/summary").header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(1)).andExpect(jsonPath("$.dueCount").value(0));
-        mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","english_article"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("How RAG Works"));
+        mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","english_article").param("page","1").param("pageSize","2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("A Careful Decision 2: Museum"))
+                .andExpect(jsonPath("$.items[1].title").value("A Careful Decision 10: Park")).andExpect(jsonPath("$.hasMore").value(true));
+        mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","english_article").param("page","2").param("pageSize","2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("A Careful Decision 101: Home"))
+                .andExpect(jsonPath("$.items[1].title").value("How RAG Works")).andExpect(jsonPath("$.hasMore").value(false));
         mvc.perform(get("/api/learning/contents/{id}",ARTICLE).header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.articleBlocks[0].text").value("RAG retrieves useful context before answering."))
                 .andExpect(jsonPath("$.articleBlocks[0].words[0].contentId").value(WORD))
@@ -67,6 +71,8 @@ class F07LearningPageIntegrationTest {
         mvc.perform(post("/api/knowledge").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"itemType\":\"note\",\"title\":\"RAG 笔记\",\"body\":\"先检索再回答\",\"state\":\"active\",\"visibility\":\"private\",\"sourceContentId\":\""+ARTICLE+"\",\"sourceContentVersionId\":\""+ARTICLE_VERSION+"\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.sourceContentId").value(ARTICLE)).andExpect(jsonPath("$.sourceTitle").value("How RAG Works"));
+        mvc.perform(get("/api/knowledge").header("Authorization",bearer(session.token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].title").value("RAG 笔记"));
     }
 
     private void seedLearningDictionary(){
@@ -82,10 +88,18 @@ class F07LearningPageIntegrationTest {
         insertContent(WORD,WORD_VERSION,"word","junior","context","上下文","context",source,null);jdbc.update("UPDATE content_version SET word_term='context',phonetic='/context/',meaning='上下文',example_text='Use context.' WHERE id=?",WORD_VERSION);
         String blocks="[{\"paragraph_id\":\"p1\",\"text\":\"RAG retrieves useful context before answering.\",\"translation\":\"RAG 在回答前检索有用的上下文。\",\"words\":[{\"content_id\":\""+WORD+"\",\"term\":\"context\",\"meaning\":\"上下文\"}]}]";
         insertContent(ARTICLE,ARTICLE_VERSION,"english_article",null,"How RAG Works","理解检索增强生成","RAG retrieves useful context before answering.",source,blocks);
+        insertContent(ARTICLE_2,ARTICLE_VERSION_2,"english_article",null,"A Careful Decision 2: Museum","编号排序测试","Article two.",source,null);
+        insertContent(ARTICLE_10,ARTICLE_VERSION_10,"english_article",null,"A Careful Decision 10: Park","编号排序测试","Article ten.",source,null);
+        insertContent(ARTICLE_101,ARTICLE_VERSION_101,"english_article",null,"A Careful Decision 101: Home","编号排序测试","Article one hundred and one.",source,null);
+        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,state) VALUES(?,?,'测试初中词书','official','junior','active')",BOOK,"F07_JUNIOR");
+        jdbc.update("INSERT INTO user_vocabulary_book(id,owner_id,book_id,state) VALUES(?,?,?,'active')","f070000000000000000000000000301",ownerId,BOOK);
+        mapArticle(ARTICLE,1);mapArticle(ARTICLE_2,2);mapArticle(ARTICLE_10,3);mapArticle(ARTICLE_101,4);
     }
+    private void mapArticle(String contentId,int slot){jdbc.update("INSERT INTO english_article_book(id,content_id,book_id,generated_date,slot_no,target_words_json,topic_snapshot_json) VALUES(?,?,?,?,?,'[]','{}')",CryptoUtils.randomId(),contentId,BOOK,LocalDate.of(2026,9,18),slot);}
     private void insertContent(String id,String version,String type,String stage,String title,String summary,String body,String source,String blocks){byte[] hash=CryptoUtils.sha256(id);jdbc.update("INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,?)",id,type,source,hash,"word".equals(type)?CryptoUtils.sha256(title):null,stage,"published",version,version,java.sql.Timestamp.valueOf("2026-09-18 08:00:00"));jdbc.update("INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,article_blocks,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",version,id,1,title,summary,body,"intro",180,"https://example.com/original","测试作者",java.sql.Timestamp.valueOf("2026-09-14 17:10:33"),"测试许可",CryptoUtils.sha256(body),"approved",blocks,"00000000000000000000000000000002");}
     private Session register() throws Exception {String invites=mvc.perform(post("/api/admin/invites").header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"count\":1,\"expiresInDays\":7}")).andReturn().getResponse().getContentAsString();String invite=json.readTree(invites).path("codes").get(0).path("code").asText();String login=mvc.perform(post("/api/auth/wechat").contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"f07-user\",\"inviteCode\":\""+invite+"\",\"privacyVersion\":\"PRIVACY_V1\"}")).andReturn().getResponse().getContentAsString();String ticket=json.readTree(login).path("registrationTicket").asText();mvc.perform(post("/api/auth/sms-code").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000007\"}"));JsonNode registered=json.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000007\",\"smsCode\":\"123456\",\"nickname\":\"学习用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}")).andReturn().getResponse().getContentAsString());return new Session(registered.path("accessToken").asText(),registered.path("user").path("id").asText());}
     private String bearer(String token){return "Bearer "+token;}
-    private static final String TOPIC="00000000000000000000000000000011",TECH="22222222222222222222222222222222",TECH_VERSION="33333333333333333333333333333333",WORD="44444444444444444444444444444444",WORD_VERSION="55555555555555555555555555555555",ARTICLE="66666666666666666666666666666666",ARTICLE_VERSION="77777777777777777777777777777777";
+    private static final String TOPIC="00000000000000000000000000000011",BOOK="f070000000000000000000000000030",TECH="22222222222222222222222222222222",TECH_VERSION="33333333333333333333333333333333",WORD="44444444444444444444444444444444",WORD_VERSION="55555555555555555555555555555555",ARTICLE="66666666666666666666666666666666",ARTICLE_VERSION="77777777777777777777777777777777";
+    private static final String ARTICLE_2="f070000000000000000000000000102",ARTICLE_VERSION_2="f070000000000000000000000000202",ARTICLE_10="f070000000000000000000000000110",ARTICLE_VERSION_10="f070000000000000000000000000210",ARTICLE_101="f070000000000000000000000000101",ARTICLE_VERSION_101="f070000000000000000000000000201";
     private static class Session{final String token,userId;Session(String token,String userId){this.token=token;this.userId=userId;}}
 }
