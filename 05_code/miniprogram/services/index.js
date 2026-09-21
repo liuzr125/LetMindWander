@@ -99,6 +99,10 @@ const contentService = {
   updateWordStudyPreferences(payload) { return request({ url: '/learning/word-study-preferences', method: 'PUT', data: payload }); },
   get(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}` }); },
   speech(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/speech`, method: 'POST', timeout: 65000 }); },
+  translation(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/translation`, method: 'POST', timeout: 65000 }); },
+  titleTranslation(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/title-translation`, method: 'POST', timeout: 65000 }); },
+  articleWordSpeech(articleId, term) { return request({ url: `/learning/contents/${encodeURIComponent(articleId)}/words/${encodeURIComponent(term)}/speech`, method: 'POST', timeout: 65000 }); },
+  articleWordLookup(articleId, term) { return request({ url: `/learning/contents/${encodeURIComponent(articleId)}/words/${encodeURIComponent(term)}/lookup`, method: 'POST', timeout: 65000 }); },
   followRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording` }); },
   uploadFollowRecording(id, filePath, durationMs) {
     return uploadFile(filePath, `/learning/contents/${encodeURIComponent(id)}/follow-recording`, { durationMs: String(durationMs) });

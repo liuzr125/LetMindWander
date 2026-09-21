@@ -8,6 +8,7 @@ import com.zhixing.service.ContentService;
 import com.zhixing.service.SessionService;
 import com.zhixing.service.AliyunTtsService;
 import com.zhixing.service.FollowRecordingService;
+import com.zhixing.service.ArticleWordGlossaryService;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -21,12 +22,14 @@ public class ContentController {
     private final ContentService contents;
     private final AliyunTtsService tts;
     private final FollowRecordingService followRecordings;
+    private final ArticleWordGlossaryService articleWords;
 
-    public ContentController(SessionService sessions, ContentService contents,AliyunTtsService tts, FollowRecordingService followRecordings) {
+    public ContentController(SessionService sessions, ContentService contents,AliyunTtsService tts, FollowRecordingService followRecordings, ArticleWordGlossaryService articleWords) {
         this.sessions = sessions;
         this.contents = contents;
         this.tts = tts;
         this.followRecordings = followRecordings;
+        this.articleWords = articleWords;
     }
 
     @GetMapping("/{id}")
@@ -65,6 +68,12 @@ public class ContentController {
 
     @PostMapping("/{id}/speech")
     public java.util.Map<String,Object> speech(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id){return tts.speech(user(auth),id);}
+
+    @PostMapping("/{id}/words/{term}/speech")
+    public java.util.Map<String,Object> articleWordSpeech(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id,@PathVariable String term){return tts.speechArticleWord(user(auth),id,term);}
+
+    @PostMapping("/{id}/words/{term}/lookup")
+    public Map<String,Object> articleWordLookup(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id,@PathVariable String term){return articleWords.ensure(user(auth),id,term);}
 
     @GetMapping("/{id}/follow-recording")
     public Map<String,Object> followRecording(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id){

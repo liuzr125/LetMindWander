@@ -75,7 +75,7 @@ public class DailyEnglishArticleService {
                     int bookGenerated=0;
                     while(existing+bookGenerated<perBook){
                         int batchSize=Math.min(5,perBook-existing-bookGenerated),firstSlot=existing+bookGenerated+1;
-                        List<GeneratedArticle> batch=ask(bookName,level,date,words,topics,batchSize,runId+":"+firstSlot);
+                        List<GeneratedArticle> batch=ask(bookName,level,date,words,topics,batchSize,runId,firstSlot);
                         transactions.executeWithoutResult(status->{for(int i=0;i<batch.size();i++)persist(bookId,bookCode,level,date,firstSlot+i,batch.get(i),words,topics.get((firstSlot+i-1)%topics.size()));});
                         bookGenerated+=batch.size();generated+=batch.size();
                     }
@@ -142,6 +142,11 @@ public class DailyEnglishArticleService {
         if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"ARTICLE_GENERATION_RUN_NOT_FOUND","英语短文生成运行记录不存在");
         ArticleGenerationRunView run=toRun(rows.get(0));Map<String,Object> result=new LinkedHashMap<String,Object>();
         result.put("kind","article_generation");result.put("run",run);result.put("taskCode","daily_english_article_generation");result.put("sqlScript","V3.16.7_daily_graded_articles.sql");result.put("status",status());
+        List<Map<String,Object>> models=new ArrayList<Map<String,Object>>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT p.provider_code,p.model_code,COUNT(*) call_count FROM ai_job j JOIN ai_attempt a ON a.job_id=j.id JOIN ai_model_price p ON p.id=a.price_id WHERE j.action_code='generate_english_articles' AND j.source_type='article_generation' AND j.source_id=? GROUP BY p.provider_code,p.model_code ORDER BY p.provider_code,p.model_code",runId)){
+            Map<String,Object> model=new LinkedHashMap<String,Object>();model.put("providerCode",row.get("provider_code"));model.put("modelCode",row.get("model_code"));model.put("callCount",row.get("call_count"));models.add(model);
+        }
+        result.put("models",models);
         result.put("tables",Arrays.asList("english_article_generation_run：任务运行结果","english_article_book：短文与词书、日期和槽位映射","learning_content / content_version：已校验发布的原创短文","app_parameter：任务开关和每日篇数"));
         result.put("tools",Arrays.asList("Spring @Scheduled（Asia/Shanghai）","官方 RSS 选题索引","AI 全局配额、并发和月度预算门禁","结构、长度、目标词覆盖与重复标题校验"));
         result.put("steps",Arrays.asList("读取持久化任务开关；禁用时不执行","筛选至少含 10 个已审核词条的启用词书","按词书抽取目标词并以最多 5 篇一批生成","校验合格后按日期固定槽位事务入库","记录生成、已存在和失败数量"));
@@ -162,23 +167,25 @@ public class DailyEnglishArticleService {
         return jdbc.queryForList("SELECT LOWER(TRIM(cv.word_term)) word_term,cv.meaning FROM vocabulary_book_word vbw JOIN learning_content lc ON lc.id=vbw.content_id AND lc.state='published' JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' WHERE vbw.book_id=? ORDER BY vbw.sort_no,vbw.importance DESC,lc.id LIMIT ?,?",bookId,offset,limit);
     }
 
-    private List<GeneratedArticle> ask(String bookName,String level,LocalDate date,List<Map<String,Object>> words,List<Map<String,Object>> topics,int count,String runId)throws Exception{
+    private List<GeneratedArticle> ask(String bookName,String level,LocalDate date,List<Map<String,Object>> words,List<Map<String,Object>> topics,int count,String runId,int firstSlot)throws Exception{
         boolean advanced=!Arrays.asList("primary","junior","senior").contains(level);int minWords=advanced?75:45,maxWords=advanced?120:80;
         List<String> wordList=new ArrayList<String>();for(Map<String,Object> row:words)wordList.add(text(row,"word_term"));
         List<Map<String,String>> topicList=new ArrayList<Map<String,String>>();for(Map<String,Object> row:topics){Map<String,String> topic=new LinkedHashMap<String,String>();topic.put("title",text(row,"title"));topic.put("source",text(row,"source_name"));topic.put("url",text(row,"origin_url"));topicList.add(topic);}
         String prompt="Create "+count+" different original English mini-passages for vocabulary book '"+bookName+"' (level "+level+") on "+date+". " +
                 "Each body must contain "+minWords+"-"+maxWords+" English words and naturally use at least "+(advanced?4:3)+" words from targetWords. " +
-                "Use the onlineTopics only as broad inspiration; do not quote them and do not state unverified news facts. Return exactly this JSON shape: {\"articles\":[{\"title\":\"English title\",\"summaryZh\":\"中文摘要\",\"body\":\"English body\"}]}. " +
+                "Use the onlineTopics only as broad inspiration; do not quote them and do not state unverified news facts. Return exactly this JSON shape: {\"articles\":[{\"title\":\"English title\",\"titleTranslationZh\":\"英文标题的简短、忠实中文译名\",\"summaryZh\":\"中文摘要\",\"body\":\"English body\",\"translationZh\":\"完整、忠实的中文译文\"}]}. Translate the title separately from the summary. The Chinese body translation must cover the entire English body, without adding new facts. " +
                 "targetWords="+json.writeValueAsString(wordList)+" onlineTopics="+json.writeValueAsString(topicList);
-        String raw=ai.generateSystemContent(SYSTEM_PROMPT,prompt,"article:"+date+":"+bookName+":"+runId);
+        String raw=ai.generateSystemContent(SYSTEM_PROMPT,prompt,"article:"+date+":"+bookName+":"+runId+":"+firstSlot,runId);
         JsonNode array=json.readTree(stripFence(raw)).path("articles");if(!array.isArray()||array.size()!=count)throw new IllegalStateException("AI 未返回恰好 "+count+" 篇短文");
         List<GeneratedArticle> result=new ArrayList<GeneratedArticle>();Set<String> titles=new HashSet<String>();
-        for(JsonNode node:array){String title=clean(node.path("title").asText()),summary=clean(node.path("summaryZh").asText()),body=clean(node.path("body").asText());validate(title,summary,body,wordList,advanced);if(!titles.add(title.toLowerCase(Locale.ROOT)))throw new IllegalStateException("AI 返回了重复标题");result.add(new GeneratedArticle(title,summary,body));}
+        for(JsonNode node:array){String title=clean(node.path("title").asText()),titleTranslation=clean(node.path("titleTranslationZh").asText()),summary=clean(node.path("summaryZh").asText()),body=clean(node.path("body").asText()),translation=clean(node.path("translationZh").asText());validate(title,titleTranslation,summary,body,translation,wordList,advanced);if(!titles.add(title.toLowerCase(Locale.ROOT)))throw new IllegalStateException("AI 返回了重复标题");result.add(new GeneratedArticle(title,titleTranslation,summary,body,translation));}
         return result;
     }
 
-    private void validate(String title,String summary,String body,List<String> targetWords,boolean advanced){
+    private void validate(String title,String titleTranslation,String summary,String body,String translation,List<String> targetWords,boolean advanced){
         if(title.length()<3||title.length()>100||summary.length()<2||summary.length()>500||body.length()<120||body.length()>1800)throw new IllegalStateException("短文结构或长度不合格");
+        if(titleTranslation.length()<2||titleTranslation.length()>200||!titleTranslation.matches("(?s).*[\\u4e00-\\u9fff].*"))throw new IllegalStateException("短文标题缺少有效的中文译文");
+        if(translation.length()<10||translation.length()>3000||!translation.matches("(?s).*[\\u4e00-\\u9fff].*"))throw new IllegalStateException("短文缺少完整中文译文");
         String lower=body.toLowerCase(Locale.ROOT);int used=0;for(String word:targetWords)if(word.matches("[a-z][a-z'-]*")&&lower.matches("(?s).*\\b"+java.util.regex.Pattern.quote(word)+"\\b.*"))used++;
         if(used<(advanced?4:3))throw new IllegalStateException("短文未覆盖足够的目标词汇");
     }
@@ -187,7 +194,8 @@ public class DailyEnglishArticleService {
         String contentId=CryptoUtils.randomId(),versionId=CryptoUtils.randomId();String difficulty=Arrays.asList("primary","junior","senior").contains(level)?"intro":"advanced";
         String topicUrl=text(topic,"origin_url");String targetJson=write(words);String topicJson=write(topic);
         jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,origin_url_hash,stage,state,current_version_id,published_version_id,published_at,row_version) VALUES(?,'english_article',?, ?,?,?, 'published',?,?,CURRENT_TIMESTAMP,1)",contentId,SOURCE_ID,CryptoUtils.sha256(bookId+"|"+date+"|"+slot+"|"+article.body),CryptoUtils.sha256(topicUrl),level,versionId,versionId);
-        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,reviewed_at,created_by,article_blocks) VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?, 'approved',CURRENT_TIMESTAMP,?,?)",versionId,contentId,article.title,article.summary,article.body,difficulty,Math.max(60,article.body.split("\\s+").length),topicUrl,"知行日课原创生成",value(topic,"origin_published_at"),LICENSE,CryptoUtils.sha256(article.body),properties.getAdminPrincipalId(),write(Collections.singletonList(Collections.singletonMap("text",article.body))));
+        Map<String,Object> paragraph=new LinkedHashMap<String,Object>();paragraph.put("paragraph_id","p1");paragraph.put("text",article.body);paragraph.put("translation",article.translation);
+        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,title_translation,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,reviewed_at,created_by,article_blocks) VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?, 'approved',CURRENT_TIMESTAMP,?,?)",versionId,contentId,article.title,article.titleTranslation,article.summary,article.body,difficulty,Math.max(60,article.body.split("\\s+").length),topicUrl,"知行日课原创生成",value(topic,"origin_published_at"),LICENSE,CryptoUtils.sha256(article.body),properties.getAdminPrincipalId(),write(Collections.singletonList(paragraph)));
         jdbc.update("INSERT INTO english_article_book(id,content_id,book_id,generated_date,slot_no,target_words_json,topic_snapshot_json) VALUES(?,?,?,?,?,?,?)",CryptoUtils.randomId(),contentId,bookId,date,slot,targetJson,topicJson);
     }
 
@@ -202,7 +210,16 @@ public class DailyEnglishArticleService {
     }
     private int number(Map<String,Object> row,String key){Object result=value(row,key);return result instanceof Number?((Number)result).intValue():0;}
     private String nullableText(Map<String,Object> row,String key){Object result=value(row,key);return result==null?null:String.valueOf(result);}
-    private Instant instant(Map<String,Object> row,String key){Object result=value(row,key);if(result instanceof Timestamp)return ((Timestamp)result).toInstant();if(result instanceof LocalDateTime)return ((LocalDateTime)result).atZone(ZoneOffset.UTC).toInstant();if(result instanceof OffsetDateTime)return ((OffsetDateTime)result).toInstant();if(result instanceof java.util.Date)return ((java.util.Date)result).toInstant();return result==null?null:Instant.parse(String.valueOf(result));}
+    private Instant instant(Map<String,Object> row,String key){return sqlDateTimeInstant(value(row,key));}
+    static Instant sqlDateTimeInstant(Object result){
+        if(result instanceof Timestamp)return ((Timestamp)result).toInstant();
+        // MySQL DATETIME has no timezone; JdbcTemplate may expose it as LocalDateTime.
+        // These run timestamps are written in the business timezone, not UTC.
+        if(result instanceof LocalDateTime)return ((LocalDateTime)result).atZone(BUSINESS_ZONE).toInstant();
+        if(result instanceof OffsetDateTime)return ((OffsetDateTime)result).toInstant();
+        if(result instanceof java.util.Date)return ((java.util.Date)result).toInstant();
+        return result==null?null:Instant.parse(String.valueOf(result));
+    }
     private Instant nextRun(Instant from){
         try{ZonedDateTime next=CronExpression.parse(properties.getArticleGeneration().getCron()).next(from.atZone(BUSINESS_ZONE));return next==null?null:next.toInstant();}
         catch(IllegalArgumentException exception){LOGGER.warn("英语短文生成 cron 配置无效，状态页使用默认 22:30",exception);ZonedDateTime now=from.atZone(BUSINESS_ZONE);ZonedDateTime next=now.withHour(22).withMinute(30).withSecond(0).withNano(0);if(!next.isAfter(now))next=next.plusDays(1);return next.toInstant();}
@@ -214,5 +231,5 @@ public class DailyEnglishArticleService {
     private String shorten(String value){String safe=value==null?"未知错误":value.trim();return safe.length()<=900?safe:safe.substring(0,899)+"…";}
     private String stripFence(String value){String safe=value==null?"":value.trim();if(safe.startsWith("```")){safe=safe.replaceFirst("^```(?:json)?\\s*","");safe=safe.replaceFirst("\\s*```$","");}return safe;}
     private String write(Object value){try{return json.writeValueAsString(value);}catch(Exception exception){throw new IllegalStateException(exception);}}
-    private static final class GeneratedArticle{final String title,summary,body;GeneratedArticle(String title,String summary,String body){this.title=title;this.summary=summary;this.body=body;}}
+    private static final class GeneratedArticle{final String title,titleTranslation,summary,body,translation;GeneratedArticle(String title,String titleTranslation,String summary,String body,String translation){this.title=title;this.titleTranslation=titleTranslation;this.summary=summary;this.body=body;this.translation=translation;}}
 }

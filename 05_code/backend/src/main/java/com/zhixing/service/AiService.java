@@ -59,9 +59,18 @@ public class AiService {
 
     /** 系统内容生成不借用某个用户的 AI 同意，但仍必须通过全局配额、并发与月度预算门禁。 */
     public String generateSystemContent(String systemPrompt,String prompt,String requestKey){
-        Reservation reservation=transactions.execute(status->reserveSystem(prompt,requestKey));
+        return generateSystemContent(systemPrompt,prompt,requestKey,null);
+    }
+
+    /** sourceId 关联本次定时任务运行；模型仍以实际 ai_attempt 的价格快照为准。 */
+    public String generateSystemContent(String systemPrompt,String prompt,String requestKey,String sourceId){
+        return generateSystemContent(systemPrompt,prompt,requestKey,sourceId,"generate_english_articles","article_generation");
+    }
+
+    public String generateSystemContent(String systemPrompt,String prompt,String requestKey,String sourceId,String actionCode,String sourceType){
+        Reservation reservation=transactions.execute(status->reserveSystem(prompt,requestKey,sourceId,actionCode,sourceType));
         try{
-            AiGatewayResult answer=gateway.ask(reservation.model,reservation.apiKey,systemPrompt,prompt);
+            AiGatewayResult answer=gateway.askStructured(reservation.model,reservation.apiKey,systemPrompt,prompt);
             transactions.execute(status->settleSuccess(reservation,answer));
             return answer.answer;
         }catch(ApiException exception){transactions.executeWithoutResult(status->settleFailure(reservation,exception.getCode()));throw exception;}
@@ -157,6 +166,14 @@ public class AiService {
     }
 
     protected Reservation reserveSystem(String prompt,String requestKey){
+        return reserveSystem(prompt,requestKey,null);
+    }
+
+    protected Reservation reserveSystem(String prompt,String requestKey,String sourceId){
+        return reserveSystem(prompt,requestKey,sourceId,"generate_english_articles","article_generation");
+    }
+
+    protected Reservation reserveSystem(String prompt,String requestKey,String sourceId,String actionCode,String sourceType){
         Map<String,Object> modelRow=modelRow(null);AiRuntimeModel model=runtime(modelRow);String apiKey=parameters.required(model.apiKeyParamKey);
         if(model.inputPerMillion.signum()==0&&model.outputPerMillion.signum()==0)throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"AI_PRICE_NOT_CONFIGURED","模型价格尚未核实，不能执行每日短文生成");
         LocalDate today=LocalDate.now(BUSINESS_ZONE),month=today.withDayOfMonth(1);
@@ -170,7 +187,7 @@ public class AiService {
         if(jdbc.update("UPDATE ai_month_budget SET reserved_amount=reserved_amount+?,row_version=row_version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND spent_amount+reserved_amount+?<=limit_amount",reserved,string(budget,"id"),reserved)!=1)
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"AI_MONTH_BUDGET_EXCEEDED","本月 AI 预算已用完，每日短文任务已停止");
         String jobId=CryptoUtils.randomId(),attemptId=CryptoUtils.randomId(),key=requestKey==null||requestKey.trim().isEmpty()?CryptoUtils.randomToken(18):requestKey.trim();Instant now=Instant.now();
-        try{jdbc.update("INSERT INTO ai_job(id,owner_id,scope_key,action_code,source_type,source_id,source_version,source_fingerprint,consent_version,prompt_version,input_text,state,attempt_count,queue_expires_at,payload_expires_at,request_key_hash) VALUES(?,?,?,'generate_english_articles','article_generation',?,1,?,'SYSTEM_CONTENT_V1','ARTICLE_DAILY_V1',?,'running',1,?,?,?)",jobId,properties.getAdminPrincipalId(),SYSTEM_SCOPE,CryptoUtils.randomId(),CryptoUtils.sha256(prompt),prompt,Timestamp.from(now.plusSeconds(600)),Timestamp.from(now.plus(Duration.ofDays(30))),CryptoUtils.sha256(key));}
+        try{jdbc.update("INSERT INTO ai_job(id,owner_id,scope_key,action_code,source_type,source_id,source_version,source_fingerprint,consent_version,prompt_version,input_text,state,attempt_count,queue_expires_at,payload_expires_at,request_key_hash) VALUES(?,?,?,?,?,?,1,?,'SYSTEM_CONTENT_V1',?,?,'running',1,?,?,?)",jobId,properties.getAdminPrincipalId(),SYSTEM_SCOPE,actionCode,sourceType,sourceId==null?CryptoUtils.randomId():sourceId,CryptoUtils.sha256(prompt),"article_word_glossary".equals(actionCode)?"ARTICLE_WORD_GLOSSARY_V1":"ARTICLE_DAILY_V1",prompt,Timestamp.from(now.plusSeconds(600)),Timestamp.from(now.plus(Duration.ofDays(30))),CryptoUtils.sha256(key));}
         catch(DuplicateKeyException e){throw conflict("AI_REQUEST_DUPLICATE","该词书今日短文任务已执行");}
         jdbc.update("INSERT INTO ai_attempt(id,job_id,attempt_no,trigger_type,owner_id,price_id,budget_id,quota_date,state,reserved_amount,timeout_at,quota_reserved,concurrency_held) VALUES(?,?,1,'scheduled',?,?,?,?, 'reserved',?,?,1,1)",attemptId,jobId,SYSTEM_SCOPE,model.priceId,string(budget,"id"),today,reserved,Timestamp.from(now.plusSeconds(model.timeoutSeconds)));
         jdbc.update("UPDATE ai_daily_quota SET reserved_count=reserved_count-1,used_count=used_count+1,updated_at=CURRENT_TIMESTAMP WHERE quota_date=? AND scope_key IN (?,?)",today,SYSTEM_SCOPE,GLOBAL_SCOPE);

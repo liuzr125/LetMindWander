@@ -48,6 +48,17 @@ test('expired token stops remaining requests and keeps completed work', async ()
   assert.equal(result.stopped, true)
 })
 
+test('unreadable AppKey stops after the first failure without consuming remaining token calls', async () => {
+  let calls = 0
+  const result = await runArticleAudioBatch({ items, nlsToken: token, generate: async () => {
+    calls++
+    throw Object.assign(new Error('AppKey cannot be decrypted'), { code: 'TTS_APP_KEY_UNREADABLE', status: 503 })
+  } })
+  assert.equal(calls, 1)
+  assert.deepEqual(result.items.map(item => item.status), ['failed', 'pending', 'pending'])
+  assert.equal(result.stopped, true)
+})
+
 test('per-article validation failure does not block the next article', async () => {
   const result = await runArticleAudioBatch({ items, nlsToken: token, generate: async id => {
     if (id === 'b') throw Object.assign(new Error('Too long'), { code: 'TTS_TEXT_TOO_LONG', status: 400 })

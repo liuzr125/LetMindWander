@@ -23,7 +23,7 @@ public interface AdminContentMapper {
             "WHERE lc.content_type='english_article' AND lc.state='published' GROUP BY cv.difficulty ORDER BY cv.difficulty")
     List<ContentCoverageView.CoverageItem> selectArticleDifficulties();
 
-    @Select({"<script>","SELECT COUNT(*) FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
+    @Select({"<script>","SELECT COUNT(*) FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id JOIN content_source cs ON cs.id=lc.source_id ",
             "WHERE lc.content_type='tech' AND lc.state='published' ",
             "<if test=\"topic != null and topic != ''\">AND EXISTS(SELECT 1 FROM content_topic ct JOIN learning_topic t ON t.id=ct.topic_id WHERE ct.content_version_id=cv.id AND t.name=#{topic}) </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (cv.title LIKE CONCAT('%',#{keyword},'%') OR cv.summary LIKE CONCAT('%',#{keyword},'%') OR cv.body LIKE CONCAT('%',#{keyword},'%')) </if>",
@@ -49,8 +49,10 @@ public interface AdminContentMapper {
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
             "<if test=\"bookId != null and bookId != ''\">AND EXISTS(SELECT 1 FROM english_article_book eab WHERE eab.content_id=lc.id AND eab.book_id=#{bookId}) </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (cv.title LIKE CONCAT('%',#{keyword},'%') OR cv.summary LIKE CONCAT('%',#{keyword},'%') OR cv.body LIKE CONCAT('%',#{keyword},'%')) </if>",
+            "<if test=\"audioStatus == 'has_audio'\">AND EXISTS(SELECT 1 FROM media_asset ma WHERE ma.id=cv.article_audio_asset_id AND ma.state='ready') </if>",
+            "<if test=\"audioStatus == 'missing_audio'\">AND NOT EXISTS(SELECT 1 FROM media_asset ma WHERE ma.id=cv.article_audio_asset_id AND ma.state='ready') </if>",
             "</script>"})
-    int countArticles(@Param("difficulty")String difficulty,@Param("bookId")String bookId,@Param("keyword")String keyword);
+    int countArticles(@Param("difficulty")String difficulty,@Param("bookId")String bookId,@Param("keyword")String keyword,@Param("audioStatus")String audioStatus);
 
     @Select({"<script>","SELECT lc.id content_id,cv.id version_id,cv.version_no,cv.title,cv.summary,cv.difficulty,cv.estimated_seconds,cv.review_status,cv.article_audio_asset_id,",
             "(SELECT GROUP_CONCAT(vb.book_name ORDER BY vb.sort_no SEPARATOR '、') FROM english_article_book eab JOIN vocabulary_book vb ON vb.id=eab.book_id WHERE eab.content_id=lc.id) audience_book_names,",
@@ -59,8 +61,10 @@ public interface AdminContentMapper {
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
             "<if test=\"bookId != null and bookId != ''\">AND EXISTS(SELECT 1 FROM english_article_book eab WHERE eab.content_id=lc.id AND eab.book_id=#{bookId}) </if>",
             "<if test=\"keyword != null and keyword != ''\">AND (cv.title LIKE CONCAT('%',#{keyword},'%') OR cv.summary LIKE CONCAT('%',#{keyword},'%') OR cv.body LIKE CONCAT('%',#{keyword},'%')) </if>",
+            "<if test=\"audioStatus == 'has_audio'\">AND EXISTS(SELECT 1 FROM media_asset ma WHERE ma.id=cv.article_audio_asset_id AND ma.state='ready') </if>",
+            "<if test=\"audioStatus == 'missing_audio'\">AND NOT EXISTS(SELECT 1 FROM media_asset ma WHERE ma.id=cv.article_audio_asset_id AND ma.state='ready') </if>",
             "ORDER BY cv.title,lc.id","</script>"})
-    List<AdminTechnicalContentView> selectArticles(@Param("difficulty")String difficulty,@Param("bookId")String bookId,@Param("keyword")String keyword);
+    List<AdminTechnicalContentView> selectArticles(@Param("difficulty")String difficulty,@Param("bookId")String bookId,@Param("keyword")String keyword,@Param("audioStatus")String audioStatus);
 
     @Select("SELECT lc.id content_id,cv.id version_id,cv.version_no,cv.title,cv.summary,cv.body,cv.difficulty,cv.estimated_seconds,cv.review_status,cv.article_audio_asset_id,"+
             "(SELECT GROUP_CONCAT(vb.book_name ORDER BY vb.sort_no SEPARATOR '、') FROM english_article_book eab JOIN vocabulary_book vb ON vb.id=eab.book_id WHERE eab.content_id=lc.id) audience_book_names,"+

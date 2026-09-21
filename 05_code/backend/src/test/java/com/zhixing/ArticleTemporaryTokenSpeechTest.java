@@ -18,13 +18,17 @@ import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.*;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -142,6 +146,69 @@ class ArticleTemporaryTokenSpeechTest {
         verify(oss, times(1)).putObject(eq("test-bucket"), anyString(), any(InputStream.class), any(ObjectMetadata.class));
         verify(oss).shutdown();
         assertNoAccessKeyFallback();
+        nls.verify();
+    }
+
+    @Test void longArticleRequestsShortSegmentsAndPublishesOnePlayableMp3() throws Exception {
+        boolean installed;
+        try {
+            Process check = new ProcessBuilder("ffmpeg", "-version").start();
+            installed = check.waitFor(5, TimeUnit.SECONDS) && check.exitValue() == 0;
+        } catch (Exception missing) { installed = false; }
+        Assumptions.assumeTrue(installed, "ffmpeg not installed");
+        StringBuilder article = new StringBuilder();
+        for (int i = 0; i < 12; i++) article.append("This is a short sentence. ");
+        jdbc.update("UPDATE content_version SET body=? WHERE id=?", article.toString(), VERSION);
+        Path tone = Files.createTempFile("nls-test-", ".mp3");
+        Path uploaded = Files.createTempFile("nls-upload-", ".mp3");
+        try {
+            Files.delete(tone);
+            Process generate = new ProcessBuilder("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi",
+                    "-i", "sine=frequency=440:duration=0.2", "-c:a", "libmp3lame", tone.toString()).start();
+            assertThat(generate.waitFor(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(generate.exitValue()).isZero();
+            byte[] sample = Files.readAllBytes(tone);
+            for (int i = 0; i < 2; i++) {
+                nls.expect(requestTo(ENDPOINT)).andExpect(method(HttpMethod.POST))
+                        .andExpect(request -> {
+                            Map<?, ?> payload = new ObjectMapper().readValue(((MockClientHttpRequest) request).getBodyAsBytes(), Map.class);
+                            String segment = String.valueOf(payload.get("text"));
+                            assertThat(segment.codePointCount(0, segment.length())).isBetween(1, 280);
+                            assertThat(payload.get("token")).isEqualTo(TOKEN);
+                        }).andRespond(withSuccess(sample, MediaType.valueOf("audio/mpeg")));
+            }
+            when(oss.putObject(eq("test-bucket"), anyString(), any(InputStream.class), any(ObjectMetadata.class)))
+                    .thenAnswer(call -> {
+                        assertNoSavedAudio();
+                        InputStream stream = call.getArgument(2);
+                        Files.copy(stream, uploaded, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        return null;
+                    });
+            generate(body()).andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(false));
+            Process decode = new ProcessBuilder("ffmpeg", "-nostdin", "-v", "error", "-i", uploaded.toString(),
+                    "-f", "null", "-").start();
+            assertThat(decode.waitFor(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(decode.exitValue()).isZero();
+            assertThat(Files.size(uploaded)).isGreaterThan(sample.length);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM media_asset", Integer.class)).isEqualTo(1);
+            nls.verify();
+        } finally {
+            Files.deleteIfExists(tone);
+            Files.deleteIfExists(uploaded);
+        }
+    }
+
+    @Test void failedLaterSegmentDoesNotPublishPartialAudio() throws Exception {
+        StringBuilder article = new StringBuilder();
+        for (int i = 0; i < 12; i++) article.append("This is a short sentence. ");
+        jdbc.update("UPDATE content_version SET body=? WHERE id=?", article.toString(), VERSION);
+        nls.expect(requestTo(ENDPOINT)).andRespond(withSuccess(AUDIO, MediaType.valueOf("audio/mpeg")));
+        nls.expect(requestTo(ENDPOINT)).andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                .contentType(MediaType.APPLICATION_JSON).body("{\"status_text\":\"Token expired\"}"));
+        generate(body()).andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("TTS_TEMPORARY_TOKEN_REJECTED"));
+        assertNoSavedAudio();
+        verifyNoInteractions(oss);
         nls.verify();
     }
 

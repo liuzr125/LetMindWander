@@ -4,15 +4,15 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>&#x77E5;&#x884C;&#x65E5;&#x8BFE; V3.16.10 &#x5408;&#x5E76;&#x7248;&#x6570;&#x636E;&#x5E93;&#x5B57;&#x5178;</title>
+    <title>知行日课 V3.16.12 合并版数据库字典</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.16.10 合并版数据库字典</h1>
-      <p>当前唯一合并维护入口：完整承接 V3.14、V3.15，并包含 V3.16.1 记忆学习闭环、V3.16.2 词库自动化、V3.16.3 系统参数软删除、V3.16.4 在线词书快照、V3.16.5 单词学习卡片、V3.16.6 正式词书目录扩展、V3.16.7 每日分级短文与全词书卡片覆盖审计、V3.16.8 分类展示偏好、V3.16.9 新词默认展示与发音连播设置及 V3.16.10 开放词汇证据与全库关系卡回填。2026-09-21 已同步每日短文任务开关、可配置篇数和统一运行历史语义。V3.14、V3.15 文件仅作为历史快照，不再分别补写新结构。</p>
+      <h1>知行日课 V3.16.12 合并版数据库字典</h1>
+      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
     </header>
     <main>
       <nav>
@@ -2363,6 +2363,14 @@
                   <td/>
                 </tr>
                 <tr>
+                  <td><code>source_kind</code></td>
+                  <td>VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>否</td>
+                  <td><code>seed</code></td>
+                  <td>预置词为 seed；点词时按需生成并校验入库的词为 ai_generated，页面须标明供参考。</td>
+                  <td>不进入正式词库，也不覆盖已发布词条。</td>
+                </tr>
+                <tr>
                   <td>
                     <code>audio_asset_id</code>
                   </td>
@@ -2426,6 +2434,7 @@
             </table>
           </div>
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_article_word_glossary_term(term)</p>
+          <p>V3.16.11 扩展：用户点到短文中尚无完整音标或释义的英文词形时，服务端按需调用模型；校验词形、音标与中文释义后保存至本表，唯一词形避免重复入库。已发布正式词条优先；仅缺字段可引用本表兜底。生成内容标记 <code>ai_generated</code>，仅作学习参考，不能冒充经审核的正式词库数据。迁移脚本：<code>05_code/backend/sql/V3.16.11_article_word_on_demand.sql</code>。</p>
         </section>
         <section id="content_source">
           <h2>content_source <span>&#x516C;&#x5F00;&#x5185;&#x5BB9;&#x6765;&#x6E90;</span></h2>
@@ -2667,6 +2676,14 @@
                   </td>
                   <td>&#x6458;&#x8981;&#x3002;</td>
                   <td/>
+                </tr>
+                <tr>
+                  <td><code>title_translation</code></td>
+                  <td>VARCHAR(200)</td>
+                  <td>&#x662F;</td>
+                  <td><code>NULL</code></td>
+                  <td>&#x82F1;&#x8BED;&#x77ED;&#x6587;&#x6807;&#x9898;&#x7684;&#x5FE0;&#x5B9E;&#x4E2D;&#x6587;&#x8BD1;&#x540D;&#xFF1B;&#x4E0E;&#x6458;&#x8981; summary &#x548C;&#x6B63;&#x6587;&#x8BD1;&#x6587; article_blocks.translation &#x5206;&#x5F00;&#x4FDD;&#x5B58;&#x3002;&#x65E7;&#x6587;&#x7AE0;&#x9996;&#x6B21;&#x8BF7;&#x6C42;&#x65F6;&#x8865;&#x5168;&#x3002;</td>
+                  <td>content_version.id</td>
                 </tr>
                 <tr>
                   <td>
@@ -13162,6 +13179,7 @@
         <section id="daily-graded-articles">
           <h2>english_article_book / english_article_generation_run — V3.16.7 每日分级短文（2026-09-20）</h2>
           <p>每天按启用的正式词书生成分级英语短文；默认在 Asia/Shanghai 22:30 运行。联网内容只提供选题索引，英文正文由系统原创生成；不得复制第三方正文。短文仍保存到 learning_content / content_version，以下两表只负责词书归属、每日槽位、目标词快照及运行审计。迁移同时登记 content_source：知行日课每日分词书英语短文（source_type=ai_original），并在 app_parameter 登记任务开关与每本目标篇数。</p>
+          <p>正文和对应中文译文共同保存在既有 <code>content_version.article_blocks</code> JSON 的同一个段落对象中（<code>paragraph_id</code>、<code>text</code>、<code>translation</code>）；生成任务缺少有效中文译文时拒绝发布。历史短文若缺译文，由已登录用户明确触发补齐，服务端在 AI 配额和预算门禁内生成并写回当前发布版本，不在普通读取时隐式付费。短文内未收录词条的点词音频复用 <code>pronunciation</code>（<code>content_version_id</code> 指向短文版本、<code>target_key</code> 为 <code>article-word:</code> 前缀）和 <code>media_asset</code> 缓存；语音临时 Token 仅从服务端加密系统参数读取，不下发小程序。无新表或字段。</p>
           <h3>english_article_book — 短文与词书的每日槽位关系</h3>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>id</td><td>CHAR(32)，主键</td><td>应用生成的关系记录 ID。</td></tr>
@@ -13192,6 +13210,7 @@
             <tr><td>每日篇数</td><td><code>app_parameter</code>（<code>param_key=article_generation.per_book_count</code>）</td><td>默认 5、范围 1–20；修改后，下一次定时运行与“补齐今日短文”均按新数量补足缺少槽位，不重复插入已有槽位。</td></tr>
             <tr><td>启用／禁用</td><td><code>app_parameter</code>（<code>param_key=article_generation.enabled</code>）</td><td>禁用按钮写入 <code>false</code>；停用后没有新的定时运行记录，也不会调用模型。重新启用后恢复调度。</td></tr>
             <tr><td>统一运行历史</td><td><code>english_article_generation_run</code></td><td>定时和手动触发均写入同一运行表，并与其他任务一起在管理端“运行历史”展示；详情按钮读取该行和实时任务状态，不另建重复的详情表。</td></tr>
+            <tr><td>本次模型追溯</td><td><code>ai_job</code> → <code>ai_attempt</code> → <code>ai_model_price</code></td><td>新的短文生成调用把本次 <code>english_article_generation_run.id</code> 写入既有 <code>ai_job.source_id</code>，详情按实际调用的价格版本读取提供方、模型代码与调用次数；不以可能变更的当前默认模型冒充历史模型。旧运行或调用前失败时明确显示无可关联记录，不新增字段。</td></tr>
             <tr><td>篇目明细</td><td><code>english_article_book</code> + <code>learning_content</code> / <code>content_version</code></td><td>可依据运行记录的 <code>run_date</code> 在数据层核对词书、槽位及已发布短文；当前未保存 run_id 到篇目关系，不能把同一天的多次手动补齐精确归因到单篇。正文、摘要、来源和音频仍复用内容链路。</td></tr>
           </tbody></table>
           <p>迁移：05_code/backend/sql/V3.16.7_daily_graded_articles.sql。两表未声明物理外键，关联完整性由服务层与生成事务校验；正文发布、来源审核、音频生成、OSS 资产及用量日志继续复用既有内容与媒体链路。</p>

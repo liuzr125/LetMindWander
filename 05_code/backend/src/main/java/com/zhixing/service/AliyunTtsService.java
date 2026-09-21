@@ -91,6 +91,32 @@ public class AliyunTtsService {
         return speech(ownerId, contentId, null);
     }
 
+    /** Pronounce a word that appears in an article even when it has no dictionary entry. */
+    public Map<String,Object> speechArticleWord(String ownerId,String articleId,String rawTerm){
+        String term=clean(rawTerm).toLowerCase(Locale.ROOT);
+        if(!term.matches("[a-z]+(?:'[a-z]+)?")||term.length()>80)throw bad("INVALID_ARTICLE_WORD","请选择短文中的英文单词");
+        Map<String,Object> article=content(articleId);
+        if(!"english_article".equals(string(article,"content_type")))throw bad("NOT_ARTICLE","仅英语短文支持点词发音");
+        String body=string(article,"body"),versionId=string(article,"version_id");
+        if(body==null||!java.util.regex.Pattern.compile("(?i)(?<![a-z])"+java.util.regex.Pattern.quote(term)+"(?![a-z])").matcher(body).find())
+            throw bad("ARTICLE_WORD_NOT_FOUND","该单词不在当前短文中");
+        String voice=parameters.optional("tts.aliyun.word_voice","luna");
+        String key="article-word:"+shortHash(term+":"+voice);
+        Object lock=locks.computeIfAbsent(versionId+":"+key,value->new Object());
+        synchronized(lock){
+            try{
+                List<String> existing=jdbc.query("SELECT p.asset_id FROM pronunciation p JOIN media_asset m ON m.id=p.asset_id AND m.state='ready' WHERE p.content_version_id=? AND p.target_key=? AND p.accent='tts' AND p.state='ready' LIMIT 1",(rs,i)->rs.getString(1),versionId,key);
+                if(!existing.isEmpty())return speechResult(media.referenceUrl(existing.get(0)),voice,true,existing.get(0));
+                Synthesis audio=synthesizeStoredToken(term,voice);
+                String assetId=media.storePublicAudio("word_audio","tts/article-word",audio.bytes,"audio/mpeg","aliyun_nls","Article word speech");
+                jdbc.update("INSERT INTO pronunciation(id,content_version_id,target_key,accent,asset_id,state) VALUES(?,?,?,'tts',?,'ready') ON DUPLICATE KEY UPDATE asset_id=VALUES(asset_id),state='ready',updated_at=CURRENT_TIMESTAMP",CryptoUtils.randomId(),versionId,key,assetId);
+                log(ownerId,"word",articleId,versionId,voice,term.length(),"succeeded",audio.requestId,assetId,null);
+                return speechResult(media.referenceUrl(assetId),voice,false,assetId);
+            }catch(ApiException error){log(ownerId,"word",articleId,versionId,voice,term.length(),"failed",null,null,error.getCode());throw error;}
+            finally{locks.remove(versionId+":"+key,lock);}
+        }
+    }
+
     /** Explicit request credential: never falls back to AccessKey or a shared temporary session. */
     public Map<String,Object> speechWithTemporaryToken(String ownerId, String contentId, String nlsToken) {
         String temporary = clean(nlsToken);
@@ -118,8 +144,9 @@ public class AliyunTtsService {
                 String text = article ? string(row, "body") : string(row, "word_term");
                 if (text == null || text.trim().isEmpty()) throw bad("TTS_TEXT_EMPTY", "朗读文本为空");
                 int chars = text.codePointCount(0, text.length());
-                if (chars > 300) throw bad("TTS_TEXT_TOO_LONG", "当前短文超过 300 字符，请在管理端拆分后再生成音频");
-                Synthesis audio = explicitToken == null ? synthesizeStoredToken(text, voice) : synthesizeExplicitToken(text, voice, explicitToken);
+                if (!article && chars > 300) throw bad("TTS_TEXT_TOO_LONG", "单词或例句超过 300 字符，需要先拆分");
+                Synthesis audio = article ? synthesizeArticle(text, voice, explicitToken)
+                        : explicitToken == null ? synthesizeStoredToken(text, voice) : synthesizeExplicitToken(text, voice, explicitToken);
                 String assetId = media.storePublicAudio(article ? "article_audio" : "word_audio", "tts/" + type,
                         audio.bytes, "audio/mpeg", "aliyun_nls", "Aliyun NLS generated speech");
                 if (article) jdbc.update("UPDATE content_version SET article_audio_asset_id=?,article_audio_voice=?,article_audio_generated_at=CURRENT_TIMESTAMP WHERE id=?", assetId, voice, versionId);
@@ -158,6 +185,20 @@ public class AliyunTtsService {
         }
     }
 
+    private Synthesis synthesizeArticle(String text, String voice, String explicitToken) {
+        if (properties.getTts().isMockEnabled()) return synthesize(text, voice);
+        List<String> parts = ArticleAudioComposer.split(text);
+        if (parts.size() > 1) ArticleAudioComposer.requireFfmpeg(); // Check before any billable request.
+        List<byte[]> audioParts = new ArrayList<byte[]>();
+        String lastRequestId = null;
+        for (String part : parts) {
+            Synthesis audio = explicitToken == null ? synthesizeStoredToken(part, voice) : synthesizeExplicitToken(part, voice, explicitToken);
+            audioParts.add(audio.bytes);
+            lastRequestId = audio.requestId;
+        }
+        return new Synthesis(lastRequestId, audioParts.size() == 1 ? audioParts.get(0) : ArticleAudioComposer.merge(audioParts));
+    }
+
     private Synthesis synthesize(String text,String voice){return synthesize(text,voice,integer(parameters.optional("tts.aliyun.sample_rate","16000"),16000));}
     private Synthesis synthesize(String text,String voice,int sampleRate) {
         if (properties.getTts().isMockEnabled()) return synthesizeWithToken(text, voice, sampleRate, "mock");
@@ -185,7 +226,25 @@ public class AliyunTtsService {
             throw e;
         }
     }
-    private Synthesis synthesizeWithToken(String text,String voice,int sampleRate,String nlsToken){if(properties.getTts().isMockEnabled())return new Synthesis("mock" ,("ID3"+text).getBytes(StandardCharsets.UTF_8));if(!parameters.configured(APP_KEY))throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"TTS_NOT_CONFIGURED","请先在 Web 管理端配置阿里云 TTS 项目 AppKey");Map<String,Object> body=new LinkedHashMap<String,Object>();body.put("appkey",parameters.required(APP_KEY));body.put("token",nlsToken);body.put("text",text);body.put("format","mp3");body.put("sample_rate",sampleRate);body.put("voice",voice);body.put("speech_rate",0);HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);ResponseEntity<byte[]> response=http.exchange(parameters.optional("tts.aliyun.endpoint","https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts"),HttpMethod.POST,new HttpEntity<Map<String,Object>>(body,headers),byte[].class);MediaType type=response.getHeaders().getContentType();if(!response.getStatusCode().is2xxSuccessful()||type==null||!"audio".equalsIgnoreCase(type.getType())||response.getBody()==null||response.getBody().length==0)throw ttsProviderFailure(providerCode(response.getBody()==null?null:new String(response.getBody(),StandardCharsets.UTF_8)),providerMessage(response.getBody()==null?null:new String(response.getBody(),StandardCharsets.UTF_8)));return new Synthesis(response.getHeaders().getFirst("task_id"),response.getBody());}
+    String requiredAppKey(){
+        try{return parameters.required(APP_KEY);}
+        catch(ApiException exception){
+            if("PARAMETER_NOT_CONFIGURED".equals(exception.getCode()))
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"TTS_NOT_CONFIGURED","请先在 Web 管理端配置阿里云 TTS 项目 AppKey");
+            if("CREDENTIAL_KEY_UNAVAILABLE".equals(exception.getCode()))
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"TTS_APP_KEY_UNREADABLE","已保存的 TTS 项目 AppKey 无法解密；请恢复原加密密钥，或重新保存 AppKey。仅重新输入临时 Token 无法解决");
+            throw exception;
+        }
+    }
+
+    private Synthesis synthesizeWithToken(String text,String voice,int sampleRate,String nlsToken){
+        if(properties.getTts().isMockEnabled())return new Synthesis("mock" ,("ID3"+text).getBytes(StandardCharsets.UTF_8));
+        Map<String,Object> body=new LinkedHashMap<String,Object>();body.put("appkey",requiredAppKey());body.put("token",nlsToken);body.put("text",text);body.put("format","mp3");body.put("sample_rate",sampleRate);body.put("voice",voice);body.put("speech_rate",0);
+        HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<byte[]> response=http.exchange(parameters.optional("tts.aliyun.endpoint","https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts"),HttpMethod.POST,new HttpEntity<Map<String,Object>>(body,headers),byte[].class);
+        MediaType type=response.getHeaders().getContentType();if(!response.getStatusCode().is2xxSuccessful()||type==null||!"audio".equalsIgnoreCase(type.getType())||response.getBody()==null||response.getBody().length==0)throw ttsProviderFailure(providerCode(response.getBody()==null?null:new String(response.getBody(),StandardCharsets.UTF_8)),providerMessage(response.getBody()==null?null:new String(response.getBody(),StandardCharsets.UTF_8)));
+        return new Synthesis(response.getHeaders().getFirst("task_id"),response.getBody());
+    }
     /**
      * NLS SDK 在 Token 接口返回错误时仅记录日志、不会抛出包含响应体的异常，导致上层只能得到空 Token。
      * 这里按阿里云 RPC 签名规范通过 HTTPS 请求，既避免明文 HTTP，又能把安全的错误码反馈给管理员。

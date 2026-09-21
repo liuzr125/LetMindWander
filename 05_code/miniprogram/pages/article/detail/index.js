@@ -1,8 +1,8 @@
-const { contentService, authService } = require('../../../services/index');
+const { contentService, authService, aiService } = require('../../../services/index');
 const FOLLOW_CONSENT_KEY = 'follow_recording_consent_v1';
 
 Page({
-  data: { loading: true, acting: false, audioLoading: false, wordAudioLoading: false, error: '', contentId: '', taskId: '', taskVersion: 1, detail: null, showTranslation: true, publishedDate: '', speeds: [0.75, 1, 1.25, 1.5], speed: 1, articlePlaying: false, selectedWord: null, recording: false, recordPath: '', recordUrl: '', recordPlaying: false, recordUploading: false, recordSaved: false, recordDurationMs: 0 },
+  data: { loading: true, acting: false, audioLoading: false, wordAudioLoading: false, wordLookupLoading: false, wordLookupError: '', translationLoading: false, titleTranslationLoading: false, titleTranslationError: '', explaining: false, explanationOpen: false, explanation: '', error: '', contentId: '', taskId: '', taskVersion: 1, detail: null, showTranslation: true, publishedDate: '', speeds: [0.75, 1, 1.25, 1.5], speed: 1, articlePlaying: false, selectedWord: null, recording: false, recordPath: '', recordUrl: '', recordPlaying: false, recordUploading: false, recordSaved: false, recordDurationMs: 0 },
   onLoad(options) {
     this.articleAudio = wx.createInnerAudioContext(); this.wordAudio = wx.createInnerAudioContext(); this.recordAudio = wx.createInnerAudioContext();
     [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => { audio.obeyMuteSwitch = false; });
@@ -12,13 +12,49 @@ Page({
     this.recorder.onError((error) => { this.setData({ recording: false }); wx.showToast({ title: error.errMsg || '录音失败', icon: 'none' }); });
     this.setData({ contentId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.version) || 1 }); this.load(); this.loadFollowRecording();
   },
-  onUnload() { [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => audio && audio.destroy()); if (this.data.recording && this.recorder) this.recorder.stop(); },
-  load() { this.setData({ loading: true, error: '' }); contentService.get(this.data.contentId).then((detail) => { if (detail.contentType !== 'english_article') throw new Error('该内容不是英语短文'); this.setData({ detail, loading: false, publishedDate: detail.originPublishedAt ? String(detail.originPublishedAt).slice(0, 10) : '' }); }).catch((error) => this.setData({ loading: false, error: error.message || '短文加载失败' })); },
+  onUnload() { this.wordLookupSeq = (this.wordLookupSeq || 0) + 1; [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => audio && audio.destroy()); if (this.data.recording && this.recorder) this.recorder.stop(); },
+  load() { this.setData({ loading: true, error: '', titleTranslationError: '' }); contentService.get(this.data.contentId).then((detail) => { if (detail.contentType !== 'english_article') throw new Error('该内容不是英语短文'); this.setData({ detail, loading: false, publishedDate: detail.originPublishedAt ? String(detail.originPublishedAt).slice(0, 10) : '' }); if (!detail.titleTranslation) this.generateTitleTranslation(); }).catch((error) => this.setData({ loading: false, error: error.message || '短文加载失败' })); },
+  generateTitleTranslation() {
+    if (this.data.titleTranslationLoading || !this.data.contentId) return;
+    const articleId = this.data.contentId;
+    this.setData({ titleTranslationLoading: true, titleTranslationError: '' });
+    contentService.titleTranslation(articleId).then((detail) => {
+      if (this.data.contentId === articleId) this.setData({ 'detail.titleTranslation': detail.titleTranslation || '', titleTranslationLoading: false, titleTranslationError: detail.titleTranslation ? '' : '标题译文暂不可用，点此重试' });
+    }).catch((error) => { if (this.data.contentId === articleId) this.setData({ titleTranslationLoading: false, titleTranslationError: error.message || '标题译文生成失败，点此重试' }); });
+  },
   loadFollowRecording() { contentService.followRecording(this.data.contentId).then((recording) => { if (recording && recording.exists) this.setData({ recordUrl: recording.previewUrl || '', recordSaved: true, recordDurationMs: recording.durationMs || 0 }); }).catch(() => {}); },
   toggleTranslation(event) { this.setData({ showTranslation: !!event.detail.value }); },
+  generateTranslation() {
+    if (this.data.translationLoading) return;
+    this.setData({ translationLoading: true });
+    contentService.translation(this.data.contentId).then((detail) => this.setData({ detail, translationLoading: false, showTranslation: true }))
+      .catch((error) => { this.setData({ translationLoading: false }); wx.showModal({ title: '译文暂未生成', content: error.message || '请稍后重试', showCancel: false }); });
+  },
   openWord(event) { const id = event.currentTarget.dataset.id; if (id) wx.navigateTo({ url: `/pages/word/detail/index?id=${encodeURIComponent(id)}&returnTo=article` }); },
-  selectWord(event) { const block = this.data.detail.articleBlocks[Number(event.currentTarget.dataset.block)]; const token = block && block.tokens[Number(event.currentTarget.dataset.token)]; if (!token || !token.word) return; this.setData({ selectedWord: token }); },
-  closeWord() { this.setData({ selectedWord: null }); },
+  selectWord(event) {
+    const blockIndex = Number(event.currentTarget.dataset.block), tokenIndex = Number(event.currentTarget.dataset.token);
+    const block = this.data.detail.articleBlocks[blockIndex], token = block && block.tokens[tokenIndex];
+    if (!token || !token.word) return;
+    this.wordLookupSeq = (this.wordLookupSeq || 0) + 1;
+    this.selectedWordPosition = { blockIndex, tokenIndex };
+    this.setData({ selectedWord: token, wordLookupLoading: false, wordLookupError: '' });
+    if (!token.phonetic || !token.meaning) this.lookupSelectedWord(this.wordLookupSeq);
+  },
+  lookupSelectedWord(seq) {
+    const selected = this.data.selectedWord, position = this.selectedWordPosition;
+    if (!selected || !position) return;
+    this.setData({ wordLookupLoading: true, wordLookupError: '' });
+    contentService.articleWordLookup(this.data.contentId, selected.text).then((result) => {
+      if (this.wordLookupSeq !== seq || !this.data.selectedWord) return;
+      const updated = Object.assign({}, this.data.selectedWord, result, { audioUrl: result.audioUrl || this.data.selectedWord.audioUrl || '', known: !!(result.phonetic && result.meaning) });
+      const key = `detail.articleBlocks[${position.blockIndex}].tokens[${position.tokenIndex}]`;
+      this.setData({ selectedWord: updated, [key]: updated, wordLookupLoading: false, wordLookupError: '' });
+    }).catch((error) => {
+      if (this.wordLookupSeq === seq) this.setData({ wordLookupLoading: false, wordLookupError: error.message || '生成失败，请稍后重试' });
+    });
+  },
+  retryWordLookup() { if (this.data.wordLookupLoading) return; this.wordLookupSeq = (this.wordLookupSeq || 0) + 1; this.lookupSelectedWord(this.wordLookupSeq); },
+  closeWord() { this.wordLookupSeq = (this.wordLookupSeq || 0) + 1; this.selectedWordPosition = null; this.setData({ selectedWord: null, wordLookupLoading: false, wordLookupError: '' }); },
   noop() {},
   changeSpeed(event) { const speed = Number(event.currentTarget.dataset.speed) || 1; this.setData({ speed }); if (this.articleAudio) this.articleAudio.playbackRate = speed; },
   playArticle() {
@@ -26,20 +62,21 @@ Page({
     if (this.data.articlePlaying) { this.articleAudio.pause(); this.setData({ articlePlaying: false }); return; }
     const url = this.data.detail.articleAudioUrl;
     if (url) return this.startArticleAudio(url);
-    this.setData({ audioLoading: true }); contentService.speech(this.data.contentId).then((result) => { this.setData({ audioLoading: false, 'detail.articleAudioUrl': result.audioUrl }); this.startArticleAudio(result.audioUrl); }).catch((error) => { this.setData({ audioLoading: false }); wx.showToast({ title: error.message || '音频生成失败', icon: 'none', duration: 3000 }); });
+    this.setData({ audioLoading: true }); contentService.speech(this.data.contentId).then((result) => { this.setData({ audioLoading: false, 'detail.articleAudioUrl': result.audioUrl }); this.startArticleAudio(result.audioUrl); }).catch((error) => { this.setData({ audioLoading: false }); wx.showModal({ title: '暂时无法生成朗读音频', content: error.message || '请管理员检查系统参数中的临时 NLS Token', showCancel: false }); });
   },
   startArticleAudio(url) { this.articleAudio.stop(); this.articleAudio.src = url; this.articleAudio.playbackRate = this.data.speed; this.articleAudio.play(); this.setData({ articlePlaying: true }); },
   playWord() {
     if (this.data.wordAudioLoading) return;
     const word = this.data.selectedWord;
-    const target = word && (word.contentId || word.speechKey);
+    const target = word && (word.contentId || word.speechKey || word.text);
+    const selectedTerm = word && word.text, selectionSeq = this.wordLookupSeq;
     if (!target) return wx.showToast({ title: '该词暂无词典数据', icon: 'none' });
     if (word.audioUrl) return this.startWordAudio(word.audioUrl);
     this.setData({ wordAudioLoading: true });
     // Token stays on the server; the response contains only the persisted media reference.
-    contentService.speech(target).then((result) => {
+    (word.contentId || word.speechKey ? contentService.speech(target) : contentService.articleWordSpeech(this.data.contentId, word.text)).then((result) => {
       const current = this.data.selectedWord;
-      if (!current || (current.contentId || current.speechKey) !== target) return;
+      if (!current || current.text !== selectedTerm || this.wordLookupSeq !== selectionSeq) return;
       this.setData({ 'selectedWord.audioUrl': result.audioUrl });
       this.startWordAudio(result.audioUrl);
     }).catch((error) => wx.showModal({
@@ -57,14 +94,16 @@ Page({
   understood() { this.act(() => contentService.understood(this.data.contentId, { taskId: this.data.taskId || null, expectedVersion: this.data.taskVersion }), '已记录为理解'); },
   takeNote() { const detail = this.data.detail; if (!detail) return; wx.navigateTo({ url: `/pages/knowledge/editor/index?sourceContentId=${encodeURIComponent(detail.contentId)}&sourceContentVersionId=${encodeURIComponent(detail.versionId)}` }); },
   explain(event) {
+    if (this.data.explaining) return;
     const block = this.data.detail && this.data.detail.articleBlocks[Number(event.currentTarget.dataset.block)];
     const paragraph = block && (block.text || (block.tokens || []).map((token) => token.text).join(''));
     if (!paragraph) return wx.showToast({ title: '当前段落为空', icon: 'none' });
-    wx.setStorageSync('pendingAiQuestion', {
-      question: `请用简洁中文解释下面这段英语，说明关键词汇、语法结构和自然译文：\n\n${paragraph}`,
-      autoSend: true
-    });
-    wx.navigateTo({ url: '/pages/ai/ask/index?source=article' });
+    this.setData({ explaining: true, explanationOpen: true, explanation: '' });
+    const question = `请用简洁中文解释下面这段英语，说明关键词汇、语法结构和自然译文：\n\n${paragraph}`;
+    aiService.ask({ question }, `article-explain-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      .then((answer) => this.setData({ explaining: false, explanation: answer.answer || 'AI 未返回解释' }))
+      .catch((error) => { this.setData({ explaining: false, explanationOpen: false }); wx.showModal({ title: '暂时无法解释', content: error.message || '请检查 AI 授权、模型和预算配置', showCancel: false }); });
   },
+  closeExplanation() { if (!this.data.explaining) this.setData({ explanationOpen: false, explanation: '' }); },
   act(action, message) { if (this.data.acting) return; this.setData({ acting: true }); action().then((detail) => { this.setData({ detail }); wx.showToast({ title: message, icon: 'success' }); }).catch((error) => wx.showToast({ title: error.message || '操作失败', icon: 'none' })).finally(() => this.setData({ acting: false })); }
 });

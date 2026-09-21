@@ -110,6 +110,25 @@ class StoredNlsTokenIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT del_is FROM app_parameter WHERE id=?", Integer.class, id)).isEqualTo(1);
     }
 
+    @Test void unlistedArticleWordUsesStoredTokenAndCachesPronunciation() throws Exception {
+        saveToken(TOKEN, true);
+        String source = CryptoUtils.randomId(), article = CryptoUtils.randomId(), version = CryptoUtils.randomId();
+        jdbc.update("INSERT INTO content_source(id,name,source_type,license_note) VALUES(?,'Article test','original','Test')", source);
+        jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,state,current_version_id,published_version_id) VALUES(?,'english_article',?,?,'published',?,?)", article, source, CryptoUtils.sha256(article), version, version);
+        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,body,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,'Saturday story','On Saturday we read.', 'Test',?,'approved',?)", version, article, CryptoUtils.sha256(version), OWNER);
+        expectSpeech("saturday", TOKEN);
+        String path = "/api/learning/contents/" + article + "/words/Saturday/speech";
+        String response = mvc.perform(post(path).header("Authorization", "Bearer test-user"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(false))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(response).doesNotContain(TOKEN);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pronunciation WHERE content_version_id=? AND target_key LIKE 'article-word:%'", Integer.class, version)).isEqualTo(1);
+        mvc.perform(post(path).header("Authorization", "Bearer test-user"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(true));
+        mvc.perform(post("/api/learning/contents/" + article + "/words/Unrelated/speech").header("Authorization", "Bearer test-user"))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test void updatingTokenIsImmediateAndSurvivesServiceRecreation() throws Exception {
         saveToken(TOKEN, true);
         saveToken("replacement-temporary-token-value", false);

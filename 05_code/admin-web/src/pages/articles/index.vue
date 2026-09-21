@@ -10,7 +10,7 @@ const coverage = ref({ articleDifficulties: [] })
 const books = ref([])
 const audioTarget = ref(null), nlsToken = ref(''), audioError = ref(''), audioSuccess = ref('')
 const articles = ref({ total: 0, page: 1, pageSize: 20, totalPages: 0, items: [] })
-const page = ref(1), pageSize = ref(20), difficulty = ref(''), bookId = ref(''), keywordInput = ref(''), keyword = ref('')
+const page = ref(1), pageSize = ref(20), difficulty = ref(''), bookId = ref(''), audioStatus = ref(''), keywordInput = ref(''), keyword = ref('')
 const detailOpen = ref(false), detailLoading = ref(false), detailError = ref(''), detail = ref(null)
 const generatingArticleId = ref('')
 let currentAudio = null
@@ -20,6 +20,7 @@ const audioBusy = computed(() => !!generatingArticleId.value || batchRunning.val
 const selectableItems = computed(() => articles.value.items.filter(item => !item.articleAudioUrl))
 const allPageSelected = computed(() => selectableItems.value.length > 0 && selectableItems.value.every(item => selectedIds.value.includes(item.contentId)))
 const retryItems = computed(() => (batchProgress.value?.items || []).filter(item => ['failed', 'pending'].includes(item.status)))
+const batchCredentialProblem = computed(() => (batchProgress.value?.items || []).some(item => ['TTS_NOT_CONFIGURED', 'TTS_APP_KEY_UNREADABLE', 'CREDENTIAL_KEY_UNAVAILABLE'].includes(item.code)))
 const batchCounts = computed(() => {
   const rows = batchProgress.value?.items || []
   return Object.fromEntries(['succeeded', 'skipped', 'failed', 'pending'].map(status => [status, rows.filter(row => row.status === status).length]))
@@ -32,14 +33,19 @@ function updateSavedAudio(id, result) {
   if (detail.value?.contentId === id) detail.value.articleAudioUrl = result.audioUrl
   selectedIds.value = selectedIds.value.filter(value => value !== id)
 }
+async function ensureAudioAppKeyReady() {
+  const config = await request('/admin/ai/tts', { silentError: true })
+  if (!config.appKeyConfigured) throw Object.assign(new Error('TTS 项目 AppKey 未配置或无法用当前密钥解密。请先到“AI 模型与费用 → 语音合成”修复 AppKey；重新输入临时 Token 无法解决。'), { code: 'TTS_NOT_CONFIGURED' })
+}
 async function openBatchGeneration(scope) {
   if (audioBusy.value) return
   audioSuccess.value = ''; audioError.value = ''; nlsToken.value = ''
   batchPreparing.value = true
   try {
+    await ensureAudioAppKeyReady()
     let items
     if (scope === 'all') {
-      const filters = { difficulty: difficulty.value, bookId: bookId.value, keyword: keyword.value }
+      const filters = { difficulty: difficulty.value, bookId: bookId.value, audioStatus: audioStatus.value, keyword: keyword.value }
       items = await collectArticleTargets(query => {
         const values = new URLSearchParams(Object.entries(query).filter(([, value]) => value !== ''))
         return request('/admin/content/articles?' + values)
@@ -53,7 +59,7 @@ async function openBatchGeneration(scope) {
       count: items.filter(item => !item.articleAudioUrl).length,
       skipped: items.filter(item => item.articleAudioUrl).length
     }
-  } catch (e) { error.value = e.message || '批量范围读取失败' }
+  } catch (e) { error.value = e.message || '批量范围读取失败'; showError(e) }
   finally { batchPreparing.value = false }
 }
 async function generateBatchAudio() {
@@ -73,7 +79,8 @@ async function generateBatchAudio() {
       onProgress: state => { batchProgress.value = state },
       onSaved: updateSavedAudio
     })
-    audioSuccess.value = result.stopped ? '批量处理已停止，已完成的音频已保存。可重新输入 Token 继续失败及未处理项。' : '批量处理结束，成功项已上传 OSS 并保存。'
+    const configurationError = result.items.find(item => ['TTS_NOT_CONFIGURED', 'TTS_APP_KEY_UNREADABLE', 'CREDENTIAL_KEY_UNAVAILABLE'].includes(item.code))
+    audioSuccess.value = configurationError ? '批量处理已停止。请先修复 TTS 项目 AppKey 或加密密钥，再继续失败及未处理项；重新输入 Token 无法解决。' : result.stopped ? '批量处理已停止，已完成的音频已保存。修复失败原因后可继续失败及未处理项。' : '批量处理结束，成功项已上传 OSS 并保存。'
   } catch (e) { error.value = e.message || '批量生成失败'; showError(e) }
   finally { batchRunning.value = false; nlsToken.value = '' }
 }
@@ -107,6 +114,7 @@ function params() {
   const value = new URLSearchParams({ page: String(page.value), pageSize: String(pageSize.value) })
   if (difficulty.value) value.set('difficulty', difficulty.value)
   if (bookId.value) value.set('bookId', bookId.value)
+  if (audioStatus.value) value.set('audioStatus', audioStatus.value)
   if (keyword.value) value.set('keyword', keyword.value)
   return value
 }
@@ -131,6 +139,7 @@ async function loadArticles() {
 }
 function chooseLevel(code = '') { difficulty.value = code; page.value = 1; loadArticles() }
 function chooseBook(code = '') { bookId.value = code; page.value = 1; loadArticles() }
+function chooseAudioStatus(code = '') { audioStatus.value = code; page.value = 1; loadArticles() }
 function search() { keyword.value = keywordInput.value.trim(); page.value = 1; loadArticles() }
 function clearSearch() { keywordInput.value = ''; keyword.value = ''; page.value = 1; loadArticles() }
 function turn(target) { if (target < 1 || target > articles.value.totalPages || target === page.value) return; page.value = target; loadArticles() }
@@ -147,9 +156,12 @@ async function playAudio(item) {
   try { stopAudio(); currentAudio = new Audio(item.articleAudioUrl); await currentAudio.play() }
   catch { const e=new Error('音频播放失败，请检查浏览器权限或 OSS 媒体配置'); error.value=e.message; showError(e) }
 }
-function openAudioGeneration(item) {
+async function openAudioGeneration(item) {
   if (audioBusy.value) return
-  audioTarget.value = item; nlsToken.value = ''; audioError.value = ''; audioSuccess.value = ''
+  batchPreparing.value = true
+  try { await ensureAudioAppKeyReady(); audioTarget.value = item; nlsToken.value = ''; audioError.value = ''; audioSuccess.value = '' }
+  catch (e) { error.value = e.message || 'TTS 配置检查失败'; showError(e) }
+  finally { batchPreparing.value = false }
 }
 function closeAudioGeneration() {
   if (generatingArticleId.value) return
@@ -192,7 +204,7 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
       <p>已处理 {{ batchProgress.done }} / {{ batchProgress.total }} 篇 · 已保存 {{ batchCounts.succeeded }} · 跳过 {{ batchCounts.skipped }} · 失败 {{ batchCounts.failed }} · 未处理 {{ batchCounts.pending }}</p>
       <p v-if="batchRunning">请保持当前页面打开；停止会等待当前请求完成，不会撤销已保存音频。</p>
       <button v-if="batchRunning" class="refresh" :disabled="batchStopRequested" @click="batchStopRequested=true">{{ batchStopRequested ? '等待当前音频保存…' : '停止后续生成' }}</button>
-      <button v-else-if="retryItems.length" class="refresh" :disabled="audioBusy" @click="openBatchGeneration('retry')">重新输入 Token，继续失败及未处理项（{{ retryItems.length }}）</button>
+      <button v-else-if="retryItems.length" class="refresh" :disabled="audioBusy" @click="openBatchGeneration('retry')">{{ batchCredentialProblem ? '修复 AppKey 后继续' : '继续失败及未处理项' }}（{{ retryItems.length }}）</button>
       <details><summary>查看逐篇结果及失败原因</summary><ul class="batch-results"><li v-for="item in batchProgress.items" :key="item.contentId"><strong>{{ item.title }}</strong> — {{ batchStatus(item.status) }}<span v-if="item.error">：{{ item.error }}（{{ item.code || 'NETWORK_ERROR' }}）</span></li></ul></details>
     </div>
     <div v-if="loading" class="panel state">正在读取英语短文…</div>
@@ -205,10 +217,11 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
       <div class="panel level-picker">
         <label>词书分类<select :disabled="audioBusy" :value="bookId" @change="chooseBook($event.target.value)"><option value="">全部词书</option><option v-for="book in books" :key="book.bookId" :value="book.bookId">{{ book.bookName }}</option></select></label>
         <label>难度筛选<select :disabled="audioBusy" :value="difficulty" @change="chooseLevel($event.target.value)"><option value="">全部难度</option><option v-for="item in levels" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
+        <label>音频状态<select :disabled="audioBusy" :value="audioStatus" @change="chooseAudioStatus($event.target.value)"><option value="">全部音频</option><option value="has_audio">有音频</option><option value="missing_audio">无音频</option></select></label>
         <div class="level-summary"><span v-for="item in levels" :key="item.code"><b>{{ item.name }}</b> {{ item.count }} / 101 篇 <em :class="item.count>=101?'ok':'bad'">{{ item.count>=101?'已达标':'待补充' }}</em></span></div>
       </div>
       <div class="panel article-panel">
-        <div class="panel-head"><div><h2>短文列表</h2><p>{{ bookId ? `当前词书：${books.find(item=>item.bookId===bookId)?.bookName || '未知'}` : difficulty ? `当前难度：${label(difficulty)}` : '全部已发布英语短文' }} · 共 {{ articles.total }} 篇</p></div><button v-if="difficulty || bookId" :disabled="audioBusy" class="plain" @click="difficulty='';bookId='';page=1;loadArticles()">清除筛选</button></div>
+        <div class="panel-head"><div><h2>短文列表</h2><p>{{ bookId ? `当前词书：${books.find(item=>item.bookId===bookId)?.bookName || '未知'}` : difficulty ? `当前难度：${label(difficulty)}` : audioStatus === 'has_audio' ? '当前音频：有音频' : audioStatus === 'missing_audio' ? '当前音频：无音频' : '全部已发布英语短文' }} · 共 {{ articles.total }} 篇</p></div><button v-if="difficulty || bookId || audioStatus" :disabled="audioBusy" class="plain" @click="difficulty='';bookId='';audioStatus='';page=1;loadArticles()">清除筛选</button></div>
         <div class="toolbar"><form @submit.prevent="!audioBusy && search()"><input :disabled="audioBusy" v-model="keywordInput" maxlength="80" placeholder="搜索标题、摘要或正文"/><button :disabled="audioBusy">搜索</button><button v-if="keyword" :disabled="audioBusy" type="button" class="plain" @click="clearSearch">清除</button></form><label>每页 <select :disabled="audioBusy" v-model.number="pageSize"><option :value="10">10</option><option :value="20">20</option><option :value="50">50</option></select> 篇</label></div>
         <div class="batch-toolbar">
           <button class="refresh" :disabled="audioBusy || listLoading || !selectedIds.length" @click="openBatchGeneration('selected')">批量生成勾选项（{{ selectedIds.length }}）</button>
@@ -226,7 +239,7 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
       <h2 id="audio-modal-title">{{ audioTarget.batch ? '批量生成并保存音频' : '临时 Token 生成并保存音频' }}</h2>
       <p>{{ audioTarget.title }}</p>
       <p v-if="audioTarget.batch">待生成 <strong>{{ audioTarget.count }}</strong> 篇，已有音频跳过 {{ audioTarget.skipped }} 篇。只需输入一次 Token，请保持页面打开，批量结束后自动清除 Token。</p>
-      <p>使用当前配置的 AppKey、音色和采样率。仅本次生成过程使用 Token，不保存 Token，也不调用 AccessKey 获取 Token。会产生 NLS 合成及 OSS 存储用量。</p>
+      <p>使用当前配置的 AppKey、音色和采样率。超过 300 字符的短文会自动分段合成、合并为一段音频；分段越多，NLS 调用与费用越多。仅本次生成过程使用 Token，不保存 Token，也不调用 AccessKey 获取 Token。会产生 NLS 合成及 OSS 存储用量。</p>
       <label for="article-nls-token">NLS 临时 Token</label>
       <input id="article-nls-token" v-model="nlsToken" type="password" autocomplete="off" minlength="16" maxlength="4096" required :disabled="!!generatingArticleId" placeholder="粘贴阿里云控制台获取的临时 Token" />
       <p>Token 过期需重新获取；OSS 上传仍需服务端独立配置 OSS 凭据。</p>
@@ -234,11 +247,11 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
       <div class="audio-modal-actions"><button type="button" class="refresh" :disabled="!!generatingArticleId" @click="closeAudioGeneration">取消</button><button class="generate-button" :disabled="!!generatingArticleId">{{ generatingArticleId ? '正在合成、上传并保存…' : audioTarget.batch ? '开始批量生成并保存' : '生成并保存到 OSS' }}</button></div>
     </form>
   </div>
-  <div v-if="detailOpen" class="modal-mask" @click.self="closeDetail"><article class="detail-modal"><header><div><span>英语短文详情</span><h2>{{ detail?.title || '正在加载…' }}</h2></div><button @click="closeDetail">×</button></header><div v-if="detailLoading" class="detail-state">正在读取详情…</div><div v-else-if="detailError" class="detail-state">详情未加载，请关闭后重试</div><template v-else-if="detail"><div class="detail-meta"><span>{{ label(detail.difficulty) }}</span><span>预计 {{ Math.max(1,Math.ceil((detail.estimatedSeconds||0)/60)) }} 分钟</span><span>版本 {{ detail.versionNo }}</span><span>{{ detail.reviewStatus==='approved'?'已审核':detail.reviewStatus }}</span></div><section v-if="detail.summary"><h3>摘要</h3><p>{{ detail.summary }}</p></section><section><h3>英文正文</h3><div class="body">{{ detail.body || '暂无正文' }}</div></section><section class="source-box"><h3>来源与许可</h3><dl><div><dt>内容来源</dt><dd>{{ detail.sourceName }}（{{ detail.sourceType }}）</dd></div><div><dt>原作者</dt><dd>{{ detail.originAuthor || '—' }}</dd></div><div><dt>原文发布时间</dt><dd>{{ date(detail.originPublishedAt) }}</dd></div><div><dt>站内发布时间</dt><dd>{{ date(detail.publishedAt) }}</dd></div><div><dt>许可快照</dt><dd>{{ detail.licenseSnapshot }}</dd></div></dl><a v-if="detailUrl" :href="detailUrl" target="_blank" rel="noopener noreferrer">打开原始链接 ↗</a></section></template></article></div>
+  <div v-if="detailOpen" class="modal-mask" @click.self="closeDetail"><article class="detail-modal"><header><div><span>英语短文详情</span><h2>{{ detail?.title || '正在加载…' }}</h2></div><button @click="closeDetail">×</button></header><div v-if="detailLoading" class="detail-state">正在读取详情…</div><div v-else-if="detailError" class="detail-state">详情未加载，请关闭后重试</div><template v-else-if="detail"><div class="detail-meta"><span>{{ label(detail.difficulty) }}</span><span>预计 {{ Math.max(1,Math.ceil((detail.estimatedSeconds||0)/60)) }} 分钟</span><span>版本 {{ detail.versionNo }}</span><span>{{ detail.reviewStatus==='approved'?'已审核':detail.reviewStatus }}</span></div><section v-if="detail.summary"><h3>摘要</h3><p>{{ detail.summary }}</p></section><section><div class="body-heading"><h3>英文正文</h3><button v-if="detail.articleAudioUrl" type="button" class="audio-button" @click="playAudio(detail)">▶ 播放音频</button><span v-else class="audio-unavailable">暂无音频</span></div><div class="body">{{ detail.body || '暂无正文' }}</div></section><section class="source-box"><h3>来源与许可</h3><dl><div><dt>内容来源</dt><dd>{{ detail.sourceName }}（{{ detail.sourceType }}）</dd></div><div><dt>原作者</dt><dd>{{ detail.originAuthor || '—' }}</dd></div><div><dt>原文发布时间</dt><dd>{{ date(detail.originPublishedAt) }}</dd></div><div><dt>站内发布时间</dt><dd>{{ date(detail.publishedAt) }}</dd></div><div><dt>许可快照</dt><dd>{{ detail.licenseSnapshot }}</dd></div></dl><a v-if="detailUrl" :href="detailUrl" target="_blank" rel="noopener noreferrer">打开原始链接 ↗</a></section></template></article></div>
 </template>
 
 <style scoped>
-.batch-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}.batch-toolbar span{font-size:12px;color:#71809a}.batch-progress{margin-top:18px;padding:20px}.batch-progress p{color:#65738d;font-size:13px}.batch-progress progress{width:100%;height:14px;accent-color:#0d6ff5}.batch-progress details{margin-top:14px}.batch-results{max-height:220px;overflow:auto;line-height:1.8;padding-left:22px;font-size:13px}.batch-results span{color:#b83c48}button:disabled{cursor:not-allowed;opacity:.6}
+.batch-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}.batch-toolbar span{font-size:12px;color:#71809a}.batch-progress{margin-top:18px;padding:20px}.batch-progress p{color:#65738d;font-size:13px}.batch-progress progress{width:100%;height:14px;accent-color:#0d6ff5}.batch-progress details{margin-top:14px}.batch-results{max-height:220px;overflow:auto;line-height:1.8;padding-left:22px;font-size:13px}.batch-results span{color:#b83c48}.body-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.body-heading h3{margin:0!important}.audio-unavailable{color:#8a96a8;font-size:12px}button:disabled{cursor:not-allowed;opacity:.6}
 
 .audio-modal{width:min(620px,90vw);max-height:90vh;overflow:auto;padding:28px;border-radius:16px;background:white}.audio-modal p{color:#65738d;line-height:1.7}.audio-modal label{display:block;margin:16px 0 8px}.audio-modal input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #c9daf3;border-radius:8px}.audio-modal-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:22px}.audio-modal-actions .generate-button{height:40px;padding:0 18px}
 .refresh{height:40px;padding:0 18px;border:1px solid #c9daf3;border-radius:9px;color:#126ff4;background:#fff}.tts-mode{margin-top:18px;padding:12px 15px;border-radius:9px;font-size:13px}.tts-mode.temporary{border:1px solid #bfe8d7;color:#087951;background:#e8f8f2}.tts-mode.access-key{border:1px solid #d9e2ef;color:#65738d;background:#f7f9fc}.notice{margin-top:18px;padding:13px 16px;border:1px solid #efc7cb;border-radius:10px;color:#b83c48;background:#fff4f5}.state{margin-top:24px;padding:60px;text-align:center;color:#71809a}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}.metric{padding:22px}.metric span{display:block;color:#71809a;font-size:13px}.metric strong{display:block;margin-top:10px;font-size:30px}.danger{color:#d8424f}.level-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:18px}.level-card{padding:20px;border:1px solid #dde6f1;text-align:left;cursor:pointer}.level-card.active{border-color:#3d8cff;background:linear-gradient(145deg,#fff,#eef5ff)}.level-card span,.level-card strong{display:block}.level-card span{color:#667590}.level-card strong{margin:10px 0;font-size:25px}.level-card small{color:#7a879c;font-size:12px}.level-card em,.difficulty{display:inline-block;padding:4px 9px;border-radius:99px;font-size:12px;font-style:normal}.ok{color:#15845f;background:#e8f8f1}.bad{color:#c43a47;background:#fff0f1}.difficulty{color:#176fdc;background:#eaf3ff}.article-panel{margin-top:18px;padding:22px}.panel-head,.toolbar,.pagination{display:flex;align-items:center;justify-content:space-between}.panel-head h2{margin:0 0 5px}.panel-head p{margin:0;color:#7a869d;font-size:12px}.plain{border:1px solid #d7dfeb!important;color:#62718c!important;background:#fff!important}.toolbar{margin:18px 0 13px}.toolbar form{display:flex;gap:8px}.toolbar input{width:340px;height:38px;padding:0 11px;border:1px solid #d7dfeb;border-radius:8px}.toolbar button{height:38px;padding:0 16px;border:0;border-radius:8px;color:#fff;background:#0d6ff5}.toolbar label{color:#6c7890;font-size:12px}.toolbar select{height:34px;border:1px solid #d7dfeb;border-radius:7px;background:#fff}.table-wrap{position:relative;min-height:220px;overflow:auto;border:1px solid #e2e7ef;border-radius:9px}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid #edf0f5;text-align:left;font-size:12px}th{color:#75819a;background:#f8faff}td{color:#53617a}td strong,td small{display:block}td strong{color:#11204a;font-size:14px}td small{max-width:390px;margin-top:5px;overflow:hidden;color:#7c889d;text-overflow:ellipsis;white-space:nowrap}.link{padding:4px;border:0;color:#0d6ff5;background:transparent;white-space:nowrap}.empty{height:170px;text-align:center;color:#8994a7}.loading{position:absolute;inset:42px 0 0;display:grid;place-items:center;color:#71809a;background:rgba(255,255,255,.86)}.pagination{justify-content:flex-end;gap:10px;margin-top:14px;color:#6f7c94;font-size:12px}.pagination button{width:32px;height:30px;border:1px solid #d7dfeb;border-radius:7px;color:#0d6ff5;background:#fff}.pagination button:disabled{color:#bbc3cf}.detail-modal{width:min(820px,88vw);max-height:88vh;overflow:auto;border-radius:16px;background:#fff;box-shadow:0 25px 70px rgba(19,36,70,.24)}.detail-modal header{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;padding:24px 28px;border-bottom:1px solid #e8edf4;background:#fff}.detail-modal header span{color:#72809a;font-size:12px}.detail-modal header h2{margin:6px 0 0}.detail-modal header button{border:0;background:transparent;color:#6f7d95;font-size:28px}.detail-state{padding:80px;text-align:center;color:#73819a}.detail-state.error{color:#c53f4c}.detail-meta,.detail-modal>section{margin:20px 28px}.detail-meta{display:flex;gap:8px}.detail-meta span{padding:5px 9px;border-radius:6px;color:#566681;background:#f1f4f8;font-size:12px}.detail-modal section h3{margin:0 0 10px;font-size:15px}.detail-modal section p,.body{color:#3e4d69;line-height:1.8}.body{white-space:pre-wrap;user-select:text}.source-box{padding:18px;border-radius:10px;background:#f7f9fc}.source-box dl{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.source-box dt{color:#8490a4;font-size:11px}.source-box dd{margin:5px 0 0;overflow-wrap:anywhere;color:#42516d;font-size:13px}.source-box a{display:inline-block;margin-top:14px;color:#0d6ff5;text-decoration:none}@media(max-width:1100px){.metrics{grid-template-columns:1fr 1fr}.level-grid{grid-template-columns:1fr}.source-box dl{grid-template-columns:1fr}}

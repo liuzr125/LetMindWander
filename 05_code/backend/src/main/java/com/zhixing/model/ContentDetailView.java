@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContentDetailView {
-    private String contentId, versionId, contentType, title, summary, body, difficulty, stage;
+    private String contentId, versionId, contentType, title, titleTranslation, summary, body, difficulty, stage;
     private String wordTerm, phonetic, meaning, exampleText, exampleTranslation;
     private String originUrl, originAuthor, licenseSnapshot, sourceName, sourceType, sourceUrl;
     private String articleAudioAssetId,articleAudioUrl,articleAudioVoice;
@@ -21,6 +21,7 @@ public class ContentDetailView {
     public String getVersionId(){return versionId;} public void setVersionId(String v){versionId=v;}
     public String getContentType(){return contentType;} public void setContentType(String v){contentType=v;}
     public String getTitle(){return title;} public void setTitle(String v){title=v;}
+    public String getTitleTranslation(){return titleTranslation;} public void setTitleTranslation(String v){titleTranslation=v;}
     public String getSummary(){return summary;} public void setSummary(String v){summary=v;}
     public String getBody(){return body;} public void setBody(String v){body=v;}
     public String getDifficulty(){return difficulty;} public void setDifficulty(String v){difficulty=v;}
@@ -97,7 +98,7 @@ public class ContentDetailView {
     }
 
     public static class ArticleTokenView {
-        private String text,contentId,speechKey,phonetic,meaning,audioUrl;
+        private String text,contentId,speechKey,phonetic,meaning,audioUrl,sourceKind;
         private boolean word,known;
         public String getText(){return text;} public void setText(String v){text=v;}
         public String getContentId(){return contentId;} public void setContentId(String v){contentId=v;}
@@ -105,6 +106,7 @@ public class ContentDetailView {
         public String getPhonetic(){return phonetic;} public void setPhonetic(String v){phonetic=v;}
         public String getMeaning(){return meaning;} public void setMeaning(String v){meaning=v;}
         public String getAudioUrl(){return audioUrl;} public void setAudioUrl(String v){audioUrl=v;}
+        public String getSourceKind(){return sourceKind;} public void setSourceKind(String v){sourceKind=v;}
         public boolean isWord(){return word;} public void setWord(boolean v){word=v;}
         public boolean isKnown(){return known;} public void setKnown(boolean v){known=v;}
     }

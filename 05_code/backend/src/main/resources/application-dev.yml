@@ -18,6 +18,10 @@ logging:
     com.zhixing: INFO
 
 app:
+  # 管理端 Vite 在 5173 被占用时会自动使用 5174；仅开发环境放行这两个本机来源。
+  allowed-origins:
+    - http://localhost:5173
+    - http://localhost:5174
   sms:
     # 个人主体小程序开发阶段：验证码仅写入控制台及日志文件。
     mock-enabled: ${SMS_MOCK_ENABLED:true}

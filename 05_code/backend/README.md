@@ -35,7 +35,9 @@ MEDIA_BASE_URL='https://api.example.com/api/media' \
 mvn spring-boot:run
 ```
 
-真实密钥不得写入 YAML 或 Git。生产配置使用 Redis 保存十分钟的待注册状态；数据库仅保存邀请码和会话令牌的 SHA-256 摘要。
+真实密钥不得写入 YAML 或 Git。开发环境启动前也必须提供 `DB_PASSWORD`；生产环境按上面的启动示例提供。生产配置使用 Redis 保存十分钟的待注册状态；数据库仅保存邀请码和会话令牌的 SHA-256 摘要。
+
+供应商密钥（如 `ALIYUN_NLS_APP_KEY`、`ALIYUN_AK_ID`、`ALIYUN_AK_SECRET` 和 DeepSeek API Key）可在 Web 管理端录入，作为加密的系统参数保存在 `app_parameter`。`AI_CREDENTIAL_ENCRYPTION_KEY` 是解密这些参数的主密钥，不能只保存在同一张参数表，否则服务启动时无法解密；请从环境变量或独立密钥管理服务注入，并在重启后保持不变。若主密钥已丢失，旧密文无法恢复，设置稳定的新密钥后必须重新录入所有受影响的供应商凭据。数据库连接密码同样必须在连接数据库之前通过环境变量注入，不能从数据库系统参数读取。
 
 DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，也可在 Web 管理端录入并使用 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密入库；接口不回传密钥明文。
 
@@ -44,8 +46,9 @@ DeepSeek API Key 可以由服务端环境变量 `AI_DEEPSEEK_API_KEY` 注入，�
 - `POST /api/learning/contents/{id}/speech`：按需合成短文或单词发音；首次调用生成并存入 OSS，后续复用缓存。短文点词先查正式词库，再查 V3.14 补充词表。
 - `/api/admin/ai/tts`：仅 Web 管理员可查看状态、录入 AppKey/AccessKey、选择英语音色和查看脱敏调用日志；接口永不回传密钥。
 - 阿里云 AppKey 不能单独完成鉴权，还需具备智能语音交互权限的 AccessKey ID/Secret。凭据仅保存在服务端，并使用 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密。
-- V3.13 使用阿里云短文本 TTS，因此单篇正文限制为 300 字符。播放速度由小程序播放器在 0.75x、1x、1.25x、1.5x 间调整，不重复计费合成。
+- 阿里云短文本 TTS 单次最多 300 字符；短文正文会优先按句自动切成不超过 280 字符的片段，逐段合成并合并为一个 MP3，最多 24 段。单词及试听仍按单次 300 字符限制。部署后端时需在 `PATH` 安装 `ffmpeg`；长短文若缺少该程序，会在产生语音合成费用前返回 `TTS_AUDIO_MERGER_UNAVAILABLE`。每段都会产生一次阿里云合成调用与相应费用，合并失败不发布音频，可修复后重试。播放速度由小程序播放器在 0.75x、1x、1.25x、1.5x 间调整，不重复计费合成。
 - 音频写入现有私有 OSS；除 TTS 凭据外，仍需正确配置本节启动命令中的 OSS 参数。
+- 每日分词书短文同时要求 AI 返回完整中文译文，正文及译文逐段存入既有 `content_version.article_blocks` JSON；旧短文缺译文时，由小程序用户明确点击“生成并保存译文”后使用服务端 AI 配额补齐，不在普通浏览时隐式调用模型。短文点词未命中词库时，仅允许对当前短文实际出现的英文词调用服务端系统参数中的 NLS 临时 Token，音频在 `pronunciation` 与 `media_asset` 中缓存；Token 不传给小程序。
 
 ## 问一问与 AI 管理
 
@@ -104,6 +107,10 @@ DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录�
 60 秒内不可重复发送。接口响应不会包含验证码。
 
 生产环境不会启用控制台短信；上线前需要接入真实短信供应商，并保持 `SMS_MOCK_ENABLED=false`。
+
+## 英语短文标题译文迁移
+
+部署读取 `content_version.title_translation` 的后端前，先对实际连接的 MySQL 执行 `sql/V3.16.12_article_title_translation.sql`；此前的 `sql/V3.16.11_article_word_on_demand.sql` 也必须已执行。`dev`/`prod` 的 `spring.sql.init.mode=never`，仅修改 `schema.sql` 不会更新现有数据库。新生成短文保存标题译文，旧短文在小程序打开时按需生成并保存；译文生成依赖模型配置，会增加一次调用费用。
 
 ## F02 媒体配置
 

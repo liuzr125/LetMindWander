@@ -11,7 +11,7 @@ import java.util.List;
 /** U03/U05 的全部数据库访问集中在 Mapper；Service 只处理权限、幂等与业务联动。 */
 @Mapper
 public interface ContentMapper extends BaseMapper<LearningContentEntity> {
-    @Select("SELECT lc.id AS content_id, cv.id AS version_id, lc.content_type, lc.stage, lc.published_at, cv.title, cv.summary, cv.body, " +
+    @Select("SELECT lc.id AS content_id, cv.id AS version_id, lc.content_type, lc.stage, lc.published_at, cv.title, cv.title_translation, cv.summary, cv.body, " +
             "cv.difficulty, cv.estimated_seconds, cv.word_term, " +
             "COALESCE(NULLIF(TRIM(cv.phonetic),''),(SELECT p.phonetic FROM pronunciation p WHERE p.content_version_id=cv.id AND p.state='ready' AND p.phonetic IS NOT NULL AND TRIM(p.phonetic)!='' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,p.id LIMIT 1),'') AS phonetic, " +
             "cv.meaning, cv.example_text, cv.example_translation, " +
@@ -44,11 +44,12 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
     @Select("SELECT sense_id, example_id, accent, phonetic, asset_id FROM pronunciation WHERE content_version_id=#{versionId} AND state='ready' ORDER BY accent, sense_id, example_id")
     List<com.zhixing.model.PronunciationRow> selectPronunciations(@Param("versionId") String versionId);
 
-    @Select({"<script>","SELECT lc.id content_id,NULL speech_key,cv.word_term term,cv.phonetic,cv.meaning,",
+    @Select({"<script>","SELECT lc.id content_id,NULL speech_key,cv.word_term term,COALESCE(NULLIF(cv.phonetic,''),g.phonetic) phonetic,COALESCE(NULLIF(cv.meaning,''),g.meaning) meaning,",
             "(SELECT p.asset_id FROM pronunciation p JOIN media_asset ma ON ma.id=p.asset_id AND ma.state='ready' WHERE p.content_version_id=cv.id AND p.state='ready' AND p.example_id IS NULL AND p.target_key NOT LIKE 'example:%' ORDER BY CASE p.accent WHEN 'uk' THEN 0 WHEN 'us' THEN 1 ELSE 2 END,CASE WHEN p.sense_id IS NULL THEN 0 ELSE 1 END,p.id LIMIT 1) audio_asset_id ",
-            "FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id WHERE lc.content_type='word' AND lc.state='published' AND LOWER(cv.word_term) IN ",
+            ",CASE WHEN NULLIF(cv.phonetic,'') IS NULL OR NULLIF(cv.meaning,'') IS NULL THEN g.source_kind ELSE 'official' END source_kind ",
+            "FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id LEFT JOIN article_word_glossary g ON g.term=LOWER(cv.word_term) WHERE lc.content_type='word' AND lc.state='published' AND LOWER(cv.word_term) IN ",
             "<foreach collection='terms' item='term' open='(' separator=',' close=')'>#{term}</foreach>",
-            "UNION ALL SELECT NULL content_id,CONCAT('glossary:',g.term) speech_key,g.term,g.phonetic,g.meaning,g.audio_asset_id FROM article_word_glossary g WHERE g.term IN ",
+            "UNION ALL SELECT NULL content_id,CONCAT('glossary:',g.term) speech_key,g.term,g.phonetic,g.meaning,g.audio_asset_id,g.source_kind FROM article_word_glossary g WHERE g.term IN ",
             "<foreach collection='terms' item='term' open='(' separator=',' close=')'>#{term}</foreach>",
             "AND NOT EXISTS(SELECT 1 FROM learning_content lc2 JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE lc2.content_type='word' AND lc2.state='published' AND LOWER(cv2.word_term)=g.term)",
             "</script>"})
