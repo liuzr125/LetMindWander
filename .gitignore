@@ -20,3 +20,8 @@ target/
 # Python
 __pycache__/
 *.pyc
+
+# 本地环境变量与密钥（禁止入库）
+.env
+.env.*
+*.env

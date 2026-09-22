@@ -1,4 +1,4 @@
-const { contentService, authService, aiService } = require('../../../services/index');
+const { contentService, authService } = require('../../../services/index');
 const FOLLOW_CONSENT_KEY = 'follow_recording_consent_v1';
 
 Page({
@@ -96,12 +96,10 @@ Page({
   explain(event) {
     if (this.data.explaining) return;
     const block = this.data.detail && this.data.detail.articleBlocks[Number(event.currentTarget.dataset.block)];
-    const paragraph = block && (block.text || (block.tokens || []).map((token) => token.text).join(''));
-    if (!paragraph) return wx.showToast({ title: '当前段落为空', icon: 'none' });
+    if (!block || !block.paragraphId) return wx.showToast({ title: '当前段落为空', icon: 'none' });
     this.setData({ explaining: true, explanationOpen: true, explanation: '' });
-    const question = `请用简洁中文解释下面这段英语，说明关键词汇、语法结构和自然译文：\n\n${paragraph}`;
-    aiService.ask({ question }, `article-explain-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-      .then((answer) => this.setData({ explaining: false, explanation: answer.answer || 'AI 未返回解释' }))
+    contentService.paragraphExplanation(this.data.contentId, block.paragraphId)
+      .then((result) => this.setData({ explaining: false, explanation: result.explanation || '暂时没有解释' }))
       .catch((error) => { this.setData({ explaining: false, explanationOpen: false }); wx.showModal({ title: '暂时无法解释', content: error.message || '请检查 AI 授权、模型和预算配置', showCancel: false }); });
   },
   closeExplanation() { if (!this.data.explaining) this.setData({ explanationOpen: false, explanation: '' }); },

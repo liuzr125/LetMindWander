@@ -17,9 +17,7 @@
       <text wx:elif="{{phoneticText}}" class="phonetic">{{phoneticText}}</text>
     </view>
     <view class="recall-guide">
-      <view><text class="guide-label">{{recallActive ? '先回想，再核对' : '看懂 → 说一句 → 遮住回想'}}</text><text class="memory-caption">{{recallActive ? '说出这个词的意思，再用它造一个句子。想不起来也没关系。' : '今天记住一个用法就好；以后按复习计划再回想。'}}</text></view>
       <button class="recall-button" bindtap="toggleRecall">{{recallActive ? '显示答案，核对一下' : '遮住答案，试着回想'}}</button>
-      <text wx:if="{{recallActive}}" class="memory-caption">本次是口头自练，不自动计分或标记掌握。</text>
     </view>
     <block wx:if="{{!recallActive}}">
     <text class="translation">{{detail.meaning}}</text>
@@ -58,8 +56,10 @@
           <text class="learning-card-title">{{card.title}}</text>
           <text class="learning-card-body">{{card.body}}</text>
           <view wx:if="{{card.exampleText}}" class="usage-example"><text class="sentence" user-select>{{card.exampleText}}</text><text class="example-translation">{{card.exampleTranslation}}</text><text class="original-example-label" wx:if="{{card.sourceKind === 'original' || card.sourceKind === 'reference'}}">本应用原创例句</text><text class="original-example-label" wx:if="{{card.sourceKind === 'content'}}">当前已发布词条例句</text></view>
-          <text wx:if="{{card.recallPrompt}}" class="card-recall-prompt">试着说：{{card.recallPrompt}}</text>
-          <view class="card-attribution"><text>{{card.sourceTitle}}</text><text>{{card.sourceLabel}}</text><button class="source-button" data-id="{{card.id}}" bindtap="showCardSource">{{card.sourceUrl ? '查看出处与说明' : card.sourceKind === 'content' ? '例句来源说明' : '原创与使用说明'}}</button></view>
+          <!-- 学习卡「试着说」提示：暂隐藏（恢复时删掉 wx:if="{{false}}"） -->
+          <text wx:if="{{false}}" class="card-recall-prompt">试着说：{{card.recallPrompt}}</text>
+          <!-- 学习卡出处说明行 + 「原创与使用说明」按钮：暂隐藏（恢复时删掉 wx:if="{{false}}"） -->
+          <view wx:if="{{false}}" class="card-attribution"><text>{{card.sourceTitle}}</text><text>{{card.sourceLabel}}</text><button class="source-button" data-id="{{card.id}}" bindtap="showCardSource">{{card.sourceUrl ? '查看出处与说明' : card.sourceKind === 'content' ? '例句来源说明' : '原创与使用说明'}}</button></view>
         </view>
         <button wx:if="{{group.count > 1}}" class="more-cards" data-type="{{group.type}}" bindtap="expandCardGroup">{{group.expanded ? '收起更多，只看一条' : '再看 ' + (group.count - 1) + ' 条'}}</button>
       </block>

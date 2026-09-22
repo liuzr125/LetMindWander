@@ -4,21 +4,22 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>知行日课 V3.16.12 合并版数据库字典</title>
+    <title>知行日课 V3.19 合并版数据库字典</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.16.12 合并版数据库字典</h1>
-      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
+      <h1>知行日课 V3.19 合并版数据库字典</h1>
+      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文，V3.16.13 增加段落解释缓存。V3.17 把 AI 每日额度上限改由 <code>app_parameter</code> 维护并在改参数时即时同步当天额度快照；V3.18 为 <code>admin_menu</code> 增加 <code>parent_id</code> / <code>description</code>，侧栏改为一组一级（分类）＋二级（页面）两级菜单；V3.19 增加「用户反馈」菜单。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
     </header>
     <main>
       <nav>
         <a href="#online-vocabulary-v3164">V3.16.4 在线词书目录<small>热门书目、逐词快照、结构化义项与例句</small></a>
         <a href="#word_learning_card">V3.16.5 单词学习卡片<small>辨析、词族、助记、日常表达与来源审核</small></a>
         <a href="#daily-graded-articles">V3.16.7 每日分级短文<small>按正式词书、日期与可配置槽位生成原创短文</small></a>
+        <a href="#article-paragraph-explanation">V3.16.13 段落解释缓存<small>首次生成后持久化，避免重复消耗 Token</small></a>
         <a href="#word_learning_card_coverage">V3.16.7 卡片覆盖审计<small>小初高、四级、六级去重词条的基础卡与质量缺口</small></a>
         <a href="#word-learning-card-preference">V3.16.8 卡片分类与展示偏好<small>六类逐词覆盖状态、账号级选择展示</small></a>
         <a href="#word-study-preference">V3.16.9 新词学习偏好<small>默认展示或遮住、自动发音口音／次数／间隔</small></a>
@@ -27,6 +28,7 @@
         <a href="#v316-changelog">V3.16&#x53D8;&#x66F4;<small>&#x82F1;&#x8BED;&#x8BCD;&#x5E93;&#x4E0E;TTS&#x589E;&#x5F3A;</small></a>
         <a href="#v3162-changelog">V3.16.2 增量<small>词库导入自动化</small></a>
         <a href="#v3163-changelog">V3.16.3 增量<small>系统参数软删除</small></a>
+        <a href="#v317-319-changelog">V3.17—V3.19 增量<small>AI 额度参数、菜单二级化、用户反馈</small></a>
         <a href="#vocabulary_dataset_catalog">vocabulary_dataset_catalog<small>词库数据源目录</small></a>
         <a href="#vocabulary_import_batch">vocabulary_import_batch<small>词库导入批次</small></a>
         <a href="#vocabulary_import_item">vocabulary_import_item<small>词库导入行与审核</small></a>
@@ -46,6 +48,7 @@
         <a href="#article_word_glossary">article_word_glossary<small>&#x77ED;&#x6587;&#x70B9;&#x8BCD;&#x8865;&#x5145;&#x8BCD;&#x6C47;</small></a>
         <a href="#content_source">content_source<small>&#x516C;&#x5F00;&#x5185;&#x5BB9;&#x6765;&#x6E90;</small></a>
         <a href="#content_version">content_version<small>&#x5B66;&#x4E60;&#x5185;&#x5BB9;&#x7248;&#x672C;</small></a>
+        <a href="#article-paragraph-explanation">article_paragraph_explanation<small>英语短文段落解释与生成占位</small></a>
         <a href="#learning_content">learning_content<small>&#x516C;&#x5F00;&#x5B66;&#x4E60;&#x5185;&#x5BB9;</small></a>
         <a href="#learning_event">learning_event<small>&#x4E2A;&#x4EBA;&#x5B66;&#x4E60;&#x4E8B;&#x4EF6;</small></a>
         <a href="#learning_record">learning_record<small>&#x4E2A;&#x4EBA;&#x5B66;&#x4E60;&#x72B6;&#x6001;</small></a>
@@ -155,6 +158,36 @@
           <h2>V3.16.3 <span>系统参数软删除</span></h2>
           <p class="meta">app_parameter 增加 del_is。Web 管理端删除操作只设置 del_is=1、state=inactive 并递增 version_no；运行时读取和管理端默认列表始终过滤 del_is=0。</p>
         </section>
+        <section id="v317-319-changelog">
+          <h2>V3.17 — V3.19 <span>AI 额度参数、菜单二级化与用户反馈</span></h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.17_ai_daily_limit_params.sql</code>、<code>V3.18_admin_menu_hierarchy_ai_usage.sql</code>、<code>V3.19_admin_feedback_menu.sql</code>；三个脚本均幂等，可重复执行。表中唯二的结构变更是 V3.18 给 <code>admin_menu</code> 增加的 <code>parent_id</code> / <code>description</code>，其余为参数行与菜单行数据。</p>
+
+          <h3>V3.17 AI 每日额度参数（无表结构变更）</h3>
+          <table><thead><tr><th>参数键</th><th>默认值</th><th>说明</th></tr></thead><tbody>
+            <tr><td><code>ai.personal_daily_limit</code></td><td>10</td><td>单个用户每天可发起的 AI 请求次数上限；写入 app_parameter（普通参数，is_secret=0）。</td></tr>
+            <tr><td><code>ai.global_daily_limit</code></td><td>200</td><td>全站每天 AI 请求总量上限。</td></tr>
+          </tbody></table>
+          <p>运行时读取顺序：<code>app_parameter</code>（管理端可改）→ 代码兜底默认值（<code>AppProperties.Ai</code>，10 / 200）。<code>application.yml</code> 不再配置这两项。改参数时立即同步「当天」的 <code>ai_daily_quota</code> 快照：个人参数更新所有用户作用域行，全站参数更新全站（全 0）与系统（全 f）行；<strong>历史日期不回溯</strong>。参数非法（如填 abc）时回退兜底默认，不会写坏额度。</p>
+          <p><code>ai_daily_quota</code> 语义回顾：每个 <code>quota_date</code> × <code>scope_key</code> 一行；<code>scope_key</code> 为小程序用户 ID（个人额度）、32 个 0（全站汇总）、32 个 f（系统调用）；<code>limit_count</code> 是当天生效上限的快照，<code>used_count</code> 是当天已用次数。</p>
+
+          <h3>V3.18 admin_menu 两级化（表结构变更）</h3>
+          <p>新增 <code>parent_id</code>（指向一级菜单的 admin_menu.id，空表示自身即一级）与 <code>description</code>（菜单概述）。同时写入四个一级分组与相关二级菜单：</p>
+          <table><thead><tr><th>菜单 code</th><th>名称</th><th>层级 / 路由</th><th>说明</th></tr></thead><tbody>
+            <tr><td><code>group_content</code></td><td>内容与来源</td><td>一级（sort 20）</td><td>词书、词条、批次与短文内容的来源与发布状态。</td></tr>
+            <tr><td><code>group_users</code></td><td>用户与学习</td><td>一级（sort 60）</td><td>用户账号状态与个人学习进度。</td></tr>
+            <tr><td><code>group_ai</code></td><td>AI 与费用</td><td>一级（sort 80）</td><td>模型配置、月预算、用量日志与调用追溯。</td></tr>
+            <tr><td><code>group_system</code></td><td>系统运维</td><td>一级（sort 100）</td><td>任务运行、系统参数与角色权限。</td></tr>
+            <tr><td><code>ai_usage</code></td><td>AI 用量日志</td><td>二级 / <code>/ai-usage</code>（parent=group_ai）</td><td>每天每个用户的 AI 用量、成功失败与费用。</td></tr>
+          </tbody></table>
+          <p><code>overview</code>（概览）保持一级单项；原有二级菜单（content / words / imports / articles / users / jobs / ai / ai_audit / parameters / roles）补写 <code>parent_id</code>。菜单为空的 <code>path</code> 表示该行只是分组标题，不参与路由。接口与菜单码的权限映射：<code>/api/admin/ai/usage-logs</code> → <code>ai_usage</code>（由 <code>AdminSessionFilter</code> 校验）。</p>
+
+          <h3>V3.19 用户反馈菜单（仅数据）</h3>
+          <p>新增 <code>feedback</code>（用户反馈，<code>/feedback</code>，parent=group_users，sort 61）。数据来源就是既有的 <code>user_feedback</code> 表 —— 概览页「待处理事项」统计的 <code>state='open'</code> 行数；管理端可查看反馈正文与详情，并把状态在 <code>open</code> / <code>handled</code> 间流转（写 <code>admin_audit</code> 审计），<strong>不新增表、不新增回复字段</strong>。</p>
+
+          <h3>AI 用量日志的数据口径（不新增日志表）</h3>
+          <p>管理端「AI 用量日志」直接按 <code>quota_date</code> × 用户聚合既有事实表：额度、已用、剩余取 <code>ai_daily_quota</code>；成功 / 失败 / 处理中次数、输入输出 Token 与费用取 <code>ai_attempt</code>（<code>owner_id</code> 关联 <code>app_user</code>，全站与系统作用域自然排除）。单次查询区间上限 92 天，手机号在接口层脱敏。</p>
+        </section>
+
         <section id="vocabulary_dataset_catalog">
           <h2>vocabulary_dataset_catalog <span>词库数据源目录</span></h2>
           <p class="meta">可授权、可追溯的数据集及上传内容快照；source_payload 不对客户端下发。</p>
@@ -13176,6 +13209,21 @@
           <p>索引：PRIMARY(id)；uk_word_card_version_key(content_version_id,card_key)；idx_word_card_public(content_version_id,del_is,state,review_status,sort_no)。关联为应用层约束，未添加物理外键。接口 GET /api/learning/contents/{id}/learning-cards 要求用户会话，仅返回已发布且审核通过的词条当前版本；每类最多 6 张。页面首次只展示每组一张，相近词／词族默认折叠。</p>
           <p>迁移：05_code/backend/sql/V3.16.5_word_learning_cards.sql。初始文件 word-learning-cards.json 为 candy、beautiful、learn、apple 共 18 张原创／知识点参考模板，按现有已发布词条及中文释义匹配显式导入，不承诺全词库覆盖。无未经核验影视台词或歌词，无自动付费合成；原 pronunciation → media_asset → OSS 数据保持不变。维护说明：05_code/backend/tools/WORD_LEARNING_CARDS.md。</p>
         </section>
+        <section id="article-paragraph-explanation">
+          <h2>article_paragraph_explanation — V3.16.13 英语短文段落解释缓存</h2>
+          <p>小程序点击“解释这段内容”时，后端只接受段落 ID，并从当前已发布且审核通过的短文版本读取英文原文；客户端不得提交任意提示词作为缓存键。按版本、段落与原文 SHA-256 唯一定位。首次生成成功后保存解释，后续用户直接读取同一解释；短文换版或段落原文变化时不会误用旧缓存。缓存只保存解释文字，不保存模型密钥或用户凭据。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>解释记录 ID。</td></tr>
+            <tr><td>content_version_id</td><td>CHAR(32)，非空</td><td>对应已发布的 content_version.id；由服务层校验。</td></tr>
+            <tr><td>paragraph_id</td><td>VARCHAR(64)，非空</td><td>短文版本内稳定段落键，与 article_blocks.paragraph_id 一致。</td></tr>
+            <tr><td>source_hash</td><td>BINARY(32)，非空</td><td>该段英文原文的 SHA-256；即使历史版本被修订也不会命中不匹配的解释。</td></tr>
+            <tr><td>explanation</td><td>MEDIUMTEXT，可空</td><td>生成成功后的中文解释，包含自然译文、关键词与语法；占位期间为空。</td></tr>
+            <tr><td>state</td><td>VARCHAR(16)，默认 generating</td><td>generating 生成中、ready 可复用；失败时删除占位以便重试。</td></tr>
+            <tr><td>claim_token / lease_until</td><td>CHAR(32) / DATETIME(3)，可空</td><td>跨请求生成占位与超时接管；ready 后清空，避免同段并发重复调用。</td></tr>
+            <tr><td>created_at / updated_at</td><td>DATETIME(3)，当前时间</td><td>数据库时间；不代表内容发布日期。</td></tr>
+          </tbody></table>
+          <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_paragraph_explanation(content_version_id, paragraph_id, source_hash)。短文段落解释为系统内容，使用 ai_job.action_code=explain_article_paragraph 与系统配额、并发和预算门禁；不要求用户获得“问一问”授权，也不进入用户提问历史。缓存命中不调用模型，不增加 Token；跨实例请求等待占位完成，过期占位可接管。迁移脚本：05_code/backend/sql/V3.16.13_article_paragraph_explanation.sql；现有数据库必须先执行迁移，更新本 HTML 不会自动建表。</p>
+        </section>
         <section id="daily-graded-articles">
           <h2>english_article_book / english_article_generation_run — V3.16.7 每日分级短文（2026-09-20）</h2>
           <p>每天按启用的正式词书生成分级英语短文；默认在 Asia/Shanghai 22:30 运行。联网内容只提供选题索引，英文正文由系统原创生成；不得复制第三方正文。短文仍保存到 learning_content / content_version，以下两表只负责词书归属、每日槽位、目标词快照及运行审计。迁移同时登记 content_source：知行日课每日分词书英语短文（source_type=ai_original），并在 app_parameter 登记任务开关与每本目标篇数。</p>
@@ -13309,7 +13357,7 @@
         </section>
         <section id="admin-rbac">
           <h2>管理端 RBAC 与登录账号 — V3.16 合并补充</h2>
-          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.4_admin_rbac.sql</code>。管理端账号与小程序用户分离；密码仅保存 PBKDF2 哈希。超级管理员默认拥有全部菜单（含 AI 使用追溯），管理员默认不拥有 AI 使用追溯菜单，后续由超级管理员按角色授权。</p>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.4_admin_rbac.sql</code>。管理端账号与小程序用户分离；密码仅保存 PBKDF2 哈希。超级管理员默认拥有全部菜单（含 AI 使用追溯），管理员默认不拥有 AI 使用追溯菜单，后续由超级管理员按角色授权。 菜单自 V3.18 起分两级：一级为分类分组（<code>group_*</code>），二级为具体页面；V3.18 新增 <code>ai_usage</code>（AI 用量日志），V3.19 新增 <code>feedback</code>（用户反馈），均由迁移脚本按「已有同类权限的角色自动补授」授予。</p>
           <h3 id="admin_role">admin_role — 管理端角色</h3>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>id</td><td>CHAR(32)，主键</td><td>角色 ID。</td></tr><tr><td>code</td><td>VARCHAR(32)，唯一</td><td>稳定角色代码；预置 SUPER_ADMIN、ADMIN。</td></tr><tr><td>name / description</td><td>VARCHAR(80) / VARCHAR(255)</td><td>角色展示名称及职责说明。</td></tr><tr><td>is_system / enabled / sort_order</td><td>TINYINT(1) / TINYINT(1) / SMALLINT UNSIGNED</td><td>系统内置标记、启用状态和排序；仅超级管理员为系统内置角色。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
@@ -13321,6 +13369,8 @@
           <h3 id="admin_menu">admin_menu / <span id="admin_role_menu">admin_role_menu</span> — 菜单与角色授权</h3>
           <table><thead><tr><th>表</th><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>admin_menu</td><td>id</td><td>CHAR(32)，主键</td><td>菜单 ID。</td></tr><tr><td>admin_menu</td><td>code</td><td>VARCHAR(32)，唯一</td><td>稳定菜单代码；<code>ai_audit</code> 对应“AI 使用追溯”。</td></tr><tr><td>admin_menu</td><td>name / path / icon</td><td>VARCHAR(80) / VARCHAR(120) / VARCHAR(12)</td><td>菜单名称、管理端路由和图标。</td></tr><tr><td>admin_menu</td><td>sort_order / enabled / created_at / updated_at</td><td>SMALLINT / TINYINT(1) / DATETIME(3)</td><td>展示排序、启用状态及 UTC 审计时间。</td></tr>
+            <tr><td>admin_menu</td><td>parent_id</td><td>CHAR(32)，可空</td><td><strong>V3.18 新增</strong>。所属一级菜单（分组）的 admin_menu.id；为空表示本身即一级菜单（<code>overview</code> 或 <code>group_content</code> / <code>group_users</code> / <code>group_ai</code> / <code>group_system</code> 分组）。Web 管理端据此把侧栏渲染为一级（浅蓝底分组）＋二级（缩进白底页面）两级，一级菜单默认展开包含当前页的分组。</td></tr>
+            <tr><td>admin_menu</td><td>description</td><td>VARCHAR(200)，可空</td><td><strong>V3.18 新增</strong>。菜单概述：一级菜单上展示该分组的用途说明，二级菜单作为页面用途提示（侧栏 title 与「角色与权限」页的副标题）。</td></tr>
             <tr><td>admin_role_menu</td><td>role_id / menu_id</td><td>CHAR(32) / CHAR(32)，联合主键</td><td>角色与菜单的多对多授权；逻辑关联 admin_role.id、admin_menu.id。</td></tr><tr><td>admin_role_menu</td><td>created_at</td><td>DATETIME(3)</td><td>授权创建时间（UTC）。</td></tr>
           </tbody></table><p>索引：admin_menu PRIMARY(id)、uk_admin_menu_code(code)；admin_role_menu PRIMARY(role_id,menu_id)。</p>
         </section>

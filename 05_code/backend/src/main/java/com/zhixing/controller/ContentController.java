@@ -9,6 +9,7 @@ import com.zhixing.service.SessionService;
 import com.zhixing.service.AliyunTtsService;
 import com.zhixing.service.FollowRecordingService;
 import com.zhixing.service.ArticleWordGlossaryService;
+import com.zhixing.service.ArticleParagraphExplanationService;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -23,13 +24,15 @@ public class ContentController {
     private final AliyunTtsService tts;
     private final FollowRecordingService followRecordings;
     private final ArticleWordGlossaryService articleWords;
+    private final ArticleParagraphExplanationService paragraphExplanations;
 
-    public ContentController(SessionService sessions, ContentService contents,AliyunTtsService tts, FollowRecordingService followRecordings, ArticleWordGlossaryService articleWords) {
+    public ContentController(SessionService sessions, ContentService contents,AliyunTtsService tts, FollowRecordingService followRecordings, ArticleWordGlossaryService articleWords, ArticleParagraphExplanationService paragraphExplanations) {
         this.sessions = sessions;
         this.contents = contents;
         this.tts = tts;
         this.followRecordings = followRecordings;
         this.articleWords = articleWords;
+        this.paragraphExplanations = paragraphExplanations;
     }
 
     @GetMapping("/{id}")
@@ -74,6 +77,12 @@ public class ContentController {
 
     @PostMapping("/{id}/words/{term}/lookup")
     public Map<String,Object> articleWordLookup(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id,@PathVariable String term){return articleWords.ensure(user(auth),id,term);}
+
+    @PostMapping("/{id}/paragraphs/{paragraphId}/explanation")
+    public Map<String,Object> paragraphExplanation(@RequestHeader(value="Authorization",required=false) String auth,
+                                                    @PathVariable String id,@PathVariable String paragraphId) {
+        return paragraphExplanations.explain(user(auth),id,paragraphId);
+    }
 
     @GetMapping("/{id}/follow-recording")
     public Map<String,Object> followRecording(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id){

@@ -193,6 +193,20 @@ CREATE TABLE IF NOT EXISTS content_topic (
   CONSTRAINT uk_content_topic UNIQUE (content_version_id, topic_id)
 );
 
+CREATE TABLE IF NOT EXISTS article_paragraph_explanation (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  content_version_id CHAR(32) NOT NULL,
+  paragraph_id VARCHAR(64) NOT NULL,
+  source_hash BINARY(32) NOT NULL,
+  explanation CLOB,
+  state VARCHAR(16) NOT NULL DEFAULT 'generating',
+  claim_token CHAR(32),
+  lease_until TIMESTAMP(3),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_article_paragraph_explanation UNIQUE (content_version_id, paragraph_id, source_hash)
+);
+
 CREATE TABLE IF NOT EXISTS english_article_book (
   id CHAR(32) NOT NULL PRIMARY KEY,
   content_id CHAR(32) NOT NULL,
@@ -911,6 +925,7 @@ CREATE INDEX IF NOT EXISTS idx_admin_account_role ON admin_account(role_id);
 CREATE TABLE IF NOT EXISTS admin_menu (
  id CHAR(32) NOT NULL PRIMARY KEY, code VARCHAR(32) NOT NULL, name VARCHAR(80) NOT NULL,
  path VARCHAR(120) NOT NULL, icon VARCHAR(12), sort_order SMALLINT NOT NULL DEFAULT 0,
+ parent_id CHAR(32), description VARCHAR(200),
  enabled SMALLINT NOT NULL DEFAULT 1, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT uk_admin_menu_code UNIQUE(code)

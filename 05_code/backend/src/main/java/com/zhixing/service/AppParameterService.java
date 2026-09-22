@@ -14,6 +14,20 @@ import java.util.*;
 @Service
 public class AppParameterService {
     public static final String NLS_TEMPORARY_TOKEN = "ALIYUN_NLS_TEMPORARY_TOKEN";
+    /** AI 每日次数上限：个人 / 全局，均由管理端「系统参数」维护。 */
+    public static final String AI_PERSONAL_DAILY_LIMIT = "ai.personal_daily_limit";
+    public static final String AI_GLOBAL_DAILY_LIMIT = "ai.global_daily_limit";
+    /** 与 AiService 保持一致的全局 / 系统作用域键（额度汇总行，不属于任何用户）。 */
+    public static final String GLOBAL_SCOPE = "00000000000000000000000000000000";
+    public static final String SYSTEM_SCOPE = "ffffffffffffffffffffffffffffffff";
+
+    /** 数值型运行参数：数据库显式值优先；缺失或非法时回退到调用方给出的兜底值。 */
+    public int intValue(String key,int fallback,int min,int max){
+        String raw=optionalStored(key,null);
+        if(raw==null)return fallback;
+        try{int value=Integer.parseInt(raw.trim());return value<min||value>max?fallback:value;}
+        catch(NumberFormatException exception){return fallback;}
+    }
 
     /** Only an active, non-deleted encrypted database value is usable; no environment/cache fallback. */
     public String requiredStoredSecret(String key) {
@@ -35,7 +49,23 @@ public class AppParameterService {
 
     private final AppParameterMapper parameters;
     private final AppProperties properties;
-    public AppParameterService(AppParameterMapper parameters,AppProperties properties) { this.parameters = parameters;this.properties=properties; }
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    public AppParameterService(AppParameterMapper parameters,AppProperties properties,org.springframework.jdbc.core.JdbcTemplate jdbc) { this.parameters = parameters;this.properties=properties;this.jdbc=jdbc; }
+
+    /**
+     * AI 每日额度参数一旦在管理端改动，立即同步「今天」的额度快照行，
+     * 否则 ai_daily_quota 里当天仍是旧上限（要等下一次 AI 调用才刷新），
+     * 会出现「参数已改 120，用量日志仍显示 7/10」的不一致。
+     */
+    private void syncDailyQuotaSnapshot(String key){
+        if(key==null)return;
+        if(!AI_PERSONAL_DAILY_LIMIT.equalsIgnoreCase(key)&&!AI_GLOBAL_DAILY_LIMIT.equalsIgnoreCase(key))return;
+        int personal=intValue(AI_PERSONAL_DAILY_LIMIT,properties.getAi().getPersonalDailyLimit(),0,100000);
+        int global=intValue(AI_GLOBAL_DAILY_LIMIT,properties.getAi().getGlobalDailyLimit(),0,100000);
+        java.time.LocalDate today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        jdbc.update("UPDATE ai_daily_quota SET limit_count=?,updated_at=CURRENT_TIMESTAMP WHERE quota_date=? AND scope_key NOT IN (?,?)",personal,today,GLOBAL_SCOPE,SYSTEM_SCOPE);
+        jdbc.update("UPDATE ai_daily_quota SET limit_count=?,updated_at=CURRENT_TIMESTAMP WHERE quota_date=? AND scope_key IN (?,?)",global,today,GLOBAL_SCOPE,SYSTEM_SCOPE);
+    }
     public String required(String key) {
         String environment=environment(key);
         if(environment!=null&&!environment.trim().isEmpty())return environment.trim();
@@ -93,7 +123,7 @@ public class AppParameterService {
     public void adminSoftDelete(String id){AppParameterEntity existing=parameters.selectById(id);if(existing==null||existing.getDelIs()!=null&&existing.getDelIs()==1)throw new ApiException(HttpStatus.NOT_FOUND,"PARAMETER_NOT_FOUND","系统参数不存在");existing.setDelIs(1);existing.setState("inactive");existing.setVersionNo(existing.getVersionNo()==null?1:existing.getVersionNo()+1);parameters.updateById(existing);}
     private Map<String,Object> adminSave(AppParameterEntity existing,Map<String,Object> input,String key){boolean secret=NLS_TEMPORARY_TOKEN.equalsIgnoreCase(key)||bool(input.get("isSecret"));String description=text(input.get("description"),200,"参数说明");String state=choice(input.get("state"),Arrays.asList("active","inactive"),"状态");String entered=nullable(input.get("paramValue"));if(existing==null){if(entered==null)throw new ApiException(HttpStatus.BAD_REQUEST,"PARAMETER_VALUE_REQUIRED","参数值不能为空");existing=new AppParameterEntity();existing.setId(CryptoUtils.randomId());existing.setParamKey(key);existing.setVersionNo(1);}else existing.setVersionNo(existing.getVersionNo()==null?1:existing.getVersionNo()+1);
         if(entered!=null){if(NLS_TEMPORARY_TOKEN.equalsIgnoreCase(key)&&(entered.length()<16||entered.length()>4096))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_NLS_TEMPORARY_TOKEN","请输入有效的临时 NLS Token（16 至 4096 字符）");existing.setParamValue(secret?seal(entered):entered);}else if(existing.getParamValue()==null||!secret||existing.getIsSecret()==null||existing.getIsSecret()!=1)throw new ApiException(HttpStatus.BAD_REQUEST,"PARAMETER_VALUE_REQUIRED","非敏感参数或切换密钥类型时必须填写参数值");
-        existing.setIsSecret(secret?1:0);existing.setDescription(description);existing.setState(state);existing.setDelIs(0);if(parameters.selectById(existing.getId())==null)parameters.insert(existing);else parameters.updateById(existing);return adminItem(existing);}
+        existing.setIsSecret(secret?1:0);existing.setDescription(description);existing.setState(state);existing.setDelIs(0);if(parameters.selectById(existing.getId())==null)parameters.insert(existing);else parameters.updateById(existing);syncDailyQuotaSnapshot(key);return adminItem(existing);}
     private Map<String,Object> adminItem(AppParameterEntity parameter){boolean secret=parameter.getIsSecret()!=null&&parameter.getIsSecret()==1;Map<String,Object> item=new LinkedHashMap<String,Object>();item.put("id",parameter.getId());item.put("paramKey",parameter.getParamKey());item.put("paramValue",secret?null:parameter.getParamValue());item.put("valueDisplay",secret?"已加密保存":parameter.getParamValue());item.put("isSecret",secret);item.put("valueConfigured",parameter.getParamValue()!=null&&!parameter.getParamValue().trim().isEmpty());item.put("description",parameter.getDescription());item.put("state",parameter.getState());item.put("versionNo",parameter.getVersionNo());return item;}
     private String parameterKey(Object value){String key=nullable(value);if(key==null||!key.matches("[A-Za-z][A-Za-z0-9_.-]{0,99}"))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PARAMETER_KEY","参数键须以字母开头，且只包含字母、数字、下划线、点或连字符");return key;}
     private String text(Object value,int max,String label){String result=nullable(value);if(result==null||result.length()>max)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PARAMETER_FIELD",label+"不能为空且长度不能超过 "+max);return result;}

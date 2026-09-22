@@ -6,6 +6,7 @@ import com.zhixing.config.AppProperties;
 import com.zhixing.dto.AiModelSaveRequest;
 import com.zhixing.dto.TtsConfigRequest;
 import com.zhixing.service.AiService;
+import com.zhixing.service.AdminAiUsageService;
 import com.zhixing.service.AiOfficialPricingService;
 import com.zhixing.service.AliyunTtsService;
 import org.springframework.http.HttpStatus;
@@ -17,8 +18,10 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/admin/ai")
 public class AdminAiController {
-    private final AiService ai;private final AiOfficialPricingService pricing;private final AliyunTtsService tts;private final AppProperties properties;
-    public AdminAiController(AiService ai,AiOfficialPricingService pricing,AliyunTtsService tts,AppProperties properties){this.ai=ai;this.pricing=pricing;this.tts=tts;this.properties=properties;}
+    private final AiService ai;private final AiOfficialPricingService pricing;private final AliyunTtsService tts;private final AppProperties properties;private final AdminAiUsageService usage;
+    public AdminAiController(AiService ai,AiOfficialPricingService pricing,AliyunTtsService tts,AppProperties properties,AdminAiUsageService usage){this.ai=ai;this.pricing=pricing;this.tts=tts;this.properties=properties;this.usage=usage;}
+    /** 每天 × 每个用户的用量日志（额度、成功/失败、token、费用） */
+    @GetMapping("/usage-logs") public Map<String,Object> usageLogs(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String dateFrom,@RequestParam(required=false)String dateTo,@RequestParam(required=false)String keyword,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){requireAdmin(token);return usage.logs(dateFrom,dateTo,keyword,page,pageSize);}
     @GetMapping("/models") public List<Map<String,Object>> models(@RequestHeader(value="X-Admin-Token",required=false)String token){requireAdmin(token);return ai.adminModels();}
     @PostMapping("/models") public Map<String,Object> create(@RequestHeader(value="X-Admin-Token",required=false)String token,@Valid @RequestBody AiModelSaveRequest request){requireAdmin(token);return ai.saveModel(null,request);}
     @PutMapping("/models/{id}") public Map<String,Object> update(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String id,@Valid @RequestBody AiModelSaveRequest request){requireAdmin(token);return ai.saveModel(id,request);}

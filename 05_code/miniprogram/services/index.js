@@ -103,6 +103,7 @@ const contentService = {
   titleTranslation(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/title-translation`, method: 'POST', timeout: 65000 }); },
   articleWordSpeech(articleId, term) { return request({ url: `/learning/contents/${encodeURIComponent(articleId)}/words/${encodeURIComponent(term)}/speech`, method: 'POST', timeout: 65000 }); },
   articleWordLookup(articleId, term) { return request({ url: `/learning/contents/${encodeURIComponent(articleId)}/words/${encodeURIComponent(term)}/lookup`, method: 'POST', timeout: 65000 }); },
+  paragraphExplanation(articleId, paragraphId) { return request({ url: `/learning/contents/${encodeURIComponent(articleId)}/paragraphs/${encodeURIComponent(paragraphId)}/explanation`, method: 'POST', timeout: 65000 }); },
   followRecording(id) { return request({ url: `/learning/contents/${encodeURIComponent(id)}/follow-recording` }); },
   uploadFollowRecording(id, filePath, durationMs) {
     return uploadFile(filePath, `/learning/contents/${encodeURIComponent(id)}/follow-recording`, { durationMs: String(durationMs) });

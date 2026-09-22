@@ -112,6 +112,10 @@ DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录�
 
 部署读取 `content_version.title_translation` 的后端前，先对实际连接的 MySQL 执行 `sql/V3.16.12_article_title_translation.sql`；此前的 `sql/V3.16.11_article_word_on_demand.sql` 也必须已执行。`dev`/`prod` 的 `spring.sql.init.mode=never`，仅修改 `schema.sql` 不会更新现有数据库。新生成短文保存标题译文，旧短文在小程序打开时按需生成并保存；译文生成依赖模型配置，会增加一次调用费用。
 
+## 英语短文段落解释缓存迁移
+
+部署新版后端前，对实际连接的 MySQL 执行 `sql/V3.16.13_article_paragraph_explanation.sql`。小程序点击“解释这段内容”时，后端按已发布短文版本、段落 ID 和英文原文哈希读取缓存；首次生成成功后保存，后续请求直接读取，不再次调用模型。同一段落并发请求由数据库生成占位协调；失败可重试，过期占位可接管。段落解释属于短文系统内容，不要求用户获得“问一问”授权，但仍受系统 AI 配额、并发和预算约束；缓存命中不消耗 Token。系统调用使用独立的 `explain_article_paragraph` 任务类型，不进入用户提问历史；旧版误记为提问的短文解释也从历史列表中隐藏，审计和费用记录保留。`schema.sql` 只用于新建测试库，不会自动迁移现有 `dev`/`prod` 数据库。
+
 ## F02 媒体配置
 
 `MEDIA_BASE_URL` 是媒体代理的公网 HTTPS 地址，例如 `https://api.example.com/api/media`。头像数据只保留该受控引用；代理会签发短时 OSS 地址。不要使用本机地址或把 OSS 密钥放进小程序。

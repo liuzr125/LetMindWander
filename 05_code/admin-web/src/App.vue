@@ -12,14 +12,47 @@ const loginForm = ref({ username: 'superadmin', password: '' })
 const loginError = ref('')
 const loggingIn = ref(false)
 const profile = ref(null)
-const menuDefinitions = [
-  { code:'overview', path:'/overview', icon:'⌂', name:'概览' }, { code:'content', path:'/content', icon:'◇', name:'内容与来源' },
-  { code:'words', path:'/words', icon:'Aa', name:'英语单词' }, { code:'imports', path:'/vocabulary-imports', icon:'⇄', name:'词库批次' },
-  { code:'articles', path:'/articles', icon:'En', name:'英语短文' }, { code:'users', path:'/users', icon:'●', name:'用户状态' },
-  { code:'jobs', path:'/jobs', icon:'□', name:'任务与运行' }, { code:'ai', path:'/ai', icon:'AI', name:'AI 模型与费用' }, { code:'ai_audit', path:'/ai-audit', icon:'◉', name:'AI 使用追溯' },
-  { code:'parameters', path:'/parameters', icon:'⚙', name:'系统参数' }, { code:'roles', path:'/roles', icon:'♙', name:'角色与权限' }
+const fallbackMenuItems = [
+  { code:'overview', path:'/overview', icon:'⌂', name:'概览', description:'平台总体数据与待处理事项' },
+  { code:'group_content', path:'', icon:'◇', name:'内容与来源', description:'词书、词条、批次与短文内容的来源与发布状态' },
+  { code:'content', path:'/content', icon:'◇', name:'内容与来源', parentCode:'group_content', description:'内容来源、词条与文章明细' },
+  { code:'words', path:'/words', icon:'Aa', name:'英语单词', parentCode:'group_content', description:'词书词条、学段与发音' },
+  { code:'imports', path:'/vocabulary-imports', icon:'⇄', name:'词库批次', parentCode:'group_content', description:'词库批次导入与发布' },
+  { code:'articles', path:'/articles', icon:'En', name:'英语短文', parentCode:'group_content', description:'每日英语短文与讲解' },
+  { code:'group_users', path:'', icon:'●', name:'用户与学习', description:'用户账号状态与个人学习进度' },
+  { code:'users', path:'/users', icon:'●', name:'用户状态', parentCode:'group_users', description:'用户状态、额度与学习进度' },
+  { code:'feedback', path:'/feedback', icon:'✉', name:'用户反馈', parentCode:'group_users', description:'用户提交的反馈正文、详情与处理状态' },
+  { code:'group_ai', path:'', icon:'AI', name:'AI 与费用', description:'模型配置、月预算、用量日志与调用追溯' },
+  { code:'ai', path:'/ai', icon:'AI', name:'AI 模型与费用', parentCode:'group_ai', description:'模型配置与月预算' },
+  { code:'ai_audit', path:'/ai-audit', icon:'◉', name:'AI 使用追溯', parentCode:'group_ai', description:'按问题追溯模型调用' },
+  { code:'ai_usage', path:'/ai-usage', icon:'▦', name:'AI 用量日志', parentCode:'group_ai', description:'每天每个用户的用量与费用' },
+  { code:'group_system', path:'', icon:'⚙', name:'系统运维', description:'任务运行、系统参数与角色权限' },
+  { code:'jobs', path:'/jobs', icon:'□', name:'任务与运行', parentCode:'group_system', description:'定时任务与运行结果' },
+  { code:'parameters', path:'/parameters', icon:'⚙', name:'系统参数', parentCode:'group_system', description:'AI 额度等运行参数' },
+  { code:'roles', path:'/roles', icon:'♙', name:'角色与权限', parentCode:'group_system', description:'角色、账号与菜单权限' }
 ]
-const visibleMenus = computed(() => menuDefinitions.filter(item => profile.value?.menus?.includes(item.code)))
+function readItem(item, key) { const raw = item[key] ?? item[key.toUpperCase()] ?? null; return typeof raw === 'string' ? raw : raw }
+const menuSource = computed(() => {
+  const server = profile.value?.menuItems
+  if (!Array.isArray(server) || !server.length) return fallbackMenuItems
+  const codeById = new Map(server.map(item => [readItem(item, 'id'), readItem(item, 'code')]))
+  return server.map(item => ({
+    code: readItem(item, 'code'), name: readItem(item, 'name'), path: readItem(item, 'path') || '', icon: readItem(item, 'icon'),
+    description: readItem(item, 'description'), parentCode: readItem(item, 'parentId') ? (codeById.get(readItem(item, 'parentId')) || null) : null
+  }))
+})
+const visibleMenus = computed(() => menuSource.value.filter(item => profile.value?.menus?.includes(item.code)))
+/** 一级菜单=分类，二级菜单=具体页面；父级不可见的子菜单仍单独展示，避免菜单丢失。 */
+const navItems = computed(() => {
+  const list = visibleMenus.value, groups = []
+  list.filter(item => !item.parentCode).forEach(item => groups.push({ ...item, children: list.filter(child => child.parentCode === item.code) }))
+  list.filter(item => item.parentCode && !groups.some(group => group.code === item.parentCode)).forEach(item => groups.push({ ...item, children: [] }))
+  return groups
+})
+const openGroups = ref({})
+const activeGroup = computed(() => (navItems.value.find(group => group.children.some(child => child.path === route.path)) || {}).code || '')
+function groupOpen(group) { return openGroups.value[group.code] === undefined ? group.code === activeGroup.value : openGroups.value[group.code] }
+function toggleGroup(group) { openGroups.value = { ...openGroups.value, [group.code]: !groupOpen(group) } }
 let timer
 
 const pageTitle = computed(() => route.meta.title || '管理端')
@@ -68,7 +101,20 @@ onBeforeUnmount(() => {
         <div><strong>脑袋开小灶</strong><span>管理端</span></div>
       </div>
       <nav class="side-nav">
-        <RouterLink v-for="item in visibleMenus" :key="item.code" :to="item.path"><b>{{ item.icon }}</b><span>{{ item.name }}</span></RouterLink>
+        <template v-for="group in navItems" :key="group.code">
+          <RouterLink v-if="!group.children.length" class="nav-link" :to="group.path"><b>{{ group.icon }}</b><span>{{ group.name }}</span></RouterLink>
+          <div v-else class="nav-group">
+            <button type="button" class="nav-group-head" @click="toggleGroup(group)">
+              <b>{{ group.icon }}</b><span>{{ group.name }}</span><i class="nav-chevron">{{ groupOpen(group) ? '⌃' : '⌄' }}</i>
+            </button>
+            <div v-show="groupOpen(group)" class="nav-children">
+              <small v-if="group.description" class="nav-group-desc">{{ group.description }}</small>
+              <RouterLink v-for="child in group.children" :key="child.code" class="nav-link nav-child" :to="child.path" :title="child.description || child.name">
+                <span>{{ child.name }}</span>
+              </RouterLink>
+            </div>
+          </div>
+        </template>
       </nav>
       <div class="admin-card">
         <span class="admin-avatar">●</span>

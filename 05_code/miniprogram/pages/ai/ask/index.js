@@ -20,7 +20,7 @@ Page({
         if (!this.pendingAutoSend) return;
         this.pendingAutoSend = false;
         if (info.consentGranted && model && model.available) this.send();
-        else if (!info.consentGranted) wx.showToast({ title: 'AI 功能尚未由管理员授权', icon: 'none', duration: 3000 });
+        else if (!info.consentGranted) wx.showToast({ title: '问一问尚未授权', icon: 'none', duration: 3000 });
       });
     }).catch((error) => this.setData({ loading: false, error: error.message || 'AI 配置加载失败' }));
   },
@@ -35,7 +35,7 @@ Page({
     const question = (this.data.question || '').trim(); const model = this.data.model;
     if (!question) return wx.showToast({ title: '请输入问题', icon: 'none' });
     if (!model || !model.available) return wx.showToast({ title: model ? model.statusText : '暂无可用模型', icon: 'none' });
-    if (!this.data.modelInfo.consentGranted) return wx.showToast({ title: 'AI 功能尚未由管理员授权', icon: 'none' });
+    if (!this.data.modelInfo.consentGranted) return wx.showToast({ title: '问一问尚未授权', icon: 'none' });
     this.setData({ sending: true, answer: null });
     aiService.ask({ question }, `${Date.now()}-${Math.random().toString(36).slice(2)}`)
       .then((answer) => { this.setData({ sending: false, answer, question: '' }); return aiService.history(20); })

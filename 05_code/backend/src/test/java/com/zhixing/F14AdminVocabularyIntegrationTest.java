@@ -21,6 +21,14 @@ class F14AdminVocabularyIntegrationTest {
     private static final String BOOK="f1400000000000000000000000000001",SOURCE="f1400000000000000000000000000002";
 
     @BeforeEach void seed(){
+        jdbc.update("DELETE FROM pronunciation WHERE content_version_id LIKE 'e14%'");
+        jdbc.update("DELETE FROM word_example WHERE sense_id LIKE 'a14%'");
+        jdbc.update("DELETE FROM word_sense WHERE content_version_id LIKE 'e14%'");
+        jdbc.update("DELETE FROM vocabulary_book_word WHERE book_id=?",BOOK);
+        jdbc.update("DELETE FROM content_version WHERE content_id LIKE 'f14%'");
+        jdbc.update("DELETE FROM learning_content WHERE id LIKE 'f14%'");
+        jdbc.update("DELETE FROM vocabulary_book WHERE id=?",BOOK);
+        jdbc.update("DELETE FROM content_source WHERE id=?",SOURCE);
         jdbc.update("INSERT INTO content_source(id,name,source_type,license_note,enabled) VALUES(?,?,'manual',?,1)",SOURCE,"管理端词书测试","测试许可");
         jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,description,word_count,sort_no,state) VALUES(?,?,?,?,?,?,30,1,'active')",BOOK,"f14-book","分页测试词书","school","primary","验证成员实时计数");
         for(int i=1;i<=25;i++){
@@ -58,5 +66,22 @@ class F14AdminVocabularyIntegrationTest {
                 .andExpect(jsonPath("$.senses[0].examples[0].translation").value("穿一件暖和的外套。"))
                 .andExpect(jsonPath("$.pronunciations[0].accent").value("uk"))
                 .andExpect(jsonPath("$.sourceName").value("管理端词书测试"));
+    }
+
+    @Test void adminCanFilterBookWordsByStage() throws Exception {
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage","primary"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.stage").value("primary"))
+                .andExpect(jsonPath("$.total").value(25)).andExpect(jsonPath("$.items[0].stage").value("primary"));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage","junior"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0)).andExpect(jsonPath("$.items.length()").value(0));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage","unclassified"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage","primary").param("keyword","word1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(11)).andExpect(jsonPath("$.totalPages").value(1));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage","primary").param("page","2").param("pageSize","10"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(25)).andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.items[0].wordTerm").value("word11"));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage",new String(new char[33]).replace('\0','j')))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_STAGE"));
     }
 }

@@ -67,6 +67,28 @@ public class VocabularyImportService {
         Map<String,Object> result=new LinkedHashMap<String,Object>();result.put("deleted",true);result.put("datasetName",string(source,"dataset_name"));result.put("removedOnlineWords",words);return result;
     }
 
+    /** Deletes a staged import batch with its rows and TTS tasks; published batches stay for traceability. */
+    @Transactional
+    public Map<String,Object> deleteBatch(String batchId,String adminId) {
+        Map<String,Object> batch=one("SELECT b.*,d.dataset_name FROM vocabulary_import_batch b JOIN vocabulary_dataset_catalog d ON d.id=b.dataset_id WHERE b.id=? FOR UPDATE",batchId);
+        if(batch==null)throw fail(HttpStatus.NOT_FOUND,"IMPORT_BATCH_NOT_FOUND","词库批次不存在或已删除");
+        String state=string(batch,"state");
+        if("published".equals(state))throw fail(HttpStatus.CONFLICT,"IMPORT_BATCH_PUBLISHED","批次已发布，删除会破坏线上词书与历史快照，已拒绝");
+        if("running".equals(state))throw fail(HttpStatus.CONFLICT,"IMPORT_BATCH_RUNNING","批次正在执行，请先暂停或等待结束后再删除");
+        int items=count("SELECT COUNT(*) FROM vocabulary_import_item WHERE batch_id=?",batchId);
+        int tasks=count("SELECT COUNT(*) FROM tts_generation_task WHERE batch_id=?",batchId);
+        jdbc.update("DELETE FROM vocabulary_import_item WHERE batch_id=?",batchId);
+        jdbc.update("DELETE FROM tts_generation_task WHERE batch_id=?",batchId);
+        jdbc.update("DELETE FROM vocabulary_import_batch WHERE id=?",batchId);
+        Map<String,Object> metadata=new LinkedHashMap<String,Object>();
+        metadata.put("datasetName",string(batch,"dataset_name"));metadata.put("batchState",state);
+        metadata.put("removedItems",items);metadata.put("removedTtsTasks",tasks);
+        audit(adminId,"vocabulary_import_batch_delete","vocabulary_import_batch",batchId,"succeeded",metadata);
+        Map<String,Object> result=new LinkedHashMap<String,Object>();
+        result.put("deleted",true);result.put("batchId",batchId);result.put("datasetName",string(batch,"dataset_name"));
+        result.put("batchState",state);result.put("removedItems",items);result.put("removedTtsTasks",tasks);return result;
+    }
+
     @Transactional
     public Map<String,Object> createBatch(String datasetId, String targetBookId, Map<String,Object> options, String adminId) {
         Map<String,Object> dataset = one("SELECT * FROM vocabulary_dataset_catalog WHERE id=? AND enabled=1",datasetId);

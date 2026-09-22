@@ -29,12 +29,25 @@ INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b9','parameters','系统参数','/parameters','⚙',100,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='parameters');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000ba','roles','角色与权限','/roles','♙',110,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='roles');
 
+-- 一级菜单（分组）：侧栏按类型折叠展示，一级菜单上带该组的概述
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c1','group_content','内容与来源','','◇',20,1,NULL,'词书、词条、批次与短文内容的来源与发布状态' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_content');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c2','group_users','用户与学习','','●',60,1,NULL,'用户账号状态与个人学习进度' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_users');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c3','group_ai','AI 与费用','','AI',80,1,NULL,'模型配置、月预算、用量日志与调用追溯' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_ai');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c4','group_system','系统运维','','⚙',100,1,NULL,'任务运行、系统参数与角色权限' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_system');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000bc','ai_usage','AI 用量日志','/ai-usage','▦',91,1,'00000000000000000000000000c3','每天每个用户的 AI 用量、成功失败与费用' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='ai_usage');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000bd','feedback','用户反馈','/feedback','✉',61,1,'00000000000000000000000000c2','用户提交的问题反馈正文、详情与处理状态' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='feedback');
+
+UPDATE admin_menu SET parent_id='00000000000000000000000000c1' WHERE code IN ('content','words','imports','articles');
+UPDATE admin_menu SET parent_id='00000000000000000000000000c2' WHERE code='users';
+UPDATE admin_menu SET parent_id='00000000000000000000000000c3' WHERE code IN ('ai','ai_audit','ai_usage');
+UPDATE admin_menu SET parent_id='00000000000000000000000000c4' WHERE code IN ('jobs','parameters','roles');
+
 INSERT INTO admin_role_menu (role_id,menu_id)
 SELECT '00000000000000000000000000a1',id FROM admin_menu
 WHERE NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a1' AND menu_id=admin_menu.id);
 INSERT INTO admin_role_menu (role_id,menu_id)
 SELECT '00000000000000000000000000a2',id FROM admin_menu
-WHERE code IN ('overview','content','words','imports','articles','users','jobs','ai','parameters')
+WHERE code IN ('overview','content','words','imports','articles','users','feedback','jobs','ai','ai_audit','ai_usage','parameters','group_content','group_users','group_ai','group_system')
 AND NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a2' AND menu_id=admin_menu.id);
 
 INSERT INTO ai_model_config (id,provider_code,model_code,display_name,specification,base_url,api_key_param_key,enabled,is_default,max_output_tokens,timeout_seconds)

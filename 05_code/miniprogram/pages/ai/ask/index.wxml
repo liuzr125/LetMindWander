@@ -6,9 +6,9 @@
     <view class="compose-card">
       <view class="model-row"><view><text class="label">回答模型</text><text class="model-status">{{model ? model.statusText : '暂无模型'}}</text></view><view class="model-name">{{model ? model.displayText : '由管理员配置'}}</view></view>
       <textarea value="{{question}}" maxlength="8000" placeholder="例如：请用一个生活中的例子解释 RAG" bindinput="inputQuestion" />
-      <view class="compose-foot"><text>{{question.length}} / 8000</text><button loading="{{sending}}" disabled="{{sending || !model || !model.available}}" bindtap="send">{{sending ? '正在思考' : '发送'}}</button></view>
+      <view class="compose-foot"><text>{{question.length}} / 8000</text><button loading="{{sending}}" disabled="{{sending || !model || !model.available || !modelInfo.consentGranted}}" bindtap="send">{{sending ? '正在思考' : '发送'}}</button></view>
     </view>
-    <view wx:if="{{!modelInfo.consentGranted}}" class="consent"><text>AI 使用权限尚未由管理员授权，请联系管理员开通。</text></view>
+    <view wx:if="{{!modelInfo.consentGranted}}" class="consent"><text>问一问尚未授权，暂不能主动提问；短文中的翻译、点词和段落解释仍可使用。</text></view>
     <view wx:if="{{answer}}" class="answer-card"><view class="answer-head"><text>AI 回答</text><text>{{answer.modelName}} · {{answer.specification}}</text></view><text class="answer-body" user-select="true">{{answer.answer}}</text><text class="usage">{{answer.inputTokens}} 输入 + {{answer.outputTokens}} 输出 token · {{answer.cost}} {{answer.currency}}</text></view>
     <view class="history-head"><text>提问记录</text></view>
     <view wx:if="{{!history.length}}" class="empty">还没有提问记录</view>

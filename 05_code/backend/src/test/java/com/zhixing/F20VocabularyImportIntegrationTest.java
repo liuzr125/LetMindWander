@@ -44,6 +44,24 @@ class F20VocabularyImportIntegrationTest {
         mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.items[0].contentState").value("published"));
+        mvc.perform(delete("/api/admin/vocabulary/import-batches/{id}",batchId).header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IMPORT_BATCH_PUBLISHED"));
+        String second=mvc.perform(post("/api/admin/vocabulary/import-batches").header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content(batchJson))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String secondId=idOf(second,"batchId");
+        mvc.perform(post("/api/admin/vocabulary/import-batches/{id}/start",secondId).header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("ready_for_review"));
+        mvc.perform(delete("/api/admin/vocabulary/import-batches/{id}",secondId).header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deleted").value(true))
+                .andExpect(jsonPath("$.batchState").value("ready_for_review")).andExpect(jsonPath("$.removedItems").value(2));
+        mvc.perform(get("/api/admin/vocabulary/import-batches/{id}",secondId).header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("IMPORT_BATCH_NOT_FOUND"));
+        mvc.perform(get("/api/admin/vocabulary/import-batches").header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(delete("/api/admin/vocabulary/import-batches/{id}","f2999999999999999999999999999999").header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("IMPORT_BATCH_NOT_FOUND"));
+        mvc.perform(delete("/api/admin/vocabulary/import-batches/{id}",batchId).header("X-Admin-Token",""))
+                .andExpect(status().isUnauthorized());
     }
 
     private String idOf(String json,String key){java.util.regex.Matcher matcher=java.util.regex.Pattern.compile("\\\""+key+"\\\":\\\"([^\\\"]+)\\\"").matcher(json);if(!matcher.find())throw new AssertionError("missing "+key);return matcher.group(1);}

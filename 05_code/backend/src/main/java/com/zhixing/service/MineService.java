@@ -14,9 +14,9 @@ import java.util.*;
 
 @Service
 public class MineService {
- private static final ZoneId ZONE=ZoneId.of("Asia/Shanghai"); private final MineMapper mine; private final ProfileService profiles;
- public MineService(MineMapper mine,ProfileService profiles){this.mine=mine;this.profiles=profiles;}
- public MineOverviewView overview(String ownerId){LocalDate today=LocalDate.now(ZONE);MineOverviewView v=mine.selectOverview(ownerId,today,today.atStartOfDay(ZONE).toInstant());if(v==null)v=new MineOverviewView();v.setProfile(profiles.findView(ownerId));return v;}
+ private static final ZoneId ZONE=ZoneId.of("Asia/Shanghai"); private final MineMapper mine; private final ProfileService profiles; private final AppParameterService parameters; private final com.zhixing.config.AppProperties properties;
+ public MineService(MineMapper mine,ProfileService profiles,AppParameterService parameters,com.zhixing.config.AppProperties properties){this.mine=mine;this.profiles=profiles;this.parameters=parameters;this.properties=properties;}
+ public MineOverviewView overview(String ownerId){LocalDate today=LocalDate.now(ZONE);MineOverviewView v=mine.selectOverview(ownerId,today,today.atStartOfDay(ZONE).toInstant());if(v==null)v=new MineOverviewView();v.setProfile(profiles.findView(ownerId));v.setAiLimit(parameters.intValue(AppParameterService.AI_PERSONAL_DAILY_LIMIT,properties.getAi().getPersonalDailyLimit(),1,10000));return v;}
  public List<FavoriteView> favorites(String ownerId,String type,String query){return mine.selectFavorites(ownerId,trim(type),trim(query));}
  public PrivacyView privacy(String ownerId){return mine.selectPrivacy(ownerId);}
  @Transactional public PrivacyView requestExport(String ownerId){Instant now=Instant.now();if(mine.countActiveExports(ownerId,now)==0)mine.insertExport(CryptoUtils.randomId(),ownerId,now);return privacy(ownerId);}

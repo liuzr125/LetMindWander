@@ -59,6 +59,8 @@ public class AdminSessionFilter extends OncePerRequestFilter {
         if(path.startsWith("/api/admin/vocabulary-books"))return "words";
         if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/invites")||path.startsWith("/api/admin/admission")||path.startsWith("/api/admin/invite-stats"))return "users";
         if(path.startsWith("/api/admin/collection"))return "jobs";
+        if(path.startsWith("/api/admin/feedback"))return "feedback";
+        if(path.startsWith("/api/admin/ai/usage-logs"))return "ai_usage";
         if(path.startsWith("/api/admin/ai-audit"))return "ai_audit";
         if(path.startsWith("/api/admin/ai"))return "ai";
         if(path.startsWith("/api/admin/parameters"))return "parameters";
@@ -69,7 +71,7 @@ public class AdminSessionFilter extends OncePerRequestFilter {
         byte[] actual=token.getBytes(StandardCharsets.UTF_8),expected=properties.getAdminToken().getBytes(StandardCharsets.UTF_8);
         if(!MessageDigest.isEqual(actual,expected))return null;
         return new AdminPrincipal(properties.getAdminPrincipalId(),"legacy-test-admin","SUPER_ADMIN","测试管理员",
-                new LinkedHashSet<String>(Arrays.asList("overview","content","words","imports","articles","users","jobs","ai","ai_audit","parameters","roles")));
+                new LinkedHashSet<String>(Arrays.asList("overview","group_content","content","words","imports","articles","group_users","users","feedback","jobs","group_ai","ai","ai_audit","ai_usage","group_system","parameters","roles")));
     }
     private static final class LegacyAdminHeaderRequest extends HttpServletRequestWrapper {
         private final String token; LegacyAdminHeaderRequest(HttpServletRequest request,String token){super(request);this.token=token;}

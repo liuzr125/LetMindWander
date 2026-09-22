@@ -49,8 +49,6 @@ app:
     # DeepSeek 官网价格每天北京时间 22:00 自动核验；失败时保留最后一个有效价格版本。
     pricing-sync-enabled: ${AI_PRICING_SYNC_ENABLED:true}
     pricing-sync-cron: "${AI_PRICING_SYNC_CRON:0 0 22 * * *}"
-    personal-daily-limit: ${AI_PERSONAL_DAILY_LIMIT:10}
-    global-daily-limit: ${AI_GLOBAL_DAILY_LIMIT:200}
     personal-concurrency: ${AI_PERSONAL_CONCURRENCY:1}
     global-concurrency: ${AI_GLOBAL_CONCURRENCY:2}
     consent-version: ${AI_CONSENT_VERSION:AI_SEND_V1}
