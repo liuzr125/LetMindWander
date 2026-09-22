@@ -14,14 +14,14 @@
   <view wx:elif="{{error}}" class="state error"><text>{{error}}</text><button bindtap="load">重试</button></view>
   <view wx:elif="{{!books.length}}" class="state">暂无可用词书</view>
   <view wx:else class="book-list">
-    <view wx:for="{{books}}" wx:key="id" class="book-card {{selectedId === item.id ? 'selected' : ''}} {{item.available ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="choose">
+    <view wx:for="{{books}}" wx:key="id" class="book-card {{selectedIndex === index ? 'selected' : ''}} {{item.available ? '' : 'disabled'}}" data-index="{{index}}" hover-class="book-card-hover" hover-stay-time="120" bindtap="choose">
       <view class="book-icon">{{item.initial}}</view>
       <view class="book-main">
         <view class="book-title-row"><text class="book-title">{{item.bookName}}</text><text wx:if="{{item.recommended}}" class="tag">推荐</text></view>
         <text class="book-desc">{{item.description || item.typeLabel}}</text>
         <text class="book-meta">{{item.typeLabel}} · {{item.countText}}</text>
       </view>
-      <view wx:if="{{item.available}}" class="radio"><view wx:if="{{selectedId === item.id}}"></view></view><text wx:else class="preparing">准备中</text>
+      <view wx:if="{{item.available}}" class="radio"><view wx:if="{{selectedIndex === index}}"></view></view><text wx:else class="preparing">准备中</text>
     </view>
   </view>
 
