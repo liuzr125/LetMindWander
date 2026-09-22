@@ -489,6 +489,21 @@ CREATE TABLE IF NOT EXISTS vocabulary_book_study_daily (
 CREATE INDEX IF NOT EXISTS idx_book_study_daily_owner ON vocabulary_book_study_daily (owner_id,business_date);
 CREATE INDEX IF NOT EXISTS idx_book_study_daily_round ON vocabulary_book_study_daily (round_id,business_date);
 
+-- V3.22 「重新学习」记录：每次把某本词书已学词条划回未学时留一条，管理端可见
+CREATE TABLE IF NOT EXISTS vocabulary_book_reset_log (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  owner_id CHAR(32) NOT NULL,
+  book_id CHAR(32) NOT NULL,
+  round_id CHAR(32) NOT NULL,
+  reset_count INT NOT NULL DEFAULT 0,
+  paused_review_count INT NOT NULL DEFAULT 0,
+  reset_at TIMESTAMP(3) NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_book_reset_log UNIQUE (owner_id,book_id,reset_at)
+);
+CREATE INDEX IF NOT EXISTS idx_book_reset_log_round ON vocabulary_book_reset_log (round_id,reset_at);
+CREATE INDEX IF NOT EXISTS idx_book_reset_log_owner ON vocabulary_book_reset_log (owner_id,reset_at);
+
 -- V3.1 英语记忆训练：公共提示和题目只读取已审核版本，用户作答与原学习/复习状态分开记录。
 CREATE TABLE IF NOT EXISTS word_memory_hint (
   id CHAR(32) NOT NULL PRIMARY KEY,

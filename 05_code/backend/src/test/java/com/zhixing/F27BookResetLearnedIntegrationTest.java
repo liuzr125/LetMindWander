@@ -1,6 +1,7 @@
 package com.zhixing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixing.common.CryptoUtils;
 import org.junit.jupiter.api.Test;
@@ -93,9 +94,21 @@ class F27BookResetLearnedIntegrationTest {
         mvc.perform(get("/api/vocabulary-books/current/progress").header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.bookId").value(BOOK_A));
 
-        // 再点一次：没有已学词，重置数为 0 且不报错（幂等）
+        // 管理端详情能看到这次「重新学习」记录
+        String recordId=jdbc.queryForObject("SELECT id FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=? ORDER BY round_no DESC LIMIT 1",String.class,session.userId,BOOK_A);
+        JsonNode detail=utf8(mvc.perform(get("/api/admin/study-records/{recordId}",recordId).header("X-Admin-Token","dev-admin-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.record.resetTimes").value(1))
+                .andExpect(jsonPath("$.record.resetWordTotal").value(2))
+                .andExpect(jsonPath("$.resets[0].resetCount").value(2))
+                .andReturn().getResponse().getContentAsByteArray());
+        assertThat(detail.path("resets").path(0).path("resetAt").asText()).isNotEmpty();
+        assertThat(jdbc.queryForObject("SELECT SUM(reset_count) FROM vocabulary_book_reset_log WHERE owner_id=? AND book_id=?",Integer.class,session.userId,BOOK_A)).isEqualTo(2);
+
+        // 再点一次：没有已学词，重置数为 0 且不报错（幂等，也不产生新的重新学习记录）
         mvc.perform(post("/api/vocabulary-books/current/reset-learned").header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.resetCount").value(0)).andExpect(jsonPath("$.pausedReviewCount").value(0));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM vocabulary_book_reset_log WHERE owner_id=? AND book_id=?",Integer.class,session.userId,BOOK_A)).isEqualTo(1);
     }
 
     @Test void resetRequiresSelectedBookAndSession() throws Exception {
@@ -123,6 +136,7 @@ class F27BookResetLearnedIntegrationTest {
         assertThat(candidates).hasSize(1);
     }
 
+    private JsonNode utf8(byte[] body) throws Exception {return json.readTree(new String(body,java.nio.charset.StandardCharsets.UTF_8));}
     private String learningStatus(String contentId){return jdbc.queryForObject("SELECT learning_status FROM learning_record WHERE owner_id=(SELECT owner_id FROM learning_record WHERE content_id=? LIMIT 1) AND content_id=?",String.class,contentId,contentId);}
     private Object value(String contentId,String column){return jdbc.queryForMap("SELECT "+column+" FROM learning_record WHERE content_id=? LIMIT 1",contentId).values().iterator().next();}
     private String reviewState(String scheduleId){return jdbc.queryForObject("SELECT state FROM review_schedule WHERE id=?",String.class,scheduleId);}

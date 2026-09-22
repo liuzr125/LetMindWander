@@ -5,6 +5,7 @@ import com.zhixing.model.AdminStudyDayView;
 import com.zhixing.model.AdminStudyRecordDetailView;
 import com.zhixing.model.AdminStudyRecordPageView;
 import com.zhixing.model.AdminStudyRecordView;
+import com.zhixing.model.AdminStudyResetView;
 import com.zhixing.model.AdminStudyWordPageView;
 import com.zhixing.model.AdminStudyWordView;
 import org.springframework.http.HttpStatus;
@@ -43,9 +44,12 @@ public class AdminStudyRecordService {
             "r.round_no,r.selected_at,r.ended_at,r.carried_learned_count,r.final_learned_count,r.first_studied_at,r.last_studied_at," +
             "r.study_count,r.reviewed_count,r.study_day_count," +
             "(SELECT COUNT(*) FROM vocabulary_book_word w WHERE w.book_id=r.book_id) total_words," +
-            "CASE WHEN r.ended_at IS NULL THEN "+LIVE_LEARNED+" ELSE COALESCE(r.final_learned_count,0) END learned_words," +
+            "CASE WHEN r.ended_at IS NULL THEN "+LIVE_LEARNED+" ELSE COALESCE(r.final_learned_count,"+LIVE_LEARNED+") END learned_words," +
             "CASE WHEN r.ended_at IS NULL THEN "+LIVE_MASTERED+" ELSE 0 END mastered_words," +
             "CASE WHEN r.ended_at IS NULL THEN "+LIVE_LEARNING+" ELSE 0 END learning_words," +
+            "(SELECT COUNT(*) FROM vocabulary_book_reset_log l WHERE l.round_id=r.id) reset_times," +
+            "(SELECT COALESCE(SUM(l.reset_count),0) FROM vocabulary_book_reset_log l WHERE l.round_id=r.id) reset_word_total," +
+            "(SELECT MAX(l.reset_at) FROM vocabulary_book_reset_log l WHERE l.round_id=r.id) last_reset_at," +
             "EXISTS(SELECT 1 FROM user_vocabulary_book ub WHERE ub.owner_id=r.owner_id AND ub.book_id=r.book_id AND ub.state='active') current_book " +
             "FROM vocabulary_book_study_record r JOIN app_user u ON u.id=r.owner_id JOIN vocabulary_book b ON b.id=r.book_id ";
     private final JdbcTemplate jdbc;
@@ -92,6 +96,7 @@ public class AdminStudyRecordService {
         out.setRecord(record);out.setActiveDays(record.getStudyDayCount());
         out.setDays(days(record));
         out.setRoundNewWords(roundNewWords(record));
+        out.setResets(resets(record.getId()));
         return out;
     }
 
@@ -160,6 +165,18 @@ public class AdminStudyRecordService {
         return jdbc.queryForObject(sql,Integer.class,args.toArray());
     }
 
+    /** 「重新学习」记录：这一轮里每次重置的时间、词数与取消的复习排期数。 */
+    private List<AdminStudyResetView> resets(String roundId){
+        List<AdminStudyResetView> out=new ArrayList<AdminStudyResetView>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT reset_at,reset_count,paused_review_count FROM vocabulary_book_reset_log WHERE round_id=? ORDER BY reset_at DESC",roundId)){
+            AdminStudyResetView item=new AdminStudyResetView();
+            item.setResetAt(instant(row,"reset_at"));
+            item.setResetCount(number(row,"reset_count"));item.setPausedReviewCount(number(row,"paused_review_count"));
+            out.add(item);
+        }
+        return out;
+    }
+
     /** 每日明细：本轮窗口内的「当天新学」（按学习记录实时统计）+ 记录下来的学习/复习动作次数。 */
     private List<AdminStudyDayView> days(AdminStudyRecordView record){
         List<AdminStudyDayView> out=new ArrayList<AdminStudyDayView>();
@@ -200,6 +217,7 @@ public class AdminStudyRecordService {
         String level=text(row,"level_code");out.setLevelCode(level);out.setLevelLabel(levelLabel(level));
         out.setRoundNo(number(row,"round_no"));out.setSelectedAt(instant(row,"selected_at"));out.setEndedAt(instant(row,"ended_at"));
         out.setCarriedLearnedCount(number(row,"carried_learned_count"));
+        out.setResetTimes(number(row,"reset_times"));out.setResetWordTotal(number(row,"reset_word_total"));out.setLastResetAt(instant(row,"last_reset_at"));
         int total=number(row,"total_words")==null?0:number(row,"total_words");
         int learned=number(row,"learned_words")==null?0:number(row,"learned_words");
         out.setTotalWords(total);out.setLearnedWords(learned);

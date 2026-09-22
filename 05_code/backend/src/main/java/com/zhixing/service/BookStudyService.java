@@ -49,7 +49,7 @@ public class BookStudyService {
         LocalDate businessDate=moment.atZone(BUSINESS_ZONE).toLocalDate();
         boolean review=KIND_REVIEW.equals(kind);
         for(String bookId:bookIds){
-            String roundId=ensureOpenRound(ownerId,bookId,at);
+            String roundId=roundForStudy(ownerId,bookId,at);
             boolean newDay=bumpDaily(roundId,businessDate,review);
             bumpSummary(roundId,at,review,newDay);
         }
@@ -63,6 +63,20 @@ public class BookStudyService {
                 "WHERE rs.id=? AND rs.owner_id=? AND ki.source_content_id IS NOT NULL",String.class,scheduleId,ownerId);
         if(rows.isEmpty())return;
         record(ownerId,rows.get(0),KIND_REVIEW,now);
+    }
+
+    /** 「重新学习」记录：把这次重置写进 vocabulary_book_reset_log（归属这本书当前进行中的轮次）。 */
+    @Transactional
+    public void recordReset(String ownerId,String bookId,int resetCount,int pausedReviewCount,Instant now){
+        if(ownerId==null||bookId==null)return;
+        Instant moment=now==null?Instant.now():now;
+        Timestamp at=Timestamp.from(moment);
+        String roundId=ensureOpenRound(ownerId,bookId,at);
+        if(roundId==null)return;
+        try{
+            jdbc.update("INSERT INTO vocabulary_book_reset_log(id,owner_id,book_id,round_id,reset_count,paused_review_count,reset_at) VALUES(?,?,?,?,?,?,?)",
+                    CryptoUtils.randomId(),ownerId,bookId,roundId,resetCount,pausedReviewCount,at);
+        }catch(DuplicateKeyException ignored){ }
     }
 
     /** 当前学习状态；没有记录返回 null。 */
@@ -96,6 +110,46 @@ public class BookStudyService {
         }catch(DuplicateKeyException ignored){ }
         List<String> again=findOpenRound(ownerId,bookId);
         return again.isEmpty()?null:again.get(0);
+    }
+
+    /**
+     * 学习动作归属的轮次：
+     * - 这本书是当前选定词书 → 用进行中的那一轮（没有就新开一轮）；
+     * - 不是当前词书（例如翻到别的词书复习）→ 先把它的「进行中」轮次按切换时间收口，再并进当天的记录；
+     *   当天还没有记录就新开一轮并立即结束（一次性记录），这样老记录永远不会被后来的学习改写。
+     */
+    private String roundForStudy(String ownerId,String bookId,Timestamp at){
+        String activeBook=activeBookId(ownerId);
+        boolean active=bookId.equals(activeBook);
+        List<String> open=findOpenRound(ownerId,bookId);
+        if(!open.isEmpty()){
+            if(active)return open.get(0);
+            closeRound(ownerId,bookId,open.get(0),at);
+        }
+        if(active)return ensureOpenRound(ownerId,bookId,at);
+        // 非当前词书：当天的记录并进去，否则新开一轮并立即结束（一次性记录，之后不再被改写）
+        Timestamp dayStart=Timestamp.valueOf(at.toInstant().atZone(BUSINESS_ZONE).toLocalDate().atStartOfDay());
+        List<String> sameDay=jdbc.queryForList("SELECT id FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=? AND selected_at>=? ORDER BY round_no DESC LIMIT 1",
+                String.class,ownerId,bookId,dayStart);
+        if(!sameDay.isEmpty())return sameDay.get(0);
+        String created=ensureOpenRound(ownerId,bookId,at);
+        if(created!=null)closeRound(ownerId,bookId,created,at);
+        return created;
+    }
+
+    /** 这本书当前选定的词书 id（没有则 null）。 */
+    private String activeBookId(String ownerId){
+        List<String> rows=jdbc.queryForList("SELECT book_id FROM user_vocabulary_book WHERE owner_id=? AND state='active' ORDER BY updated_at DESC LIMIT 1",String.class,ownerId);
+        return rows.isEmpty()?null:rows.get(0);
+    }
+
+    /** 结束一轮：写结束时间（不早于选择时间）与结束时已学快照。 */
+    private void closeRound(String ownerId,String bookId,String roundId,Timestamp at){
+        jdbc.update("UPDATE vocabulary_book_study_record r SET r.ended_at=GREATEST(COALESCE((SELECT uvb.paused_at FROM user_vocabulary_book uvb WHERE uvb.owner_id=r.owner_id AND uvb.book_id=r.book_id LIMIT 1),?)," +
+                "COALESCE(r.selected_at,?)),r.final_learned_count=(" +
+                "SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+                " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered')" +
+                "),r.updated_at=CURRENT_TIMESTAMP WHERE r.id=? AND r.ended_at IS NULL",at,at,roundId);
     }
 
     private List<String> findOpenRound(String ownerId,String bookId){

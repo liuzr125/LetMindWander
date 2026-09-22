@@ -6,7 +6,7 @@ import { request } from '../../services/request.js'
 const route = useRoute(), router = useRouter()
 const recordId = computed(() => route.params.recordId)
 const loading = ref(true), error = ref('')
-const detail = ref({ record: null, days: [], activeDays: 0, roundNewWords: 0 })
+const detail = ref({ record: null, days: [], resets: [], activeDays: 0, roundNewWords: 0 })
 const words = ref({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 })
 const status = ref('learned'), scope = ref('round'), wordPage = ref(1), wordPageSize = ref(20)
 const record = computed(() => detail.value.record || {})
@@ -74,6 +74,8 @@ onMounted(() => { load(); loadWords(1) })
           <div><span>学习天数</span><b>{{ num(value(record, 'studyDayCount')) }} 天</b></div>
           <div><span>学习次数</span><b>{{ num(value(record, 'studyCount')) }}</b></div>
           <div><span>复习次数</span><b>{{ num(value(record, 'reviewedCount')) }}</b></div>
+          <div><span>重新学习</span><b>{{ num(value(record, 'resetTimes')) }} 次<template v-if="value(record, 'resetWordTotal')"> · {{ num(value(record, 'resetWordTotal')) }} 词</template></b></div>
+          <div v-if="value(record, 'lastResetAt')"><span>最近重新学习</span><b class="time">{{ time(value(record, 'lastResetAt')) }}</b></div>
           <div><span>首次学习</span><b class="time">{{ time(value(record, 'firstStudiedAt')) }}</b></div>
           <div><span>最近学习</span><b class="time">{{ time(value(record, 'lastStudiedAt')) }}</b></div>
         </div>
@@ -81,6 +83,23 @@ onMounted(() => { load(); loadWords(1) })
       </div>
 
       <div v-if="error" class="error-line">{{ error }} <button type="button" class="link" @click="load()">重试</button></div>
+
+      <div class="panel record-panel">
+        <div class="panel-head"><div><h2>重新学习记录</h2><p>这一轮里每次把已学词条划回未学的时间与词数<span v-if="!detail.resets.length"> · 还没有重新学习过</span></p></div></div>
+        <div class="table-wrap compact">
+          <table>
+            <thead><tr><th>时间</th><th>重置词数</th><th>取消的复习排期</th></tr></thead>
+            <tbody>
+              <tr v-for="item in detail.resets" :key="value(item, 'resetAt')">
+                <td>{{ time(value(item, 'resetAt')) }}</td>
+                <td><b class="new">{{ num(value(item, 'resetCount')) }}</b> 个</td>
+                <td>{{ num(value(item, 'pausedReviewCount')) }}</td>
+              </tr>
+              <tr v-if="!detail.resets.length"><td colspan="3" class="empty">这一轮还没有重新学习记录</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="panel record-panel">
         <div class="panel-head"><div><h2>每日学习明细</h2><p>本轮窗口内共 {{ num(detail.activeDays) }} 天有学习动作 · 下表 {{ detail.days.length }} 行</p></div></div>

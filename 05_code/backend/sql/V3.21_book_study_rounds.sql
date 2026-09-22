@@ -56,7 +56,7 @@ UPDATE vocabulary_book_study_record
 -- 5) 历史轮次收口：不是当前选定词书的、还挂着「进行中」的轮次，按暂停时间结束并补结束快照
 UPDATE vocabulary_book_study_record r
   JOIN user_vocabulary_book uvb ON uvb.owner_id=r.owner_id AND uvb.book_id=r.book_id
-   SET r.ended_at=COALESCE(uvb.paused_at,r.last_studied_at,r.selected_at,NOW(3)),
+   SET r.ended_at=GREATEST(COALESCE(uvb.paused_at,r.last_studied_at,r.selected_at,NOW(3)),COALESCE(r.selected_at,NOW(3))),
        r.final_learned_count=(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id
          WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered'))
  WHERE r.ended_at IS NULL AND uvb.state<>'active';
@@ -77,6 +77,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql := IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='vocabulary_book_study_daily' AND INDEX_NAME='idx_book_study_daily_round')=0,
   'CREATE INDEX idx_book_study_daily_round ON vocabulary_book_study_daily (round_id,business_date)','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 5b) 修正：结束时间不能早于选择时间（老数据的切换时间可能早于本轮建立时间）
+UPDATE vocabulary_book_study_record
+   SET ended_at=GREATEST(ended_at,COALESCE(selected_at,ended_at),COALESCE(last_studied_at,ended_at))
+ WHERE ended_at IS NOT NULL AND selected_at IS NOT NULL AND ended_at<selected_at;
 
 -- 6) 当前正在学的这本书（active 选择）如果没有「进行中」的轮次，补开一轮，保证后续学习有归属
 INSERT INTO vocabulary_book_study_record (id,owner_id,book_id,round_no,selected_at,carried_learned_count,first_studied_at,last_studied_at,study_count,reviewed_count,study_day_count)

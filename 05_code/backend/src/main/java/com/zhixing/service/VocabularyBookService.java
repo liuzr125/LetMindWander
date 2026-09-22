@@ -85,6 +85,8 @@ public class VocabularyBookService {
         int learned=books.countLearnedInBook(ownerId,bookId);
         int paused=books.pauseReviewsInBook(ownerId,bookId,now);
         books.resetLearnedInBook(ownerId,bookId,now);
+        // 有实际重置才留一条「重新学习」记录（管理端详情可见），空点不产生噪音
+        if(learned>0)bookStudy.recordReset(ownerId,bookId,learned,paused,now);
         VocabularyBookResetView out=new VocabularyBookResetView();
         out.setBookId(bookId);out.setBookName(current==null?null:current.getBookName());
         out.setResetCount(learned);out.setPausedReviewCount(paused);

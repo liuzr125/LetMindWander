@@ -5,17 +5,20 @@ import java.time.Instant;
 /** 管理端「词书学习记录」列表行：一个用户在一本英语词书上的学习情况。 */
 public class AdminStudyRecordView {
     private String id,ownerId,nickname,shortId,mobile,bookId,bookName,bookType,levelCode,levelLabel;
-    private Integer roundNo,carriedLearnedCount;
+    private Integer roundNo,carriedLearnedCount,resetTimes,resetWordTotal;
     private Integer totalWords,learnedWords,masteredWords,learningWords,completionPercent,studyDayCount,studyCount,reviewedCount;
     private Boolean currentBook,currentRound,ongoing;
-    private Instant selectedAt,endedAt,firstStudiedAt,lastStudiedAt;
+    private Instant selectedAt,endedAt,firstStudiedAt,lastStudiedAt,lastResetAt;
     public String getId(){return id;} public void setId(String v){id=v;}
     public Integer getRoundNo(){return roundNo;} public void setRoundNo(Integer v){roundNo=v;}
     public Integer getCarriedLearnedCount(){return carriedLearnedCount;} public void setCarriedLearnedCount(Integer v){carriedLearnedCount=v;}
+    public Integer getResetTimes(){return resetTimes;} public void setResetTimes(Integer v){resetTimes=v;}
+    public Integer getResetWordTotal(){return resetWordTotal;} public void setResetWordTotal(Integer v){resetWordTotal=v;}
     public Boolean getCurrentRound(){return currentRound;} public void setCurrentRound(Boolean v){currentRound=v;}
     public Boolean getOngoing(){return ongoing;} public void setOngoing(Boolean v){ongoing=v;}
     public Instant getSelectedAt(){return selectedAt;} public void setSelectedAt(Instant v){selectedAt=v;}
     public Instant getEndedAt(){return endedAt;} public void setEndedAt(Instant v){endedAt=v;}
+    public Instant getLastResetAt(){return lastResetAt;} public void setLastResetAt(Instant v){lastResetAt=v;}
     public String getOwnerId(){return ownerId;} public void setOwnerId(String v){ownerId=v;}
     public String getNickname(){return nickname;} public void setNickname(String v){nickname=v;}
     public String getShortId(){return shortId;} public void setShortId(String v){shortId=v;}

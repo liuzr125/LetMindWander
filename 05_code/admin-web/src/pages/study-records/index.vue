@@ -86,7 +86,7 @@ onMounted(() => { loadBooks(); load(1) })
                 <td><strong>{{ userName(row) }}</strong></td>
                 <td><span class="code">{{ userId(row) }}</span></td>
                 <td><span class="book">{{ bookTitle(row) }}</span><small v-if="level(row)">{{ level(row) }}</small><small v-if="value(row, 'currentBook')" class="current">当前词书</small></td>
-                <td><span class="round">{{ roundText(row) }}</span><small v-if="ongoing(row)" class="ongoing">进行中</small><small v-else class="ended">已结束</small></td>
+                <td><span class="round">{{ roundText(row) }}</span><small v-if="ongoing(row)" class="ongoing">进行中</small><small v-else class="ended">已结束</small><small v-if="value(row, 'resetTimes')" class="reset">重新学习 {{ num(value(row, 'resetTimes')) }} 次 · {{ num(value(row, 'resetWordTotal')) }} 词</small></td>
                 <td>{{ time(value(row, 'selectedAt')) }}</td>
                 <td>
                   <div class="progress-cell"><span>{{ progress(row) }}</span><b>{{ value(row, 'completionPercent') }}%</b></div>
@@ -148,6 +148,7 @@ td small{display:block;margin-top:4px;color:#7c889d;font-size:11px}
 td small.current{color:#176fdc}
 td small.ongoing{color:#15845f}
 td small.ended{color:#8b96a8}
+td small.reset{color:#b25a11}
 .code{color:#7c889d;font-variant-numeric:tabular-nums}
 .book{color:#11204a;font-size:13px}
 .round{color:#11204a;font-size:13px}

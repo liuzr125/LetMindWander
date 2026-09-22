@@ -4,14 +4,14 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>知行日课 V3.21 合并版数据库字典</title>
+    <title>知行日课 V3.22 合并版数据库字典</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.21 合并版数据库字典</h1>
+      <h1>知行日课 V3.22 合并版数据库字典</h1>
       <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文，V3.16.13 增加段落解释缓存。V3.17 把 AI 每日额度上限改由 <code>app_parameter</code> 维护并在改参数时即时同步当天额度快照；V3.18 为 <code>admin_menu</code> 增加 <code>parent_id</code> / <code>description</code>，侧栏改为一组一级（分类）＋二级（页面）两级菜单；V3.19 增加「用户反馈」菜单；V3.20 新增「词书学习记录」两张表（用户 × 词书汇总与每日明细）与对应管理端菜单；V3.21 把学习记录按「轮次」组织（一轮 = 一次选定词书，切走冻结、切回新开一轮并带入已学/未学）。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
     </header>
     <main>
@@ -31,6 +31,7 @@
         <a href="#v317-319-changelog">V3.17—V3.19 增量<small>AI 额度参数、菜单二级化、用户反馈</small></a>
         <a href="#v320-changelog">V3.20 增量<small>词书学习记录</small></a>
         <a href="#v321-changelog">V3.21 增量<small>学习记录按轮次</small></a>
+        <a href="#v322-changelog">V3.22 增量<small>重新学习记录</small></a>
         <a href="#vocabulary_dataset_catalog">vocabulary_dataset_catalog<small>词库数据源目录</small></a>
         <a href="#vocabulary_import_batch">vocabulary_import_batch<small>词库导入批次</small></a>
         <a href="#vocabulary_import_item">vocabulary_import_item<small>词库导入行与审核</small></a>
@@ -59,6 +60,7 @@
         <a href="#vocabulary_book_word">vocabulary_book_word<small>&#x8BCD;&#x5E93;&#x5355;&#x8BCD;&#x5173;&#x7CFB;</small></a>
         <a href="#vocabulary_book_study_record">vocabulary_book_study_record<small>用户词书学习记录</small></a>
         <a href="#vocabulary_book_study_daily">vocabulary_book_study_daily<small>词书学习每日明细</small></a>
+        <a href="#vocabulary_book_reset_log">vocabulary_book_reset_log<small>重新学习记录</small></a>
         <a href="#word_alias">word_alias<small>&#x5355;&#x8BCD;&#x522B;&#x540D;&#x4E0E;&#x89C4;&#x8303;&#x8BCD;&#x6620;&#x5C04;</small></a>
         <a href="#word_memory_attempt">word_memory_attempt<small>&#x5355;&#x8BCD;&#x4F5C;&#x7B54;&#x8BB0;&#x5F55;</small></a>
         <a href="#word_memory_episode">word_memory_episode<small>&#x5355;&#x8BCD;&#x8BB0;&#x5FC6;&#x4F1A;&#x8BDD;&#x9898;&#x76EE;</small></a>
@@ -218,6 +220,129 @@
           <p>&#x552F;&#x4E00;&#x952E;&#x7531; (owner_id,book_id) &#x6539;&#x4E3A; (owner_id,book_id,round_no)&#xFF1B;&#x6BCF;&#x65E5;&#x660E;&#x7EC6;&#x8868;&#x52A0; round_id&#xFF0C;&#x552F;&#x4E00;&#x952E;&#x6539;&#x4E3A; (round_id,business_date)&#xFF0C;&#x8FD9;&#x6837;&#x8001;&#x8F6E;&#x6B21;&#x7684;&#x6BCF;&#x65E5;&#x660E;&#x7EC6;&#x4E5F;&#x4E0D;&#x4F1A;&#x88AB;&#x540E;&#x9762;&#x51E0;&#x8F6E;&#x6539;&#x5199;&#x3002;first_studied_at / last_studied_at &#x5141;&#x8BB8;&#x4E3A;&#x7A7A;&#xFF08;&#x521A;&#x9009;&#x5B9A;&#x8FD8;&#x6CA1;&#x5F00;&#x59CB;&#x5B66;&#xFF09;&#x3002;</p>
           <p>&#x7BA1;&#x7406;&#x7AEF;&#x300C;&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#x65B0;&#x589E;&#x300C;&#x8F6E;&#x6B21;&#x300D;&#x300C;&#x9009;&#x62E9;&#x65F6;&#x95F4;&#x300D;&#x300C;&#x7ED3;&#x675F;&#x65F6;&#x95F4;&#x300D;&#x5217;&#xFF0C;&#x7B5B;&#x9009;&#x6309;&#x9009;&#x62E9;&#x65F6;&#x95F4;&#xFF0C;&#x8BE6;&#x60C5;&#x6309;&#x8BB0;&#x5F55; ID &#x6253;&#x5F00;&#xFF08;/api/admin/study-records/{recordId}&#xFF09;&#xFF0C;&#x8BE6;&#x60C5;&#x91CC;&#x7ED9;&#x51FA;&#x300C;&#x5F00;&#x59CB;&#x65F6;&#x5DF2;&#x5B66;&#xFF08;&#x5E26;&#x5165;&#xFF09;&#x300D;&#x300C;&#x672C;&#x8F6E;&#x65B0;&#x5B66;&#x300D;&#x300C;&#x7ED3;&#x675F;&#x65F6;&#x95F4;/&#x8FDB;&#x884C;&#x4E2D;&#x300D;&#xFF0C;&#x8BCD;&#x6761;&#x5217;&#x8868;&#x652F;&#x6301;&#x300C;&#x672C;&#x8F6E;&#x65B0;&#x5B66; / &#x6574;&#x672C;&#x300D;&#x5207;&#x6362;&#x3002;</p>
           <p>&#x5386;&#x53F2;&#x6570;&#x636E;&#x56DE;&#x586B;&#xFF1A;&#x65E2;&#x6709;&#x8BB0;&#x5F55;&#x5168;&#x90E8;&#x5F52;&#x4E3A;&#x7B2C; 1 &#x8F6E;&#xFF0C;&#x9009;&#x62E9;&#x65F6;&#x95F4;&#x4F18;&#x5148;&#x53D6; user_vocabulary_book.selected_at&#xFF08;&#x53D6;&#x4E0D;&#x5230;&#x7528;&#x9996;&#x6B21;&#x5B66;&#x4E60;&#x65F6;&#x95F4;&#xFF0C;&#x4E14;&#x4E0D;&#x665A;&#x4E8E;&#x9996;&#x6B21;&#x5B66;&#x4E60;&#xFF09;&#xFF1B;&#x4E0D;&#x662F;&#x5F53;&#x524D;&#x9009;&#x5B9A;&#x8BCD;&#x4E66;&#x3001;&#x8FD8;&#x6302;&#x7740;&#x8FDB;&#x884C;&#x4E2D;&#x7684;&#x8F6E;&#x6B21;&#xFF0C;&#x6309; paused_at &#x7ED3;&#x675F;&#x5E76;&#x8865;&#x5DF2;&#x5B66;&#x5FEB;&#x7167;&#xFF1B;&#x6BCF;&#x65E5;&#x660E;&#x7EC6;&#x56DE;&#x586B;&#x5230;&#x8BE5; (owner,book) &#x6700;&#x65E9;&#x7684;&#x4E00;&#x8F6E;&#x3002;</p>
+        </section>
+        <section id="vocabulary_book_reset_log">
+          <h2>vocabulary_book_reset_log <span>&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;</span></h2>
+          <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x5C0F;&#x7A0B;&#x5E8F;&#x300C;&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x8FDB;&#x5EA6;&#x300D;&#x70B9;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x300D;&#x65F6;&#x7559;&#x4E00;&#x6761;&#xFF1A;&#x65F6;&#x95F4;&#x3001;&#x91CD;&#x7F6E;&#x8BCD;&#x6570;&#x3001;&#x53D6;&#x6D88;&#x7684;&#x590D;&#x4E60;&#x6392;&#x671F;&#x6570;&#xFF1B;&#x7BA1;&#x7406;&#x7AEF;&#x300C;&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#x8BE6;&#x60C5;&#x91CC;&#x7684;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#x533A;&#x5757;&#x8BFB;&#x5B83;&#x3002;</p>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>&#x5B57;&#x6BB5;</th>
+                  <th>&#x7C7B;&#x578B;</th>
+                  <th>&#x53EF;&#x7A7A;</th>
+                  <th>&#x9ED8;&#x8BA4;</th>
+                  <th>&#x8BF4;&#x660E;</th>
+                  <th>&#x903B;&#x8F91;&#x5173;&#x8054;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <code>id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x4E3B;&#x952E;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>owner_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x7528;&#x6237;&#x3002;</td>
+                  <td>app_user.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>book_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x8BCD;&#x4E66;&#x3002;</td>
+                  <td>vocabulary_book.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>round_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x53D1;&#x751F;&#x5728;&#x54EA;&#x4E00;&#x8F6E;&#x3002;</td>
+                  <td>vocabulary_book_study_record.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>reset_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x8FD9;&#x6B21;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x300D;&#x628A;&#x591A;&#x5C11;&#x4E2A;&#x5DF2;&#x5B66;&#x8BCD;&#x6761;&#x5212;&#x56DE;&#x4E86;&#x672A;&#x5B66;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>paused_review_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x540C;&#x65F6;&#x53D6;&#x6D88;&#xFF08;&#x7F6E; paused&#xFF09;&#x7684;&#x5230;&#x671F;&#x590D;&#x4E60;&#x6392;&#x671F;&#x6570;&#x91CF;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>reset_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x91CD;&#x7F6E;&#x65F6;&#x95F4;&#xFF08;&#x540C;&#x4E00;&#x6B21;&#x91CD;&#x7F6E;&#x7684;&#x8BCD;&#x6761;&#x5171;&#x7528;&#x540C;&#x4E00;&#x4E2A;&#x65F6;&#x95F4;&#x6233;&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>created_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>CURRENT_TIMESTAMP(3)</code>
+                  </td>
+                  <td>&#x5199;&#x5165;&#x65F6;&#x95F4;&#x3002;</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_book_reset_log(owner_id, book_id, reset_at); idx_book_reset_log_round(round_id, reset_at); idx_book_reset_log_owner(owner_id, reset_at)</p>
+        </section>
+        <section id="v322-changelog">
+          <h2>V3.22 <span>重新学习记录（表结构变更）</span></h2>
+          <p class="meta">&#x8FC1;&#x79FB;&#x811A;&#x672C;&#xFF1A;05_code/backend/sql/V3.22_book_reset_log.sql&#xFF0C;&#x5E42;&#x7B49;&#x53EF;&#x91CD;&#x590D;&#x6267;&#x884C;&#xFF1B;&#x8868;&#x7ED3;&#x6784;&#x540C;&#x6B65;&#x8FDB; schema.sql&#x3002;</p>
+          <p>&#x65B0;&#x589E; vocabulary_book_reset_log&#xFF1A;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x300D;&#x65F6;&#x5199;&#x4E00;&#x6761;&#xFF08;&#x5F52;&#x5C5E;&#x4E8E;&#x8BE5;&#x8BCD;&#x4E66;&#x5F53;&#x65F6;&#x8FDB;&#x884C;&#x4E2D;&#x7684;&#x8F6E;&#x6B21;&#xFF09;&#xFF0C;&#x7BA1;&#x7406;&#x7AEF;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x8BE6;&#x60C5;&#x65B0;&#x589E;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#x533A;&#x5757;&#xFF08;&#x65F6;&#x95F4;/&#x91CD;&#x7F6E;&#x8BCD;&#x6570;/&#x53D6;&#x6D88;&#x7684;&#x590D;&#x4E60;&#x6392;&#x671F;&#xFF09;&#xFF0C;&#x6C47;&#x603B;&#x91CC;&#x4E5F;&#x52A0;&#x4E86;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60; N &#x6B21; &#xB7; X &#x8BCD;&#x300D;&#x4E0E;&#x6700;&#x8FD1;&#x4E00;&#x6B21;&#x65F6;&#x95F4;&#xFF1B;&#x5217;&#x8868;&#x7684;&#x8F6E;&#x6B21;&#x5355;&#x5143;&#x683C;&#x5728;&#x6709;&#x91CD;&#x7F6E;&#x65F6;&#x663E;&#x793A;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60; N &#x6B21; &#xB7; X &#x8BCD;&#x300D;&#x3002;&#x7A7A;&#x70B9;&#xFF08;&#x6CA1;&#x6709;&#x5DF2;&#x5B66;&#x8BCD;&#xFF09;&#x4E0D;&#x7559;&#x8BB0;&#x5F55;&#x3002;</p>
+          <p>&#x5386;&#x53F2;&#x56DE;&#x586B;&#xFF1A;&#x88AB;&#x91CD;&#x7F6E;&#x5212;&#x56DE;&#x672A;&#x5B66;&#x7684;&#x8BCD;&#x6761;&#x6EE1;&#x8DB3; learning_status='unlearned' &#x4E14; updated_at>created_at&#xFF08;&#x540C;&#x4E00;&#x6B21;&#x91CD;&#x7F6E;&#x5171;&#x7528;&#x4E00;&#x4E2A;&#x65F6;&#x95F4;&#x6233;&#xFF09;&#xFF0C;&#x6309; (owner, book, &#x65F6;&#x95F4;) &#x7CBE;&#x786E;&#x805A;&#x5408;&#x56DE;&#x586B;&#xFF0C;&#x8F6E;&#x6B21;&#x53D6;&#x91CD;&#x7F6E;&#x65F6;&#x523B;&#x6B63;&#x5728;&#x8FDB;&#x884C;&#x7684;&#x90A3;&#x4E00;&#x8F6E;&#x3002;</p>
         </section>
 <section id="vocabulary_dataset_catalog">
           <h2>vocabulary_dataset_catalog <span>词库数据源目录</span></h2>
