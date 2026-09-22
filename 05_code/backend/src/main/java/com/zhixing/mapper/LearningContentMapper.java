@@ -30,7 +30,7 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "WHERE lc.state='published' AND lc.content_type=#{type} ",
             "<if test=\"type == 'english_article'\">AND EXISTS (SELECT 1 FROM english_article_book eab JOIN user_vocabulary_book uvb ON uvb.book_id=eab.book_id AND uvb.owner_id=#{ownerId} AND uvb.state='active' JOIN vocabulary_book active_book ON active_book.id=uvb.book_id AND active_book.state='active' WHERE eab.content_id=lc.id) </if>",
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
-            "<if test=\"stage != null and stage != ''\">AND lc.stage=#{stage} </if>",
+            "<if test=\"stage != null and stage != ''\">AND EXISTS (SELECT 1 FROM vocabulary_book_word sbw JOIN vocabulary_book sb ON sb.id=sbw.book_id WHERE sbw.content_id=lc.id AND sb.state='active' AND sb.level_code=#{stage}) </if>",
             "<if test=\"topicId != null and topicId != ''\">AND EXISTS (SELECT 1 FROM content_topic x WHERE x.content_version_id=cv.id AND x.topic_id=#{topicId}) </if>",
             "<if test=\"notebook\">AND wn.state='active' </if>",
             "<if test=\"status == 'review'\">AND rs.state='active' AND rs.due_date&lt;=#{today} </if>",

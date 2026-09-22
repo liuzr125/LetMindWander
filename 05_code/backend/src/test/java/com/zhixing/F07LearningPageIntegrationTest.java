@@ -40,6 +40,9 @@ class F07LearningPageIntegrationTest {
                 .andExpect(jsonPath("$.publishedAt").exists());
         mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","word").param("stage","junior"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].wordTerm").value("context"));
+        // 学段=词书成员关系：没有加入任何「高中」词书的词条，即使 learning_content.stage 有值也不会被学段筛选命中
+        mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","word").param("stage","senior"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
         mvc.perform(post("/api/learning/contents/{id}/word-book",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"active\":true}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.inWordBook").value(true));
         mvc.perform(put("/api/learning/contents/{id}/familiarity",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"familiarityPercent\":85,\"expectedVersion\":0}"))
@@ -86,6 +89,9 @@ class F07LearningPageIntegrationTest {
         jdbc.update("INSERT INTO article_word_glossary(id,term,phonetic,meaning) VALUES (?,?,?,?)","f070000000000000000000000000010","retrieves","/rɪˈtriːvz/","检索；取回");
         insertContent(TECH,TECH_VERSION,"tech",null,"理解 RAG","先检索证据，再组织回答。","先检索证据，再组织回答。",source,null);jdbc.update("INSERT INTO content_topic (id,content_version_id,topic_id) VALUES (?,?,?)","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",TECH_VERSION,TOPIC);
         insertContent(WORD,WORD_VERSION,"word","junior","context","上下文","context",source,null);jdbc.update("UPDATE content_version SET word_term='context',phonetic='/context/',meaning='上下文',example_text='Use context.' WHERE id=?",WORD_VERSION);
+        // 学段以「词书成员关系」为准（与词书/管理端口径一致）：这里把该词条加入一本 junior 学段词书
+        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,word_count,sort_no,state) VALUES(?,?,?,?,?,1,0,'active')","f070000000000000000000000000020","F07-JUNIOR","测试初中词书","k12","junior");
+        jdbc.update("INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance,is_core) VALUES(?,?,?,1,1,1)","f070000000000000000000000000021","f070000000000000000000000000020",WORD);
         String blocks="[{\"paragraph_id\":\"p1\",\"text\":\"RAG retrieves useful context before answering.\",\"translation\":\"RAG 在回答前检索有用的上下文。\",\"words\":[{\"content_id\":\""+WORD+"\",\"term\":\"context\",\"meaning\":\"上下文\"}]}]";
         insertContent(ARTICLE,ARTICLE_VERSION,"english_article",null,"How RAG Works","理解检索增强生成","RAG retrieves useful context before answering.",source,blocks);
         insertContent(ARTICLE_2,ARTICLE_VERSION_2,"english_article",null,"A Careful Decision 2: Museum","编号排序测试","Article two.",source,null);

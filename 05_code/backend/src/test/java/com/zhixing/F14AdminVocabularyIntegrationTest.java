@@ -84,4 +84,42 @@ class F14AdminVocabularyIntegrationTest {
         mvc.perform(get("/api/admin/vocabulary-books/{id}/words",BOOK).header("X-Admin-Token","dev-admin-token").param("stage",new String(new char[33]).replace('\0','j')))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_STAGE"));
     }
+
+    /**
+     * 学段口径 = 词书成员关系（词书 level_code）：
+     * 词条自己的 learning_content.stage 不再决定筛选结果，避免出现「词书 1496 条、学段筛选只有几十条」的不一致。
+     */
+    @Test void bookMembershipDrivesStageFilter() throws Exception {
+        String seniorBook="f14b000000000000000000000000001",seniorContent="f14b000000000000000000000000002",seniorVersion="f14b000000000000000000000000003",seniorMember="f14b000000000000000000000000004";
+        String plainBook="f14b000000000000000000000000005",plainContent="f14b000000000000000000000000006",plainVersion="f14b000000000000000000000000007",plainMember="f14b000000000000000000000000008";
+        jdbc.update("DELETE FROM vocabulary_book_word WHERE book_id IN (?,?)",seniorBook,plainBook);
+        jdbc.update("DELETE FROM vocabulary_book WHERE id IN (?,?)",seniorBook,plainBook);
+        jdbc.update("DELETE FROM content_version WHERE content_id IN (?,?)",seniorContent,plainContent);
+        jdbc.update("DELETE FROM learning_content WHERE id IN (?,?)",seniorContent,plainContent);
+
+        // 高中词书（level_code=senior）成员：learning_content.stage 留空，仍应被 stage=senior 命中
+        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,word_count,sort_no,state) VALUES(?,?,?,?,?,1,0,'active')",seniorBook,"F14B-SENIOR","高中测试词书","k12","senior");
+        insertWord(seniorContent,seniorVersion,seniorMember,seniorBook,"seniorword","高中词",null,1);
+        // 没有学段的词书成员：即使 learning_content.stage='primary' 也不应被 stage=primary 命中，且算「未分级」
+        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,word_count,sort_no,state) VALUES(?,?,?,?,NULL,1,0,'active')",plainBook,"F14B-NOLEVEL","无学段测试词书","school");
+        insertWord(plainContent,plainVersion,plainMember,plainBook,"plainword","无学段词",null,2);
+
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",seniorBook).header("X-Admin-Token","dev-admin-token").param("stage","senior"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].wordTerm").value("seniorword"));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",seniorBook).header("X-Admin-Token","dev-admin-token").param("stage","primary"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",seniorBook).header("X-Admin-Token","dev-admin-token").param("stage","unclassified"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",plainBook).header("X-Admin-Token","dev-admin-token").param("stage","unclassified"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].wordTerm").value("plainword"));
+        mvc.perform(get("/api/admin/vocabulary-books/{id}/words",plainBook).header("X-Admin-Token","dev-admin-token").param("stage","primary"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+    }
+
+    private void insertWord(String content,String version,String member,String book,String term,String meaning,String stage,int sortNo){
+        jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES(?,?,?,?,?,?,'published',?,?,CURRENT_TIMESTAMP)",content,"word",SOURCE,CryptoUtils.sha256(content),CryptoUtils.sha256(term),stage,version,version);
+        jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,difficulty,estimated_seconds,word_term,phonetic,meaning,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,?,?,'intro',30,?,?,?,'测试许可',?,'approved',?)",version,content,term,meaning,term,"/"+term+"/",meaning,CryptoUtils.sha256(version),SOURCE);
+        jdbc.update("INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance,is_core) VALUES(?,?,?,?,1,0)",member,book,content,sortNo);
+    }
 }

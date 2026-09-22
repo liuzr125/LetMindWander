@@ -29,15 +29,15 @@ public interface AdminVocabularyMapper {
             "FROM vocabulary_book_word vbw LEFT JOIN learning_content lc ON lc.id=vbw.content_id ",
             "LEFT JOIN content_version cv ON cv.id=lc.published_version_id WHERE vbw.book_id=#{bookId} ",
             "<if test=\"keyword != null and keyword != ''\">AND (LOWER(cv.word_term) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR cv.meaning LIKE CONCAT('%',#{keyword},'%')) </if>",
-            "<if test=\"stage == 'unclassified'\">AND lc.stage IS NULL </if>",
-            "<if test=\"stage != null and stage != '' and stage != 'unclassified'\">AND lc.stage=#{stage} </if>",
+            "<if test=\"stage == 'unclassified'\">AND NOT EXISTS (SELECT 1 FROM vocabulary_book_word ubw JOIN vocabulary_book ub ON ub.id=ubw.book_id WHERE ubw.content_id=lc.id AND ub.state='active' AND ub.level_code IS NOT NULL) </if>",
+            "<if test=\"stage != null and stage != '' and stage != 'unclassified'\">AND EXISTS (SELECT 1 FROM vocabulary_book_word sbw JOIN vocabulary_book sb ON sb.id=sbw.book_id WHERE sbw.content_id=lc.id AND sb.state='active' AND sb.level_code=#{stage}) </if>",
             "ORDER BY vbw.sort_no,vbw.importance DESC,vbw.id LIMIT #{offset},#{limit}","</script>"})
     List<AdminVocabularyWordView> selectWords(@Param("bookId")String bookId,@Param("keyword")String keyword,@Param("stage")String stage,@Param("offset")int offset,@Param("limit")int limit);
 
     @Select({"<script>","SELECT COUNT(*) FROM vocabulary_book_word vbw LEFT JOIN learning_content lc ON lc.id=vbw.content_id ",
             "LEFT JOIN content_version cv ON cv.id=lc.published_version_id WHERE vbw.book_id=#{bookId} ",
             "<if test=\"keyword != null and keyword != ''\">AND (LOWER(cv.word_term) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR cv.meaning LIKE CONCAT('%',#{keyword},'%')) </if>",
-            "<if test=\"stage == 'unclassified'\">AND lc.stage IS NULL </if>",
-            "<if test=\"stage != null and stage != '' and stage != 'unclassified'\">AND lc.stage=#{stage} </if>","</script>"})
+            "<if test=\"stage == 'unclassified'\">AND NOT EXISTS (SELECT 1 FROM vocabulary_book_word ubw JOIN vocabulary_book ub ON ub.id=ubw.book_id WHERE ubw.content_id=lc.id AND ub.state='active' AND ub.level_code IS NOT NULL) </if>",
+            "<if test=\"stage != null and stage != '' and stage != 'unclassified'\">AND EXISTS (SELECT 1 FROM vocabulary_book_word sbw JOIN vocabulary_book sb ON sb.id=sbw.book_id WHERE sbw.content_id=lc.id AND sb.state='active' AND sb.level_code=#{stage}) </if>","</script>"})
     int countWords(@Param("bookId")String bookId,@Param("keyword")String keyword,@Param("stage")String stage);
 }

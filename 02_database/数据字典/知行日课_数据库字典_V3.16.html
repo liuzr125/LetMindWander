@@ -184,6 +184,16 @@
           <h3>V3.19 用户反馈菜单（仅数据）</h3>
           <p>新增 <code>feedback</code>（用户反馈，<code>/feedback</code>，parent=group_users，sort 61）。数据来源就是既有的 <code>user_feedback</code> 表 —— 概览页「待处理事项」统计的 <code>state='open'</code> 行数；管理端可查看反馈正文与详情，并把状态在 <code>open</code> / <code>handled</code> 间流转（写 <code>admin_audit</code> 审计），<strong>不新增表、不新增回复字段</strong>。</p>
 
+          <h3>学段筛选口径统一（2026-09-22，无表结构变更）</h3>
+          <p>小程序学习页与管理端词书页的「学段」筛选一律以 <code>vocabulary_book.level_code</code>（经 <code>vocabulary_book_word</code> 关联 <code>learning_content</code>）为准，语义是「该词条属于该学段词书」；<code>learning_content.stage</code> 退化为展示属性，<strong>不再参与筛选</strong>。原实现按 <code>learning_content.stage</code> 过滤，会出现「高中英语词书 1496 条成员、筛选学段=高中却只出 34 条」的不一致。</p>
+          <table><thead><tr><th>学段（level_code）</th><th>词书成员数 = 筛选命中数</th></tr></thead><tbody>
+            <tr><td>primary（小学英语）</td><td>509</td></tr>
+            <tr><td>junior（初中英语）</td><td>1111</td></tr>
+            <tr><td>senior（高中英语）</td><td>1496</td></tr>
+            <tr><td>cet4 / cet6</td><td>3847 / 5406</td></tr>
+            <tr><td>未分级</td><td>不属于任何带 <code>level_code</code> 的词书（当前为 0，6766 条已发布词条均有词书归属）</td></tr>
+          </tbody></table>
+          <p>注意：同一单词可能同时属于多本词书（当前 2091 个词属于两个学段、1756 个词属于三个学段），因此「学段」对词条而言是多值关系，不能用 <code>learning_content.stage</code> 单列表达；词条级学段标签如需展示，应展示其全部归属学段。</p>
           <h3>AI 用量日志的数据口径（不新增日志表）</h3>
           <p>管理端「AI 用量日志」直接按 <code>quota_date</code> × 用户聚合既有事实表：额度、已用、剩余取 <code>ai_daily_quota</code>；成功 / 失败 / 处理中次数、输入输出 Token 与费用取 <code>ai_attempt</code>（<code>owner_id</code> 关联 <code>app_user</code>，全站与系统作用域自然排除）。单次查询区间上限 92 天，手机号在接口层脱敏。</p>
         </section>
