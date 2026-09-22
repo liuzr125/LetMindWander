@@ -10,7 +10,10 @@
       <view class="forecast" bindtap="openPlan"><text wx:if="{{progress.dailyNewCount > 0}}">按每天学习 {{progress.dailyNewCount}} 个新词，预计还需 <text class="forecast-days">{{progress.estimatedRemainingDays}} 天</text></text><text wx:else>每日新词数量为 0，点击调整学习计划</text><text class="forecast-arrow">调整 ›</text></view>
     </view>
 
-    <view class="tabs"><view wx:for="{{tabs}}" wx:key="value" class="tab {{status === item.value ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectTab">{{item.label}}</view></view>
+    <view class="tabs-row">
+      <view class="tabs"><view wx:for="{{tabs}}" wx:key="value" class="tab {{status === item.value ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectTab">{{item.label}}</view></view>
+      <view wx:if="{{progress.learnedCount > 0}}" class="reset-button {{resetting ? 'busy' : ''}}" hover-class="reset-button-hover" hover-stay-time="120" bindtap="resetLearned">{{resetting ? '重置中…' : '重新学习'}}</view>
+    </view>
     <view wx:if="{{!items.length}}" class="empty">{{status === 'learned' ? '还没有学完的单词' : status === 'remaining' ? '这本词书已全部学完' : '词书暂无内容'}}</view>
     <view wx:else class="word-list">
       <view wx:for="{{items}}" wx:key="contentId" class="word-row" data-id="{{item.contentId}}" bindtap="openWord">

@@ -10,6 +10,7 @@ import com.zhixing.model.UserVocabularyBookRow;
 import com.zhixing.model.VocabularyBookView;
 import com.zhixing.model.VocabularyBookProgressItemView;
 import com.zhixing.model.VocabularyBookProgressView;
+import com.zhixing.model.VocabularyBookResetView;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,5 +65,29 @@ public class VocabularyBookService {
         if(selected==null)books.insertSelection(CryptoUtils.randomId(),ownerId,bookId,dailyLimit,now);
         else books.activateSelection(ownerId,bookId,dailyLimit,now);
         return books.selectCurrent(ownerId);
+    }
+
+    /**
+     * 「重新学习」：把当前词书里已学（understood / mastered）的词条划回未学，并取消这些词条的到期复习排期。
+     * 只改学习状态与熟悉度，不动学习记录本身（首次学会时间等历史保留）；今日已排的任务也不会被重排。
+     * 注意词条学习状态是「词」维度的：同一个词同时属于多本词书时，各本书的进度会一起变化。
+     */
+    @Transactional
+    public VocabularyBookResetView resetLearned(String ownerId){
+        String bookId=books.selectActiveBookId(ownerId);
+        if(bookId==null)throw new ApiException(HttpStatus.CONFLICT,"VOCABULARY_BOOK_REQUIRED","请先选择学习词书");
+        VocabularyBookView current=books.selectCurrent(ownerId);
+        Instant now=Instant.now();
+        books.lockOwner(ownerId);
+        int learned=books.countLearnedInBook(ownerId,bookId);
+        int paused=books.pauseReviewsInBook(ownerId,bookId,now);
+        books.resetLearnedInBook(ownerId,bookId,now);
+        VocabularyBookResetView out=new VocabularyBookResetView();
+        out.setBookId(bookId);out.setBookName(current==null?null:current.getBookName());
+        out.setResetCount(learned);out.setPausedReviewCount(paused);
+        int total=books.countAvailableWords(bookId);
+        out.setLearnedCount(Math.max(0,books.countLearnedInBook(ownerId,bookId)));out.setTotalCount(total);
+        out.setRemainingCount(Math.max(0,total-out.getLearnedCount()));
+        return out;
     }
 }

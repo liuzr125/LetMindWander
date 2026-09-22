@@ -135,7 +135,9 @@ const vocabularyBookService = {
   select(bookId, dailyNewLimit) {
     const data = { bookId }; if (dailyNewLimit !== undefined && dailyNewLimit !== null) data.dailyNewLimit = dailyNewLimit;
     return request({ url: '/vocabulary-books/current', method: 'PUT', data });
-  }
+  },
+  // 「重新学习」：把当前词书已学的单词划回未学
+  resetLearned() { return request({ url: '/vocabulary-books/current/reset-learned', method: 'POST' }); }
 };
 
 const journalService = {

@@ -75,6 +75,22 @@ public interface VocabularyBookMapper {
             "WHERE owner_id=#{ownerId} AND state='active' AND book_id<>#{bookId}")
     int pauseOtherBooks(@Param("ownerId") String ownerId,@Param("bookId") String bookId,@Param("now") Instant now);
 
+    /** 「重新学习」：把这本书里已学（understood / mastered）的词条学习记录划回未学，并取消这些词条的到期复习排期。 */
+    @Select("SELECT COUNT(*) FROM learning_record lr JOIN vocabulary_book_word vbw ON vbw.content_id=lr.content_id " +
+            "WHERE lr.owner_id=#{ownerId} AND vbw.book_id=#{bookId} AND lr.learning_status IN ('understood','mastered')")
+    int countLearnedInBook(@Param("ownerId") String ownerId,@Param("bookId") String bookId);
+
+    @Update("UPDATE learning_record SET learning_status='unlearned',familiarity_percent=NULL,version_no=version_no+1,updated_at=#{now} " +
+            "WHERE owner_id=#{ownerId} AND learning_status IN ('understood','mastered') " +
+            "AND content_id IN (SELECT vbw.content_id FROM vocabulary_book_word vbw WHERE vbw.book_id=#{bookId})")
+    int resetLearnedInBook(@Param("ownerId") String ownerId,@Param("bookId") String bookId,@Param("now") Instant now);
+
+    @Update("UPDATE review_schedule SET state='paused',version_no=version_no+1,updated_at=#{now} " +
+            "WHERE owner_id=#{ownerId} AND state='active' AND knowledge_id IN (" +
+            "SELECT ki.id FROM knowledge_item ki WHERE ki.owner_id=#{ownerId} AND ki.source_content_id IN (" +
+            "SELECT vbw.content_id FROM vocabulary_book_word vbw WHERE vbw.book_id=#{bookId}))")
+    int pauseReviewsInBook(@Param("ownerId") String ownerId,@Param("bookId") String bookId,@Param("now") Instant now);
+
     @Insert("INSERT INTO user_vocabulary_book(id,owner_id,book_id,state,daily_new_limit,selected_at,row_version,created_at,updated_at) " +
             "VALUES(#{id},#{ownerId},#{bookId},'active',#{dailyNewLimit},#{now},1,#{now},#{now})")
     int insertSelection(@Param("id") String id,@Param("ownerId") String ownerId,@Param("bookId") String bookId,

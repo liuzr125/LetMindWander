@@ -7,7 +7,7 @@ const TABS = [
 ];
 
 Page({
-  data: { loading: true, loadingMore: false, error: '', needsBook: false, progress: null, items: [], status: 'all', tabs: TABS, page: 1, hasMore: false },
+  data: { loading: true, loadingMore: false, error: '', needsBook: false, progress: null, items: [], status: 'all', tabs: TABS, page: 1, hasMore: false, resetting: false },
   onLoad() { this.initialized = true; this.load(true); },
   onShow() { if (this.initialized && this.shownOnce) this.load(true); this.shownOnce = true; },
   onPullDownRefresh() { this.load(true, () => wx.stopPullDownRefresh()); },
@@ -25,5 +25,34 @@ Page({
   retry() { this.load(true); },
   openWord(event) { wx.navigateTo({ url: `/pages/word/detail/index?id=${encodeURIComponent(event.currentTarget.dataset.id)}` }); },
   openPlan() { wx.navigateTo({ url: '/pages/plan/index' }); },
-  chooseBook() { wx.navigateTo({ url: '/pages/word/books/index' }); }
+  chooseBook() { wx.navigateTo({ url: '/pages/word/books/index' }); },
+  // 「重新学习」：把这本书已学的单词重新划回未学（学习记录保留，今日已排任务不变）
+  resetLearned() {
+    if (this.data.resetting) return;
+    const progress = this.data.progress;
+    const count = progress ? Number(progress.learnedCount || 0) : 0;
+    if (!progress || !count) return wx.showToast({ title: '这本书还没有已学的单词', icon: 'none' });
+    wx.showModal({
+      title: '重新学习',
+      content: `把《${progress.bookName}》已学的 ${count} 个单词重新划为未学？\n学习记录会保留，之后排新词时会重新安排它们。`,
+      confirmText: '重新学习',
+      confirmColor: '#0869f7',
+      success: (res) => { if (res.confirm) this.doReset(); }
+    });
+  },
+  doReset() {
+    this.setData({ resetting: true });
+    wx.showLoading({ title: '正在重置' });
+    vocabularyBookService.resetLearned().then((result) => {
+      wx.hideLoading();
+      this.setData({ resetting: false });
+      const resetCount = result && result.resetCount !== undefined ? result.resetCount : 0;
+      wx.showToast({ title: `已把 ${resetCount} 个单词划回未学`, icon: 'none', duration: 1600 });
+      this.load(true);
+    }).catch((error) => {
+      wx.hideLoading();
+      this.setData({ resetting: false });
+      wx.showToast({ title: error.message || '重置失败', icon: 'none' });
+    });
+  }
 });
