@@ -9,6 +9,9 @@ const TYPE_LABELS = {
   general: '通用词汇'
 };
 
+// 选好词书后回到的页面（词书学习进度）
+const PROGRESS_ROUTE = 'pages/word/books/progress/index';
+
 Page({
   data: { loading: true, saving: false, error: '', date: '', books: [], selectedIndex: -1, selectedId: '', currentProgress: null },
   onLoad(options) {
@@ -51,18 +54,18 @@ Page({
     const book = this.data.books.find((item) => item.id === this.data.selectedId);
     if (!book || !book.available) return wx.showToast({ title: '该词书内容正在准备中', icon: 'none' });
     this.setData({ saving: true });
-    wx.showLoading({ title: '正在准备学习' });
+    wx.showLoading({ title: '正在切换词书' });
     vocabularyBookService.select(this.data.selectedId)
       .then(() => dailyTaskService.day(this.data.date))
-      .then((pack) => {
-        const task = (pack.tasks || []).find((item) => item.taskType === 'word' && item.status !== 'DONE' && item.status !== 'SKIPPED' && item.status !== 'CANCELLED');
+      .then(() => {
         wx.hideLoading();
         this.setData({ saving: false });
-        if (!task) {
-          wx.showToast({ title: '已选择，今日暂无可学新词', icon: 'none' });
-          return setTimeout(() => wx.navigateBack(), 900);
-        }
-        wx.redirectTo({ url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}` });
+        wx.showToast({ title: `已切换到《${book.bookName}》`, icon: 'none', duration: 1200 });
+        // 选好词书后不直接进入学习，回到「词书学习进度」页；若上一页就是它则直接返回
+        const stack = getCurrentPages();
+        const previous = stack[stack.length - 2];
+        if (previous && previous.route === PROGRESS_ROUTE) return wx.navigateBack();
+        wx.redirectTo({ url: `/${PROGRESS_ROUTE}` });
       }).catch((error) => {
         wx.hideLoading();
         this.setData({ saving: false });

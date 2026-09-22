@@ -26,7 +26,7 @@
   </view>
 
   <view class="bottom-bar">
-    <button class="confirm" disabled="{{!selectedId || saving}}" bindtap="confirm">{{saving ? '正在准备…' : '选择并开始学习'}}</button>
+    <button class="confirm" disabled="{{!selectedId || saving}}" bindtap="confirm">{{saving ? '正在切换…' : '确认选择'}}</button>
     <text class="tip">更换词书不会删除已有学习和复习记录</text>
   </view>
 </view>
