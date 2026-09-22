@@ -32,13 +32,14 @@ public class LearningService {
     private final LearningContentMapper learning;
     private final AppParameterService parameters;
     private final ObjectMapper json;
-    public LearningService(LearningContentMapper learning,AppParameterService parameters,ObjectMapper json){this.learning=learning;this.parameters=parameters;this.json=json;}
+    private final com.zhixing.mapper.VocabularyBookMapper books;
+    public LearningService(LearningContentMapper learning,AppParameterService parameters,ObjectMapper json,com.zhixing.mapper.VocabularyBookMapper books){this.learning=learning;this.parameters=parameters;this.json=json;this.books=books;}
 
     public LearningFiltersView filters(){
         Map<String,String> values=parameters.activeByPrefix("learning.");
         LearningFiltersView view=new LearningFiltersView();
         view.setDifficulties(withAll(options(values.get("learning.difficulties"),difficultyDefaults())));
-        view.setStages(withAll(options(values.get("learning.stages"),stageDefaults())));
+        view.setStages(withAll(stageOptions(values.get("learning.stages"))));
         view.setNotebookStatuses(withAll(options(values.get("learning.notebook_statuses"),notebookStatusDefaults())));
         return view;
     }
@@ -76,6 +77,28 @@ public class LearningService {
     private List<LearningFiltersView.OptionView> withAll(List<LearningFiltersView.OptionView> values){List<LearningFiltersView.OptionView> result=new ArrayList<LearningFiltersView.OptionView>();result.add(new LearningFiltersView.OptionView("","全部"));result.addAll(values);return result;}
     private Set<String> optionValues(List<LearningFiltersView.OptionView> options){Set<String> values=new HashSet<String>();for(LearningFiltersView.OptionView option:options)values.add(option.getValue());return values;}
     private List<LearningFiltersView.OptionView> difficultyDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("intro","入门"),new LearningFiltersView.OptionView("advanced","进阶"));}
+    /**
+     * 学段筛选的候选项直接来自可用词书：label=词书名，value=词书 level_code，
+     * 选中后按该词书成员刷新词汇列表（与「选择学习词书」页、管理端词书页同一口径）。
+     * 没有任何词书时回退到 learning.stages 参数 / 内置小学·初中·高中。
+     */
+    private List<LearningFiltersView.OptionView> stageOptions(String raw){
+        List<LearningFiltersView.OptionView> result=new ArrayList<LearningFiltersView.OptionView>();
+        try{
+            for(com.zhixing.model.VocabularyBookView book:books.selectAvailable(null)){
+                String level=clean(book.getLevelCode());
+                if(level.isEmpty())continue;
+                boolean exists=false;
+                for(LearningFiltersView.OptionView item:result)if(item.getValue().equals(level))exists=true;
+                if(exists)continue;
+                String label=clean(book.getBookName());
+                if(label.isEmpty())label=level;
+                if(book.getWordCount()==null||book.getWordCount()<=0)label=label+"（准备中）";
+                result.add(new LearningFiltersView.OptionView(level,label));
+            }
+        }catch(RuntimeException exception){result.clear();}
+        return result.isEmpty()?options(raw,stageDefaults()):result;
+    }
     private List<LearningFiltersView.OptionView> stageDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("primary","小学"),new LearningFiltersView.OptionView("junior","初中"),new LearningFiltersView.OptionView("senior","高中"));}
     private List<LearningFiltersView.OptionView> notebookStatusDefaults(){return Arrays.asList(new LearningFiltersView.OptionView("review","待复习"),new LearningFiltersView.OptionView("familiar","已熟悉"));}
     private int articleNumber(String title){if(title==null)return Integer.MAX_VALUE;Matcher preferred=ARTICLE_NUMBER_BEFORE_COLON.matcher(title);

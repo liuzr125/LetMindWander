@@ -25,7 +25,8 @@ class F07LearningPageIntegrationTest {
         Session session=register();seedLearningDictionary();seed(session.userId);
         mvc.perform(get("/api/learning/filters").header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.difficulties[1].label").value("基础"))
-                .andExpect(jsonPath("$.stages[2].label").value("初中阶段"))
+                .andExpect(jsonPath("$.stages[1].label").value("测试初中词书"))
+                .andExpect(jsonPath("$.stages[1].value").value("junior"))
                 .andExpect(jsonPath("$.notebookStatuses[1].value").value("review"));
         mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","tech").param("topicId",TOPIC))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("理解 RAG")).andExpect(jsonPath("$.hasMore").value(false));
@@ -40,9 +41,9 @@ class F07LearningPageIntegrationTest {
                 .andExpect(jsonPath("$.publishedAt").exists());
         mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","word").param("stage","junior"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].wordTerm").value("context"));
-        // 学段=词书成员关系：没有加入任何「高中」词书的词条，即使 learning_content.stage 有值也不会被学段筛选命中
+        // 学段=词书成员关系：候选项来自可用词书，未收录的学段会被拒绝（小程序端只会传候选项里的值）
         mvc.perform(get("/api/learning/contents").header("Authorization",bearer(session.token)).param("type","word").param("stage","senior"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_STAGE"));
         mvc.perform(post("/api/learning/contents/{id}/word-book",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"active\":true}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.inWordBook").value(true));
         mvc.perform(put("/api/learning/contents/{id}/familiarity",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"familiarityPercent\":85,\"expectedVersion\":0}"))
