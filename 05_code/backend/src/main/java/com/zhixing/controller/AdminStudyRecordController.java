@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** 管理端「词书学习记录」：每个用户每本英语词书的学习记录、每日明细与已学词条。 */
+/**
+ * 管理端「词书学习记录」：按「用户 × 词书 × 轮次」查看学习记录、每日明细与词条。
+ * 一轮 = 一次选定这本词书；切走即冻结，切回同一本书会新开一轮（带入上一轮的已学/未学）。
+ */
 @RestController
 @RequestMapping("/api/admin/study-records")
 public class AdminStudyRecordController {
@@ -22,8 +25,8 @@ public class AdminStudyRecordController {
     @GetMapping public AdminStudyRecordPageView page(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize,@RequestParam(required=false)String keyword,@RequestParam(required=false)String bookId,@RequestParam(required=false)String dateFrom,@RequestParam(required=false)String dateTo){
         admin(token);return records.page(page,pageSize,keyword,bookId,dateFrom,dateTo);}
     @GetMapping("/books") public List<Map<String,Object>> books(@RequestHeader(value="X-Admin-Token",required=false)String token){admin(token);return records.books();}
-    @GetMapping("/{ownerId}/{bookId}") public AdminStudyRecordDetailView detail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String ownerId,@PathVariable String bookId){admin(token);return records.detail(ownerId,bookId);}
-    @GetMapping("/{ownerId}/{bookId}/words") public AdminStudyWordPageView words(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String ownerId,@PathVariable String bookId,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize,@RequestParam(defaultValue="all")String status){
-        admin(token);return records.words(ownerId,bookId,page,pageSize,status);}
+    @GetMapping("/{recordId}") public AdminStudyRecordDetailView detail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String recordId){admin(token);return records.detail(recordId);}
+    @GetMapping("/{recordId}/words") public AdminStudyWordPageView words(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String recordId,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize,@RequestParam(defaultValue="all")String status,@RequestParam(defaultValue="round")String scope){
+        admin(token);return records.words(recordId,page,pageSize,status,scope);}
     private void admin(String token){if(!CryptoUtils.constantTimeEquals(properties.getAdminToken(),token))throw new ApiException(HttpStatus.UNAUTHORIZED,"ADMIN_UNAUTHORIZED","管理员访问令牌无效");}
 }

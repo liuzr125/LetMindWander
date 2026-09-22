@@ -22,23 +22,30 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 管理端「词书学习记录」：查看每个用户每本英语词书的学习记录、每日明细与已学词条。
- * 数据来源：vocabulary_book_study_record / vocabulary_book_study_daily（学习时写入）
- *          + learning_record × vocabulary_book_word（已学/掌握/学习中词数、首次学会时间，均实时统计）。
+ * 管理端「词书学习记录」：按「用户 × 词书 × 轮次」查看学习记录、每日明细与词条。
+ * 一轮 = 一次选定这本词书：切走时冻结（结束时间 + 已学快照），切回会新开一轮并把上一轮的已学/未学带过来。
+ * 数据来源：vocabulary_book_study_record（轮次）/ vocabulary_book_study_daily（每日动作）
+ *          + learning_record × vocabulary_book_word（已学/掌握/学习中词数、本轮新学词数，实时统计）。
  */
 @Service
 public class AdminStudyRecordService {
     private static final ZoneId BUSINESS_ZONE=ZoneId.of("Asia/Shanghai");
     private static final List<String> STATUSES=Arrays.asList("all","learned","mastered","learning");
-    private static final String SELECT="SELECT r.owner_id,u.nickname,u.short_id,u.mobile,r.book_id,b.book_name,b.book_type,b.level_code," +
-            "r.first_studied_at,r.last_studied_at,r.study_count,r.reviewed_count,r.study_day_count," +
+    private static final List<String> SCOPES=Arrays.asList("round","book");
+    /** 已学词数：进行中的轮次看实时，已结束的轮次看结束快照（老记录不再被改写） */
+    private static final String LIVE_LEARNED="(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered'))";
+    private static final String LIVE_MASTERED="(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status='mastered')";
+    private static final String LIVE_LEARNING="(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status='learning')";
+    private static final String SELECT="SELECT r.id,r.owner_id,u.nickname,u.short_id,u.mobile,r.book_id,b.book_name,b.book_type,b.level_code," +
+            "r.round_no,r.selected_at,r.ended_at,r.carried_learned_count,r.final_learned_count,r.first_studied_at,r.last_studied_at," +
+            "r.study_count,r.reviewed_count,r.study_day_count," +
             "(SELECT COUNT(*) FROM vocabulary_book_word w WHERE w.book_id=r.book_id) total_words," +
-            "(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
-            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered')) learned_words," +
-            "(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
-            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status='mastered') mastered_words," +
-            "(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
-            " WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status='learning') learning_words," +
+            "CASE WHEN r.ended_at IS NULL THEN "+LIVE_LEARNED+" ELSE COALESCE(r.final_learned_count,0) END learned_words," +
+            "CASE WHEN r.ended_at IS NULL THEN "+LIVE_MASTERED+" ELSE 0 END mastered_words," +
+            "CASE WHEN r.ended_at IS NULL THEN "+LIVE_LEARNING+" ELSE 0 END learning_words," +
             "EXISTS(SELECT 1 FROM user_vocabulary_book ub WHERE ub.owner_id=r.owner_id AND ub.book_id=r.book_id AND ub.state='active') current_book " +
             "FROM vocabulary_book_study_record r JOIN app_user u ON u.id=r.owner_id JOIN vocabulary_book b ON b.id=r.book_id ";
     private final JdbcTemplate jdbc;
@@ -54,12 +61,12 @@ public class AdminStudyRecordService {
         StringBuilder where=new StringBuilder(" WHERE 1=1");List<Object> args=new ArrayList<Object>();
         if(bookId!=null){where.append(" AND r.book_id=?");args.add(bookId);}
         if(!keyword.isEmpty()){where.append(" AND (u.nickname LIKE ? OR u.short_id LIKE ? OR u.mobile LIKE ? OR b.book_name LIKE ?)");String like="%"+keyword+"%";for(int i=0;i<4;i++)args.add(like);}
-        if(from!=null){where.append(" AND r.last_studied_at>=?");args.add(Timestamp.valueOf(from.atStartOfDay()));}
-        if(to!=null){where.append(" AND r.last_studied_at<?");args.add(Timestamp.valueOf(to.plusDays(1).atStartOfDay()));}
+        if(from!=null){where.append(" AND r.selected_at>=?");args.add(Timestamp.valueOf(from.atStartOfDay()));}
+        if(to!=null){where.append(" AND r.selected_at<?");args.add(Timestamp.valueOf(to.plusDays(1).atStartOfDay()));}
         int total=jdbc.queryForObject("SELECT COUNT(*) FROM vocabulary_book_study_record r JOIN app_user u ON u.id=r.owner_id JOIN vocabulary_book b ON b.id=r.book_id"+where,Integer.class,args.toArray());
         List<Object> pageArgs=new ArrayList<Object>(args);pageArgs.add((page-1)*pageSize);pageArgs.add(pageSize);
         List<AdminStudyRecordView> items=new ArrayList<AdminStudyRecordView>();
-        for(Map<String,Object> row:jdbc.queryForList(SELECT+where+" ORDER BY r.last_studied_at DESC,r.owner_id,r.book_id LIMIT ?,?",pageArgs.toArray()))items.add(view(row));
+        for(Map<String,Object> row:jdbc.queryForList(SELECT+where+" ORDER BY r.selected_at DESC,r.owner_id,r.book_id,r.round_no DESC LIMIT ?,?",pageArgs.toArray()))items.add(view(row));
         AdminStudyRecordPageView out=new AdminStudyRecordPageView();
         out.setTotal(total);out.setPage(page);out.setPageSize(pageSize);out.setTotalPages(total==0?0:(total+pageSize-1)/pageSize);
         out.setKeyword(keyword);out.setBookId(bookId);out.setDateFrom(from==null?null:from.toString());out.setDateTo(to==null?null:to.toString());
@@ -69,44 +76,56 @@ public class AdminStudyRecordService {
         summary.put("records",total);
         summary.put("users",scalar("SELECT COUNT(DISTINCT r.owner_id)"+summaryFrom,args));
         summary.put("books",scalar("SELECT COUNT(DISTINCT r.book_id)"+summaryFrom,args));
+        summary.put("ongoing",scalar("SELECT COUNT(*) FROM vocabulary_book_study_record r JOIN app_user u ON u.id=r.owner_id JOIN vocabulary_book b ON b.id=r.book_id"+where+" AND r.ended_at IS NULL",args));
         summary.put("todayStudied",scalar("SELECT COUNT(*) FROM vocabulary_book_study_record r WHERE r.last_studied_at>=?",Arrays.<Object>asList(Timestamp.valueOf(LocalDate.now(BUSINESS_ZONE).atStartOfDay()))));
         out.setSummary(summary);
         return out;
     }
 
-    public AdminStudyRecordDetailView detail(String rawOwnerId,String rawBookId){
-        String ownerId=clean(rawOwnerId),bookId=clean(rawBookId);
-        if(ownerId==null||bookId==null)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_RECORD_KEY","用户与词书都必须指定");
-        List<Map<String,Object>> rows=jdbc.queryForList(SELECT+" WHERE r.owner_id=? AND r.book_id=?",ownerId,bookId);
-        if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"ADMIN_STUDY_RECORD_NOT_FOUND","该用户在这本词书上还没有学习记录");
+    public AdminStudyRecordDetailView detail(String rawRecordId){
+        String recordId=clean(rawRecordId);
+        if(recordId==null)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_RECORD_ID","学习记录 ID 不能为空");
+        List<Map<String,Object>> rows=jdbc.queryForList(SELECT+" WHERE r.id=?",recordId);
+        if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"ADMIN_STUDY_RECORD_NOT_FOUND","学习记录不存在或已被删除");
         AdminStudyRecordDetailView out=new AdminStudyRecordDetailView();
         AdminStudyRecordView record=view(rows.get(0));
         out.setRecord(record);out.setActiveDays(record.getStudyDayCount());
-        out.setDays(days(ownerId,bookId));
+        out.setDays(days(record));
+        out.setRoundNewWords(roundNewWords(record));
         return out;
     }
 
-    public AdminStudyWordPageView words(String rawOwnerId,String rawBookId,Integer rawPage,Integer rawPageSize,String rawStatus){
-        String ownerId=clean(rawOwnerId),bookId=clean(rawBookId);
-        if(ownerId==null||bookId==null)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_RECORD_KEY","用户与词书都必须指定");
+    public AdminStudyWordPageView words(String rawRecordId,Integer rawPage,Integer rawPageSize,String rawStatus,String rawScope){
+        String recordId=clean(rawRecordId);
+        if(recordId==null)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_RECORD_ID","学习记录 ID 不能为空");
         int page=rawPage==null?1:rawPage,pageSize=rawPageSize==null?20:rawPageSize;
         if(page<1||pageSize<1||pageSize>100)throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PAGE","页码从 1 开始，每页可显示 1 至 100 条词条");
-        String status=rawStatus==null?"all":rawStatus.trim();
+        String status=rawStatus==null?"all":rawStatus.trim(),scope=rawScope==null?"round":rawScope.trim();
         if(!STATUSES.contains(status))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_WORD_STATUS","词条状态仅支持 all、learned、mastered 或 learning");
+        if(!SCOPES.contains(scope))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STUDY_WORD_SCOPE","词条范围仅支持 round（本轮新学）或 book（这本书全部）");
+        List<Map<String,Object>> rounds=jdbc.queryForList(SELECT+" WHERE r.id=?",recordId);
+        if(rounds.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"ADMIN_STUDY_RECORD_NOT_FOUND","学习记录不存在或已被删除");
+        AdminStudyRecordView record=view(rounds.get(0));
+        StringBuilder where=new StringBuilder(" WHERE lr.owner_id=? AND w.book_id=?");
+        List<Object> args=new ArrayList<Object>();args.add(record.getOwnerId());args.add(record.getBookId());
+        if("round".equals(scope)&&record.getSelectedAt()!=null){
+            where.append(" AND COALESCE(lr.first_completed_at,lr.created_at)>=?");
+            args.add(Timestamp.from(record.getSelectedAt()));
+            if(record.getEndedAt()!=null){where.append(" AND COALESCE(lr.first_completed_at,lr.created_at)<?");args.add(Timestamp.from(record.getEndedAt()));}
+        }
         String condition;
         if("learned".equals(status))condition=" AND lr.learning_status IN ('understood','mastered')";
         else if("mastered".equals(status))condition=" AND lr.learning_status='mastered'";
         else if("learning".equals(status))condition=" AND lr.learning_status='learning'";
         else condition=" AND lr.learning_status<>'unlearned'";
-        String where=" WHERE lr.owner_id=? AND w.book_id=?"+condition;
-        List<Object> args=new ArrayList<Object>();args.add(ownerId);args.add(bookId);
-        int total=jdbc.queryForObject("SELECT COUNT(*) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id AND w.book_id=? WHERE lr.owner_id=?"+condition,Integer.class,bookId,ownerId);
+        where.append(condition);
+        int total=jdbc.queryForObject("SELECT COUNT(*) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id"+where,Integer.class,args.toArray());
         List<Object> pageArgs=new ArrayList<Object>(args);pageArgs.add((page-1)*pageSize);pageArgs.add(pageSize);
         List<AdminStudyWordView> items=new ArrayList<AdminStudyWordView>();
         for(Map<String,Object> row:jdbc.queryForList(WORD_SELECT+where+" ORDER BY lr.first_completed_at DESC,lr.content_id LIMIT ?,?",pageArgs.toArray()))items.add(word(row));
         AdminStudyWordPageView out=new AdminStudyWordPageView();
         out.setTotal(total);out.setPage(page);out.setPageSize(pageSize);out.setTotalPages(total==0?0:(total+pageSize-1)/pageSize);
-        out.setStatus(status);out.setItems(items);
+        out.setStatus(status);out.setScope(scope);out.setItems(items);
         return out;
     }
 
@@ -129,39 +148,67 @@ public class AdminStudyRecordService {
             "LEFT JOIN content_version cv ON cv.id=COALESCE(lr.last_version_id,c.published_version_id) " +
             "LEFT JOIN word_notebook wn ON wn.owner_id=lr.owner_id AND wn.content_id=lr.content_id AND wn.state='active' ";
 
-    private List<AdminStudyDayView> days(String ownerId,String bookId){
-        // day 在 H2 里是保留字，统一用 business_day 作为派生列名
-        String sql="SELECT business_day,SUM(new_words) new_words,SUM(study_count) study_count,SUM(reviewed_count) reviewed_count FROM (" +
-                "SELECT DATE(COALESCE(lr.first_completed_at,lr.created_at)) business_day,COUNT(DISTINCT lr.content_id) new_words,0 study_count,0 reviewed_count " +
-                "  FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
-                " WHERE lr.owner_id=? AND w.book_id=? AND lr.learning_status IN ('understood','mastered') " +
-                " GROUP BY DATE(COALESCE(lr.first_completed_at,lr.created_at)) " +
-                "UNION ALL SELECT d.business_date business_day,0 new_words,d.study_count,d.reviewed_count FROM vocabulary_book_study_daily d WHERE d.owner_id=? AND d.book_id=?" +
-                ") t GROUP BY business_day ORDER BY business_day DESC LIMIT 90";
+    /** 本轮新学词数：学习记录完成时间落在本轮窗口内的词条数。 */
+    private Integer roundNewWords(AdminStudyRecordView record){
+        if(record.getSelectedAt()==null)return 0;
+        String sql="SELECT COUNT(*) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+                "WHERE lr.owner_id=? AND w.book_id=? AND lr.learning_status IN ('understood','mastered') AND COALESCE(lr.first_completed_at,lr.created_at)>=?" +
+                (record.getEndedAt()==null?"":" AND COALESCE(lr.first_completed_at,lr.created_at)<?");
+        List<Object> args=new ArrayList<Object>();
+        args.add(record.getOwnerId());args.add(record.getBookId());args.add(Timestamp.from(record.getSelectedAt()));
+        if(record.getEndedAt()!=null)args.add(Timestamp.from(record.getEndedAt()));
+        return jdbc.queryForObject(sql,Integer.class,args.toArray());
+    }
+
+    /** 每日明细：本轮窗口内的「当天新学」（按学习记录实时统计）+ 记录下来的学习/复习动作次数。 */
+    private List<AdminStudyDayView> days(AdminStudyRecordView record){
         List<AdminStudyDayView> out=new ArrayList<AdminStudyDayView>();
-        for(Map<String,Object> row:jdbc.queryForList(sql,ownerId,bookId,ownerId,bookId)){
+        Map<String,AdminStudyDayView> merged=new LinkedHashMap<String,AdminStudyDayView>();
+        String newWordsSql="SELECT DATE(COALESCE(lr.first_completed_at,lr.created_at)) business_day,COUNT(DISTINCT lr.content_id) new_words " +
+                "FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
+                "WHERE lr.owner_id=? AND w.book_id=? AND lr.learning_status IN ('understood','mastered') " +
+                "AND COALESCE(lr.first_completed_at,lr.created_at)>=?" + (record.getEndedAt()==null?"":" AND COALESCE(lr.first_completed_at,lr.created_at)<?") +
+                " GROUP BY DATE(COALESCE(lr.first_completed_at,lr.created_at))";
+        List<Object> newArgs=new ArrayList<Object>();
+        newArgs.add(record.getOwnerId());newArgs.add(record.getBookId());newArgs.add(Timestamp.from(record.getSelectedAt()==null?Instant.now():record.getSelectedAt()));
+        if(record.getEndedAt()!=null)newArgs.add(Timestamp.from(record.getEndedAt()));
+        for(Map<String,Object> row:jdbc.queryForList(newWordsSql,newArgs.toArray())){
+            String day=String.valueOf(raw(row,"business_day"));
             AdminStudyDayView item=new AdminStudyDayView();
-            item.setBusinessDate(String.valueOf(raw(row,"business_day")));
-            item.setNewWordCount(number(row,"new_words"));item.setStudyCount(number(row,"study_count"));item.setReviewedCount(number(row,"reviewed_count"));
-            out.add(item);
+            item.setBusinessDate(day);item.setNewWordCount(number(row,"new_words"));item.setStudyCount(0);item.setReviewedCount(0);
+            merged.put(day,item);
         }
+        for(Map<String,Object> row:jdbc.queryForList("SELECT business_date,study_count,reviewed_count FROM vocabulary_book_study_daily WHERE round_id=?",record.getId())){
+            String day=String.valueOf(raw(row,"business_date"));
+            AdminStudyDayView item=merged.get(day);
+            if(item==null){item=new AdminStudyDayView();item.setBusinessDate(day);item.setNewWordCount(0);merged.put(day,item);}
+            item.setStudyCount(number(row,"study_count"));item.setReviewedCount(number(row,"reviewed_count"));
+        }
+        List<String> keys=new ArrayList<String>(merged.keySet());
+        keys.sort((a,b)->b.compareTo(a));
+        int limit=Math.min(keys.size(),90);
+        for(int i=0;i<limit;i++)out.add(merged.get(keys.get(i)));
         return out;
     }
 
     private AdminStudyRecordView view(Map<String,Object> row){
         AdminStudyRecordView out=new AdminStudyRecordView();
+        out.setId(text(row,"id"));
         out.setOwnerId(text(row,"owner_id"));out.setNickname(text(row,"nickname"));out.setShortId(text(row,"short_id"));
         out.setMobile(maskMobile(text(row,"mobile")));
         out.setBookId(text(row,"book_id"));out.setBookName(text(row,"book_name"));out.setBookType(text(row,"book_type"));
         String level=text(row,"level_code");out.setLevelCode(level);out.setLevelLabel(levelLabel(level));
+        out.setRoundNo(number(row,"round_no"));out.setSelectedAt(instant(row,"selected_at"));out.setEndedAt(instant(row,"ended_at"));
+        out.setCarriedLearnedCount(number(row,"carried_learned_count"));
         int total=number(row,"total_words")==null?0:number(row,"total_words");
         int learned=number(row,"learned_words")==null?0:number(row,"learned_words");
-        int mastered=number(row,"mastered_words")==null?0:number(row,"mastered_words");
-        int learning=number(row,"learning_words")==null?0:number(row,"learning_words");
-        out.setTotalWords(total);out.setLearnedWords(learned);out.setMasteredWords(mastered);out.setLearningWords(learning);
+        out.setTotalWords(total);out.setLearnedWords(learned);
+        out.setMasteredWords(number(row,"mastered_words"));out.setLearningWords(number(row,"learning_words"));
         out.setCompletionPercent(total==0?0:(int)Math.round(learned*100.0/total));
         out.setStudyDayCount(number(row,"study_day_count"));out.setStudyCount(number(row,"study_count"));out.setReviewedCount(number(row,"reviewed_count"));
+        out.setOngoing(Boolean.TRUE.equals(bool(row,"current_book")));
         out.setCurrentBook(Boolean.TRUE.equals(bool(row,"current_book")));
+        out.setCurrentRound(Boolean.TRUE.equals(bool(row,"current_book"))&&out.getEndedAt()==null);
         out.setFirstStudiedAt(instant(row,"first_studied_at"));out.setLastStudiedAt(instant(row,"last_studied_at"));
         return out;
     }
@@ -203,13 +250,13 @@ public class AdminStudyRecordService {
     private Integer scalar(String sql,List<Object> args){return jdbc.queryForObject(sql,Integer.class,args.toArray());}
     private LocalDate date(String raw){String value=clean(raw);if(value==null)return null;try{return LocalDate.parse(value);}catch(Exception e){throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_DATE","日期格式必须为 YYYY-MM-DD");}}
     private String maskMobile(String mobile){ if(mobile==null||mobile.isEmpty())return null; if(mobile.length()<7)return "***"; return mobile.substring(0,3)+"****"+mobile.substring(mobile.length()-4); }
-    private Integer number(Map<String,Object> row,String key){Object raw=raw(row,key);if(raw==null)return null;return raw instanceof Number?((Number)raw).intValue():Integer.valueOf(String.valueOf(raw));}
-    private Boolean bool(Map<String,Object> row,String key){Object raw=raw(row,key);if(raw==null)return null;if(raw instanceof Boolean)return (Boolean)raw;if(raw instanceof Number)return ((Number)raw).intValue()!=0;return Boolean.valueOf(String.valueOf(raw));}
-    private String text(Map<String,Object> row,String key){Object raw=raw(row,key);return raw==null?null:String.valueOf(raw);}
-    private Instant instant(Map<String,Object> row,String key){Object raw=raw(row,key);if(raw instanceof Timestamp)return ((Timestamp)raw).toInstant();
-        if(raw instanceof java.time.LocalDateTime)return ((java.time.LocalDateTime)raw).atZone(BUSINESS_ZONE).toInstant();
-        if(raw instanceof java.time.LocalDate)return ((java.time.LocalDate)raw).atStartOfDay(BUSINESS_ZONE).toInstant();
-        return raw instanceof Instant?(Instant)raw:null;}
+    private Integer number(Map<String,Object> row,String key){Object value=raw(row,key);if(value==null)return null;return value instanceof Number?((Number)value).intValue():Integer.valueOf(String.valueOf(value));}
+    private Boolean bool(Map<String,Object> row,String key){Object value=raw(row,key);if(value==null)return null;if(value instanceof Boolean)return (Boolean)value;if(value instanceof Number)return ((Number)value).intValue()!=0;return Boolean.valueOf(String.valueOf(value));}
+    private String text(Map<String,Object> row,String key){Object value=raw(row,key);return value==null?null:String.valueOf(value);}
+    private Instant instant(Map<String,Object> row,String key){Object value=raw(row,key);if(value instanceof Timestamp)return ((Timestamp)value).toInstant();
+        if(value instanceof java.time.LocalDateTime)return ((java.time.LocalDateTime)value).atZone(BUSINESS_ZONE).toInstant();
+        if(value instanceof java.time.LocalDate)return ((java.time.LocalDate)value).atStartOfDay(BUSINESS_ZONE).toInstant();
+        return value instanceof Instant?(Instant)value:null;}
     private Object raw(Map<String,Object> row,String key){Object value=row.get(key);if(value==null)for(Map.Entry<String,Object> entry:row.entrySet())if(entry.getKey().equalsIgnoreCase(key))value=entry.getValue();return value;}
     private String clean(String raw){String value=raw==null?null:raw.trim();return value==null||value.isEmpty()?null:value;}
 }

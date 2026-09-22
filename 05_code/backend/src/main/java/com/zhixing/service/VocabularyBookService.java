@@ -24,7 +24,8 @@ import java.util.Locale;
 public class VocabularyBookService {
     private final VocabularyBookMapper books;
     private final LearningPlanMapper plans;
-    public VocabularyBookService(VocabularyBookMapper books,LearningPlanMapper plans){this.books=books;this.plans=plans;}
+    private final BookStudyService bookStudy;
+    public VocabularyBookService(VocabularyBookMapper books,LearningPlanMapper plans,BookStudyService bookStudy){this.books=books;this.plans=plans;this.bookStudy=bookStudy;}
 
     public List<VocabularyBookView> list(String ownerId){return books.selectAvailable(ownerId);}
     public VocabularyBookView current(String ownerId){return books.selectCurrent(ownerId);}
@@ -64,6 +65,8 @@ public class VocabularyBookService {
         UserVocabularyBookRow selected=books.selectOwnedForUpdate(ownerId,bookId);
         if(selected==null)books.insertSelection(CryptoUtils.randomId(),ownerId,bookId,dailyLimit,now);
         else books.activateSelection(ownerId,bookId,dailyLimit,now);
+        // 学习记录按轮次：切走时冻结旧轮，切回同一本书会新开一轮并带入上一轮的已学/未学
+        bookStudy.openRound(ownerId,bookId,now);
         return books.selectCurrent(ownerId);
     }
 

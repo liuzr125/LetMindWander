@@ -36,7 +36,7 @@ INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,desc
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c4','group_system','系统运维','','⚙',100,1,NULL,'任务运行、系统参数与角色权限' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_system');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000bc','ai_usage','AI 用量日志','/ai-usage','▦',91,1,'00000000000000000000000000c3','每天每个用户的 AI 用量、成功失败与费用' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='ai_usage');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000bd','feedback','用户反馈','/feedback','✉',61,1,'00000000000000000000000000c2','用户提交的问题反馈正文、详情与处理状态' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='feedback');
-INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000be','study_records','词书学习记录','/study-records','▤',62,1,'00000000000000000000000000c2','每个用户每本英语词书的学习记录、每日明细与已学词条' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='study_records');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000be','study_records','词书学习记录','/study-records','▤',62,1,'00000000000000000000000000c2','每个用户每本英语词书每一轮的学习记录：选择时间、每日明细与词条' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='study_records');
 
 UPDATE admin_menu SET parent_id='00000000000000000000000000c1' WHERE code IN ('content','words','imports','articles');
 UPDATE admin_menu SET parent_id='00000000000000000000000000c2' WHERE code='users';

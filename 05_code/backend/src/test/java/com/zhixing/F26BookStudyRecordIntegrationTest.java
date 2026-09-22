@@ -43,7 +43,9 @@ class F26BookStudyRecordIntegrationTest {
 
         mvc.perform(put("/api/vocabulary-books/current").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"bookId\":\""+BOOK_A+"\",\"dailyNewLimit\":2}")).andExpect(status().isOk());
-        assertThat(recordCount(session.userId)).isEqualTo(0);
+        // 选定词书即产生本轮记录（选择时间、带入已学 0），还没有学习动作
+        assertThat(recordCount(session.userId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT study_count FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=?",Integer.class,session.userId,BOOK_A)).isZero();
 
         // 学习动作 1：词条页「已认识」
         mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}"))
@@ -98,7 +100,8 @@ class F26BookStudyRecordIntegrationTest {
 
         // 管理端详情：每日明细（新学词数按 learning_record 实时统计）
         String today=LocalDate.now(ZoneId.of("Asia/Shanghai")).toString();
-        mvc.perform(get("/api/admin/study-records/{ownerId}/{bookId}",session.userId,BOOK_A).header("X-Admin-Token","dev-admin-token"))
+        String recordA=jdbc.queryForObject("SELECT id FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=?",String.class,session.userId,BOOK_A);
+        mvc.perform(get("/api/admin/study-records/{recordId}",recordA).header("X-Admin-Token","dev-admin-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.record.bookName").value("测试词书甲"))
                 .andExpect(jsonPath("$.activeDays").value(1))
@@ -108,13 +111,14 @@ class F26BookStudyRecordIntegrationTest {
                 .andExpect(jsonPath("$.days[0].reviewedCount").value(1));
 
         // 管理端详情里的已学词条
-        mvc.perform(get("/api/admin/study-records/{ownerId}/{bookId}/words",session.userId,BOOK_A).header("X-Admin-Token","dev-admin-token").param("status","learned"))
+        mvc.perform(get("/api/admin/study-records/{recordId}/words",recordA).header("X-Admin-Token","dev-admin-token").param("status","learned").param("scope","book"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.items[0].word").exists())
                 .andExpect(jsonPath("$.items[0].statusLabel").value("已学会"))
                 .andExpect(jsonPath("$.items[0].difficultyLabel").value("入门"));
-        mvc.perform(get("/api/admin/study-records/{ownerId}/{bookId}/words",session.userId,BOOK_B).header("X-Admin-Token","dev-admin-token").param("status","all"))
+        String recordB=jdbc.queryForObject("SELECT id FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=?",String.class,session.userId,BOOK_B);
+        mvc.perform(get("/api/admin/study-records/{recordId}/words",recordB).header("X-Admin-Token","dev-admin-token").param("status","all").param("scope","book"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].word").value("apple"));
 
         // 词书下拉（不依赖「英语单词」菜单权限）
@@ -126,9 +130,11 @@ class F26BookStudyRecordIntegrationTest {
         // 守卫：未授权 / 状态非法 / 记录不存在
         mvc.perform(get("/api/admin/study-records")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/admin/study-records").header("X-Admin-Token","wrong")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/admin/study-records/{ownerId}/{bookId}/words",session.userId,BOOK_A).header("X-Admin-Token","dev-admin-token").param("status","unknown"))
+        mvc.perform(get("/api/admin/study-records/{recordId}/words",recordA).header("X-Admin-Token","dev-admin-token").param("status","unknown"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_STUDY_WORD_STATUS"));
-        mvc.perform(get("/api/admin/study-records/{ownerId}/{bookId}",session.userId,"ffffffffffffffffffffffffffffffff").header("X-Admin-Token","dev-admin-token"))
+        mvc.perform(get("/api/admin/study-records/{recordId}/words",recordA).header("X-Admin-Token","dev-admin-token").param("scope","unknown"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_STUDY_WORD_SCOPE"));
+        mvc.perform(get("/api/admin/study-records/{recordId}","ffffffffffffffffffffffffffffffff").header("X-Admin-Token","dev-admin-token"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ADMIN_STUDY_RECORD_NOT_FOUND"));
         mvc.perform(get("/api/admin/study-records").header("X-Admin-Token","dev-admin-token").param("dateFrom","2026-09-22").param("dateTo","2026-09-01"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DATE_RANGE"));

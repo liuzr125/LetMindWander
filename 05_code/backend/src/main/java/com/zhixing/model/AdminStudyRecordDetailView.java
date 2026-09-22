@@ -6,8 +6,9 @@ import java.util.List;
 public class AdminStudyRecordDetailView {
     private AdminStudyRecordView record;
     private List<AdminStudyDayView> days;
-    private Integer activeDays;
+    private Integer activeDays,roundNewWords;
     public AdminStudyRecordView getRecord(){return record;} public void setRecord(AdminStudyRecordView v){record=v;}
     public List<AdminStudyDayView> getDays(){return days;} public void setDays(List<AdminStudyDayView> v){days=v;}
     public Integer getActiveDays(){return activeDays;} public void setActiveDays(Integer v){activeDays=v;}
+    public Integer getRoundNewWords(){return roundNewWords;} public void setRoundNewWords(Integer v){roundNewWords=v;}
 }

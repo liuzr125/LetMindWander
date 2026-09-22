@@ -450,25 +450,33 @@ CREATE INDEX IF NOT EXISTS idx_uvb_owner ON user_vocabulary_book (owner_id,state
 
 -- V3.20 词书学习记录（用户 × 词书）：学习该书词条时实时写入，管理端可查看每本书的学习记录与详情。
 -- 说明：已学/掌握词数不在这里冗余存储，查询时按 learning_record × vocabulary_book_word 实时统计，避免口径漂移。
+-- 一轮 = 一次「选定这本词书」；再次切回同一本书会新开一轮，老记录冻结为历史（V3.21）
 CREATE TABLE IF NOT EXISTS vocabulary_book_study_record (
   id CHAR(32) NOT NULL PRIMARY KEY,
   owner_id CHAR(32) NOT NULL,
   book_id CHAR(32) NOT NULL,
-  first_studied_at TIMESTAMP(3) NOT NULL,
-  last_studied_at TIMESTAMP(3) NOT NULL,
+  round_no INT NOT NULL DEFAULT 1,
+  selected_at TIMESTAMP(3),
+  ended_at TIMESTAMP(3),
+  carried_learned_count INT NOT NULL DEFAULT 0,
+  final_learned_count INT,
+  first_studied_at TIMESTAMP(3),
+  last_studied_at TIMESTAMP(3),
   study_count INT NOT NULL DEFAULT 0,
   reviewed_count INT NOT NULL DEFAULT 0,
   study_day_count INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uk_book_study_record UNIQUE (owner_id,book_id)
+  CONSTRAINT uk_book_study_round UNIQUE (owner_id,book_id,round_no)
 );
-CREATE INDEX IF NOT EXISTS idx_book_study_record_owner ON vocabulary_book_study_record (owner_id,last_studied_at);
-CREATE INDEX IF NOT EXISTS idx_book_study_record_book ON vocabulary_book_study_record (book_id,last_studied_at);
+CREATE INDEX IF NOT EXISTS idx_book_study_record_owner ON vocabulary_book_study_record (owner_id,selected_at);
+CREATE INDEX IF NOT EXISTS idx_book_study_record_book ON vocabulary_book_study_record (book_id,selected_at);
+CREATE INDEX IF NOT EXISTS idx_book_study_record_open ON vocabulary_book_study_record (owner_id,book_id,ended_at);
 
--- 每日明细：只记录「学习/复习动作次数」，当天新学词数按 learning_record.first_completed_at 实时统计
+-- 每日明细：按「轮次 × 天」记录学习/复习动作次数；当天新学词数按 learning_record.first_completed_at 实时统计
 CREATE TABLE IF NOT EXISTS vocabulary_book_study_daily (
   id CHAR(32) NOT NULL PRIMARY KEY,
+  round_id CHAR(32) NOT NULL,
   owner_id CHAR(32) NOT NULL,
   book_id CHAR(32) NOT NULL,
   business_date DATE NOT NULL,
@@ -476,9 +484,10 @@ CREATE TABLE IF NOT EXISTS vocabulary_book_study_daily (
   reviewed_count INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uk_book_study_daily UNIQUE (owner_id,book_id,business_date)
+  CONSTRAINT uk_book_study_daily UNIQUE (round_id,business_date)
 );
 CREATE INDEX IF NOT EXISTS idx_book_study_daily_owner ON vocabulary_book_study_daily (owner_id,business_date);
+CREATE INDEX IF NOT EXISTS idx_book_study_daily_round ON vocabulary_book_study_daily (round_id,business_date);
 
 -- V3.1 英语记忆训练：公共提示和题目只读取已审核版本，用户作答与原学习/复习状态分开记录。
 CREATE TABLE IF NOT EXISTS word_memory_hint (

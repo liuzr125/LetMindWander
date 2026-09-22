@@ -17,8 +17,10 @@ function userName(row) { return value(row, 'nickname') || '未设置昵称' }
 function userId(row) { return value(row, 'shortId') || value(row, 'ownerId') || '-' }
 function bookTitle(row) { return value(row, 'bookName') || '未命名词书' }
 function level(row) { const t = value(row, 'levelLabel'); return t && t !== '未分级' ? t : '' }
+function roundText(row) { return `第 ${value(row, 'roundNo') || 1} 轮` }
 function progress(row) { return `${num(value(row, 'learnedWords'))} / ${num(value(row, 'totalWords'))}` }
-function detailUrl(row) { return `/study-records/${value(row, 'ownerId')}/${value(row, 'bookId')}` }
+function ongoing(row) { return !value(row, 'endedAt') }
+function detailUrl(row) { return `/study-records/${value(row, 'id')}` }
 async function load(target = page.value) {
   loading.value = true; error.value = ''
   try {
@@ -46,12 +48,12 @@ onMounted(() => { loadBooks(); load(1) })
 
 <template>
   <section>
-    <div class="page-heading"><div><h1>词书学习记录</h1><p>每个用户每本英语词书的学习记录：已学词数、学习天数、学习与复习次数，点开可看每日明细与已学词条。</p></div><button class="refresh" :disabled="loading" @click="load(page)">刷新数据</button></div>
+    <div class="page-heading"><div><h1>词书学习记录</h1><p>每个用户每本英语词书的学习记录，按「轮次」分开记：一轮 = 一次选定这本词书，换书即冻结当轮，切回同一本书会新开一轮并带入上一轮的已学/未学。</p></div><button class="refresh" :disabled="loading" @click="load(page)">刷新数据</button></div>
     <div v-if="loading && !result.items.length" class="panel state">正在读取学习记录…</div>
     <template v-else>
       <div class="panel record-panel">
         <div class="panel-head">
-          <div><h2>学习记录列表</h2><p>共 {{ result.total }} 条记录</p></div>
+          <div><h2>学习记录列表</h2><p>共 {{ result.total }} 条记录（含历史轮次）</p></div>
           <button v-if="hasFilter" class="plain" @click="reset">清除筛选</button>
         </div>
         <div class="toolbar">
@@ -64,37 +66,40 @@ onMounted(() => { loadBooks(); load(1) })
         </div>
         <div class="range-row">
           <label class="picker">词书<select v-model="bookId" @change="applyFilters"><option value="">全部词书</option><option v-for="book in books" :key="book.id" :value="book.id">{{ book.name }}</option></select></label>
-          <label class="picker">最近学习<input type="date" v-model="dateFrom" @change="applyFilters"/></label>
+          <label class="picker">选择时间<input type="date" v-model="dateFrom" @change="applyFilters"/></label>
           <span class="tilde">至</span>
           <label class="picker"><input type="date" v-model="dateTo" @change="applyFilters"/></label>
           <div class="range-summary">
             <span>记录 <b>{{ num(summary.records) }}</b></span>
             <span>用户 <b>{{ num(summary.users) }}</b></span>
             <span>词书 <b>{{ num(summary.books) }}</b></span>
+            <span>进行中 <b>{{ num(summary.ongoing) }}</b></span>
             <span>今天有学习 <b>{{ num(summary.todayStudied) }}</b></span>
           </div>
         </div>
         <div v-if="error" class="error-line">{{ error }} <button type="button" class="link" @click="load(page)">重试</button></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>昵称</th><th>用户编号</th><th>词书</th><th>学习进度</th><th>学习天数</th><th>学习次数</th><th>复习次数</th><th>首次学习</th><th>最近学习</th><th>操作</th></tr></thead>
+            <thead><tr><th>昵称</th><th>用户编号</th><th>词书</th><th>轮次</th><th>选择时间</th><th>学习进度</th><th>学习天数</th><th>学习次数</th><th>复习次数</th><th>最近学习</th><th>操作</th></tr></thead>
             <tbody>
-              <tr v-for="row in result.items" :key="value(row, 'ownerId') + value(row, 'bookId')">
+              <tr v-for="row in result.items" :key="value(row, 'id')">
                 <td><strong>{{ userName(row) }}</strong></td>
                 <td><span class="code">{{ userId(row) }}</span></td>
                 <td><span class="book">{{ bookTitle(row) }}</span><small v-if="level(row)">{{ level(row) }}</small><small v-if="value(row, 'currentBook')" class="current">当前词书</small></td>
+                <td><span class="round">{{ roundText(row) }}</span><small v-if="ongoing(row)" class="ongoing">进行中</small><small v-else class="ended">已结束</small></td>
+                <td>{{ time(value(row, 'selectedAt')) }}</td>
                 <td>
                   <div class="progress-cell"><span>{{ progress(row) }}</span><b>{{ value(row, 'completionPercent') }}%</b></div>
                   <div class="bar"><i :style="{ width: Math.min(100, value(row, 'completionPercent') || 0) + '%' }"></i></div>
+                  <small v-if="value(row, 'carriedLearnedCount') > 0">带入 {{ num(value(row, 'carriedLearnedCount')) }} 个已学</small>
                 </td>
                 <td>{{ num(value(row, 'studyDayCount')) }} 天</td>
                 <td>{{ num(value(row, 'studyCount')) }}</td>
                 <td>{{ num(value(row, 'reviewedCount')) }}</td>
-                <td>{{ time(value(row, 'firstStudiedAt')) }}</td>
                 <td>{{ time(value(row, 'lastStudiedAt')) }}</td>
                 <td><div class="row-actions"><button class="link" @click="open(row)">查看详情 ›</button></div></td>
               </tr>
-              <tr v-if="!result.items.length"><td colspan="10" class="empty">该条件下还没有词书学习记录</td></tr>
+              <tr v-if="!result.items.length"><td colspan="11" class="empty">该条件下还没有词书学习记录</td></tr>
             </tbody>
           </table>
           <div v-if="loading" class="loading">正在加载…</div>
@@ -141,8 +146,11 @@ td{color:#53617a}
 td strong{display:block;color:#11204a;font-size:14px}
 td small{display:block;margin-top:4px;color:#7c889d;font-size:11px}
 td small.current{color:#176fdc}
+td small.ongoing{color:#15845f}
+td small.ended{color:#8b96a8}
 .code{color:#7c889d;font-variant-numeric:tabular-nums}
 .book{color:#11204a;font-size:13px}
+.round{color:#11204a;font-size:13px}
 .progress-cell{display:flex;align-items:center;gap:8px}
 .progress-cell b{color:#0d6ff5}
 .bar{width:120px;height:6px;margin-top:6px;border-radius:99px;background:#eef3fb;overflow:hidden}
