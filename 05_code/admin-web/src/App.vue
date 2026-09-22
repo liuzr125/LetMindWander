@@ -22,6 +22,7 @@ const fallbackMenuItems = [
   { code:'group_users', path:'', icon:'●', name:'用户与学习', description:'用户账号状态与个人学习进度' },
   { code:'users', path:'/users', icon:'●', name:'用户状态', parentCode:'group_users', description:'用户状态、额度与学习进度' },
   { code:'feedback', path:'/feedback', icon:'✉', name:'用户反馈', parentCode:'group_users', description:'用户提交的反馈正文、详情与处理状态' },
+  { code:'study_records', path:'/study-records', icon:'▤', name:'词书学习记录', parentCode:'group_users', description:'每个用户每本英语词书的学习记录、每日明细与已学词条' },
   { code:'group_ai', path:'', icon:'AI', name:'AI 与费用', description:'模型配置、月预算、用量日志与调用追溯' },
   { code:'ai', path:'/ai', icon:'AI', name:'AI 模型与费用', parentCode:'group_ai', description:'模型配置与月预算' },
   { code:'ai_audit', path:'/ai-audit', icon:'◉', name:'AI 使用追溯', parentCode:'group_ai', description:'按问题追溯模型调用' },

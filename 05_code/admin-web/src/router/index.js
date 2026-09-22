@@ -12,6 +12,8 @@ import UserLearningPage from '../pages/users/learning/index.vue'
 import VocabularyImportsPage from '../pages/imports/index.vue'
 import ParametersPage from '../pages/parameters/index.vue'
 import FeedbackPage from '../pages/feedback/index.vue'
+import StudyRecordsPage from '../pages/study-records/index.vue'
+import StudyRecordDetailPage from '../pages/study-records/detail.vue'
 import RolesPage from '../pages/roles/index.vue'
 
 export default createRouter({
@@ -26,6 +28,8 @@ export default createRouter({
     { path: '/users', component: UsersPage, meta: { title: '用户状态' } },
     { path: '/users/:userId/learning', component: UserLearningPage, meta: { title: '用户学习详情' } },
     { path: '/feedback', component: FeedbackPage, meta: { title: '用户反馈' } },
+    { path: '/study-records', component: StudyRecordsPage, meta: { title: '词书学习记录' } },
+    { path: '/study-records/:ownerId/:bookId', component: StudyRecordDetailPage, meta: { title: '学习记录详情' } },
     { path: '/jobs', component: JobsPage, meta: { title: '任务与运行' } },
     { path: '/ai', component: AiPage, meta: { title: 'AI 模型与费用' } },
     { path: '/ai-audit', component: AiAuditPage, meta: { title: 'AI 使用追溯' } },

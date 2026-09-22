@@ -4,15 +4,15 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>知行日课 V3.19 合并版数据库字典</title>
+    <title>知行日课 V3.20 合并版数据库字典</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.19 合并版数据库字典</h1>
-      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文，V3.16.13 增加段落解释缓存。V3.17 把 AI 每日额度上限改由 <code>app_parameter</code> 维护并在改参数时即时同步当天额度快照；V3.18 为 <code>admin_menu</code> 增加 <code>parent_id</code> / <code>description</code>，侧栏改为一组一级（分类）＋二级（页面）两级菜单；V3.19 增加「用户反馈」菜单。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
+      <h1>知行日课 V3.20 合并版数据库字典</h1>
+      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文，V3.16.13 增加段落解释缓存。V3.17 把 AI 每日额度上限改由 <code>app_parameter</code> 维护并在改参数时即时同步当天额度快照；V3.18 为 <code>admin_menu</code> 增加 <code>parent_id</code> / <code>description</code>，侧栏改为一组一级（分类）＋二级（页面）两级菜单；V3.19 增加「用户反馈」菜单；V3.20 新增「词书学习记录」两张表（用户 × 词书汇总与每日明细）与对应管理端菜单。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
     </header>
     <main>
       <nav>
@@ -29,6 +29,7 @@
         <a href="#v3162-changelog">V3.16.2 增量<small>词库导入自动化</small></a>
         <a href="#v3163-changelog">V3.16.3 增量<small>系统参数软删除</small></a>
         <a href="#v317-319-changelog">V3.17—V3.19 增量<small>AI 额度参数、菜单二级化、用户反馈</small></a>
+        <a href="#v320-changelog">V3.20 增量<small>词书学习记录</small></a>
         <a href="#vocabulary_dataset_catalog">vocabulary_dataset_catalog<small>词库数据源目录</small></a>
         <a href="#vocabulary_import_batch">vocabulary_import_batch<small>词库导入批次</small></a>
         <a href="#vocabulary_import_item">vocabulary_import_item<small>词库导入行与审核</small></a>
@@ -55,6 +56,8 @@
         <a href="#user_vocabulary_book">user_vocabulary_book<small>&#x7528;&#x6237;&#x9009;&#x62E9;&#x8BCD;&#x5E93;</small></a>
         <a href="#vocabulary_book">vocabulary_book<small>&#x82F1;&#x8BED;&#x8BCD;&#x5E93;&#x5B9A;&#x4E49;</small></a>
         <a href="#vocabulary_book_word">vocabulary_book_word<small>&#x8BCD;&#x5E93;&#x5355;&#x8BCD;&#x5173;&#x7CFB;</small></a>
+        <a href="#vocabulary_book_study_record">vocabulary_book_study_record<small>用户词书学习记录</small></a>
+        <a href="#vocabulary_book_study_daily">vocabulary_book_study_daily<small>词书学习每日明细</small></a>
         <a href="#word_alias">word_alias<small>&#x5355;&#x8BCD;&#x522B;&#x540D;&#x4E0E;&#x89C4;&#x8303;&#x8BCD;&#x6620;&#x5C04;</small></a>
         <a href="#word_memory_attempt">word_memory_attempt<small>&#x5355;&#x8BCD;&#x4F5C;&#x7B54;&#x8BB0;&#x5F55;</small></a>
         <a href="#word_memory_episode">word_memory_episode<small>&#x5355;&#x8BCD;&#x8BB0;&#x5FC6;&#x4F1A;&#x8BDD;&#x9898;&#x76EE;</small></a>
@@ -198,7 +201,14 @@
           <p>管理端「AI 用量日志」直接按 <code>quota_date</code> × 用户聚合既有事实表：额度、已用、剩余取 <code>ai_daily_quota</code>；成功 / 失败 / 处理中次数、输入输出 Token 与费用取 <code>ai_attempt</code>（<code>owner_id</code> 关联 <code>app_user</code>，全站与系统作用域自然排除）。单次查询区间上限 92 天，手机号在接口层脱敏。</p>
         </section>
 
-        <section id="vocabulary_dataset_catalog">
+                <section id="v320-changelog">
+          <h2>V3.20 <span>词书学习记录（表结构变更）</span></h2>
+          <p class="meta">&#x8FC1;&#x79FB;&#x811A;&#x672C;&#xFF1A;05_code/backend/sql/V3.20_book_study_records.sql&#xFF0C;&#x5E42;&#x7B49;&#x53EF;&#x91CD;&#x590D;&#x6267;&#x884C;&#xFF1B;&#x8868;&#x7ED3;&#x6784;&#x540C;&#x6B65;&#x8FDB; schema.sql&#xFF08;H2 &#x6D4B;&#x8BD5;&#x5E93;&#xFF09;&#x4E0E; data.sql&#xFF08;&#x83DC;&#x5355;&#x79CD;&#x5B50;&#xFF09;&#x3002;</p>
+          <p>&#x65B0;&#x589E;&#x4E24;&#x5F20;&#x8868;&#xFF1A;vocabulary_book_study_record&#xFF08;&#x7528;&#x6237; &#xD7; &#x8BCD;&#x4E66;&#x6C47;&#x603B;&#xFF09;&#x4E0E; vocabulary_book_study_daily&#xFF08;&#x7528;&#x6237; &#xD7; &#x8BCD;&#x4E66; &#xD7; &#x5929;&#x660E;&#x7EC6;&#xFF09;&#x3002;&#x7528;&#x6237;&#x5728;&#x5C0F;&#x7A0B;&#x5E8F;&#x91CC;&#x5BF9;&#x8BCD;&#x6761;&#x505A;&#x300C;&#x5DF2;&#x8BA4;&#x8BC6; / &#x8BB0;&#x5FC6;&#x53CD;&#x9988; / &#x719F;&#x6089;&#x5EA6; / &#x5230;&#x671F;&#x590D;&#x4E60;&#x300D;&#x65F6;&#xFF0C;BookStudyService &#x6309;&#x8BCD;&#x6761;&#x5F52;&#x5C5E;&#x7684;&#x8BCD;&#x4E66;&#xFF08;vocabulary_book_word&#xFF0C;&#x4E00;&#x4E2A;&#x8BCD;&#x53EF;&#x80FD;&#x5C5E;&#x4E8E;&#x591A;&#x672C;&#x8BCD;&#x4E66;&#xFF0C;&#x9010;&#x672C;&#x8BB0;&#x8D26;&#xFF09;&#x5199;&#x5165;&#xFF1B;&#x5DF2;&#x5F00;&#x59CB;&#x3001;&#x5DF2;&#x5B8C;&#x6210;&#x7684;&#x5B66;&#x4E60;&#x4E8B;&#x5B9E;&#x4E0D;&#x53D7;&#x5F71;&#x54CD;&#x3002;</p>
+          <p>&#x53E3;&#x5F84;&#xFF1A;&#x5DF2;&#x5B66; / &#x5DF2;&#x638C;&#x63E1; / &#x5B66;&#x4E60;&#x4E2D;&#x8BCD;&#x6570;&#x3001;&#x5B66;&#x4E60;&#x8FDB;&#x5EA6;&#x3001;&#x5F53;&#x5929;&#x65B0;&#x5B66;&#x8BCD;&#x6570;&#x4E00;&#x5F8B;&#x5B9E;&#x65F6;&#x7EDF;&#x8BA1;&#xFF08;learning_record &#xD7; vocabulary_book_word&#xFF09;&#xFF0C;&#x8868;&#x91CC;&#x53EA;&#x5B58;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#x4E0E;&#x65F6;&#x95F4;&#xFF0C;&#x907F;&#x514D;&#x5197;&#x4F59;&#x5B57;&#x6BB5;&#x4E0E;&#x4E8B;&#x5B9E;&#x6F02;&#x79FB;&#x3002;</p>
+          <p>&#x5386;&#x53F2;&#x56DE;&#x586B;&#xFF1A;&#x8FC1;&#x79FB;&#x811A;&#x672C;&#x6309; learning_event &#x5DF2;&#x6709;&#x7684;&#x771F;&#x5B9E;&#x4E8B;&#x4EF6;&#x805A;&#x5408;&#x56DE;&#x586B;&#xFF08;&#x7528;&#x6237; &#xD7; &#x8BCD;&#x4E66; &#xD7; &#x5929; &#x7684;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#x3001;&#x9996;&#x6B21;&#x4E0E;&#x6700;&#x8FD1;&#x5B66;&#x4E60;&#x65F6;&#x95F4;&#x3001;&#x5B66;&#x4E60;&#x5929;&#x6570;&#xFF09;&#xFF0C;&#x4E0D;&#x7F16;&#x9020;&#x6570;&#x636E;&#x3002;&#x7BA1;&#x7406;&#x7AEF;&#x65B0;&#x589E;&#x83DC;&#x5355;&#x300C;&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#xFF08;code=study_records&#xFF0C;&#x8DEF;&#x7531; /study-records&#xFF0C;parent=group_users&#xFF0C;sort 62&#xFF09;&#xFF0C;&#x63A5;&#x53E3; /api/admin/study-records&#xFF08;&#x5217;&#x8868;&#xFF09;&#x3001;/api/admin/study-records/{ownerId}/{bookId}&#xFF08;&#x8BE6;&#x60C5;&#xFF09;&#x3001;/api/admin/study-records/{ownerId}/{bookId}/words&#xFF08;&#x5DF2;&#x5B66;&#x8BCD;&#x6761;&#x5206;&#x9875;&#xFF09;&#x3001;/api/admin/study-records/books&#xFF08;&#x8FC7;&#x6EE4;&#x4E0B;&#x62C9;&#xFF09;&#xFF0C;&#x7531; AdminSessionFilter &#x6620;&#x5C04;&#x5230; study_records &#x83DC;&#x5355;&#x7801;&#x3002;</p>
+        </section>
+<section id="vocabulary_dataset_catalog">
           <h2>vocabulary_dataset_catalog <span>词库数据源目录</span></h2>
           <p class="meta">可授权、可追溯的数据集及上传内容快照；source_payload 不对客户端下发。</p>
           <div class="scroll"><table><thead><tr><th>字段</th><th>类型</th><th>默认</th><th>说明</th></tr></thead><tbody>
@@ -4095,7 +4105,263 @@
           </div>
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_vocabulary_book_word(book_id, content_id); idx_vbw_content(content_id, book_id); idx_vbw_order(book_id, sort_no, id)</p>
         </section>
-        <section id="word_alias">
+                <section id="vocabulary_book_study_record">
+          <h2>vocabulary_book_study_record <span>&#x7528;&#x6237;&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;</span></h2>
+          <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x7528;&#x6237; &#xD7; &#x82F1;&#x8BED;&#x8BCD;&#x4E66; &#x4E00;&#x884C;&#xFF1B;&#x7528;&#x6237;&#x5B66;&#x4E60;&#x8BE5;&#x4E66;&#x8BCD;&#x6761;&#xFF08;&#x5DF2;&#x5B66;&#x4F1A; / &#x8BB0;&#x5FC6;&#x53CD;&#x9988; / &#x719F;&#x6089;&#x5EA6; / &#x5230;&#x671F;&#x590D;&#x4E60;&#xFF09;&#x65F6;&#x5B9E;&#x65F6;&#x5199;&#x5165;&#x3002;&#x5DF2;&#x5B66;&#x3001;&#x5DF2;&#x638C;&#x63E1;&#x3001;&#x5B66;&#x4E60;&#x4E2D;&#x7684;&#x8BCD;&#x6570;&#x4E0D;&#x5728;&#x6B64;&#x5197;&#x4F59;&#x5B58;&#x50A8;&#xFF0C;&#x7BA1;&#x7406;&#x7AEF;&#x6309; learning_record &#xD7; vocabulary_book_word &#x5B9E;&#x65F6;&#x7EDF;&#x8BA1;&#xFF0C;&#x907F;&#x514D;&#x53E3;&#x5F84;&#x6F02;&#x79FB;&#x3002;</p>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>&#x5B57;&#x6BB5;</th>
+                  <th>&#x7C7B;&#x578B;</th>
+                  <th>&#x53EF;&#x7A7A;</th>
+                  <th>&#x9ED8;&#x8BA4;</th>
+                  <th>&#x8BF4;&#x660E;</th>
+                  <th>&#x903B;&#x8F91;&#x5173;&#x8054;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <code>id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x4E3B;&#x952E;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>owner_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x5B66;&#x4E60;&#x8BE5;&#x8BCD;&#x4E66;&#x7684;&#x7528;&#x6237;&#x3002;</td>
+                  <td>app_user.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>book_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x88AB;&#x5B66;&#x4E60;&#x7684;&#x82F1;&#x8BED;&#x8BCD;&#x4E66;&#x3002;</td>
+                  <td>vocabulary_book.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>first_studied_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x7B2C;&#x4E00;&#x6B21;&#x5B66;&#x4E60;&#x8FD9;&#x672C;&#x4E66;&#x8BCD;&#x6761;&#x7684;&#x65F6;&#x95F4;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>last_studied_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x6700;&#x8FD1;&#x4E00;&#x6B21;&#x5B66;&#x4E60;&#x65F6;&#x95F4;&#xFF1B;&#x7BA1;&#x7406;&#x7AEF;&#x5217;&#x8868;&#x9ED8;&#x8BA4;&#x6309;&#x5B83;&#x5012;&#x5E8F;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>study_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x7D2F;&#x8BA1;&#x5B66;&#x4E60;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#xFF08;&#x8BCD;&#x6761;&#x9875;&#x300C;&#x5DF2;&#x8BA4;&#x8BC6;&#x300D;&#x3001;&#x8BB0;&#x5FC6;&#x53CD;&#x9988;&#x3001;&#x719F;&#x6089;&#x5EA6;&#x5404;&#x8BB0; 1 &#x6B21;&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>reviewed_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x7D2F;&#x8BA1;&#x5230;&#x671F;&#x590D;&#x4E60;&#x6B21;&#x6570;&#xFF08;&#x590D;&#x4E60;&#x53CD;&#x9988;&#x8BB0; 1 &#x6B21;&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>study_day_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x6709;&#x5B66;&#x4E60;&#x884C;&#x4E3A;&#x7684;&#x5929;&#x6570;&#xFF08;&#x6BCF;&#x5929;&#x65B0;&#x589E;&#x4E00;&#x6761;&#x660E;&#x7EC6;&#x65F6; +1&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>created_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>CURRENT_TIMESTAMP(3)</code>
+                  </td>
+                  <td>&#x521B;&#x5EFA;&#x65F6;&#x95F4;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>updated_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>CURRENT_TIMESTAMP(3)</code>
+                  </td>
+                  <td>&#x66F4;&#x65B0;&#x65F6;&#x95F4;&#xFF08;&#x6570;&#x636E;&#x5E93;&#x81EA;&#x52A8; ON UPDATE&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+            </table>
+          </div>
+          <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_book_study_record(owner_id, book_id); idx_book_study_record_owner(owner_id, last_studied_at); idx_book_study_record_book(book_id, last_studied_at)</p>
+        </section>
+        <section id="vocabulary_book_study_daily">
+          <h2>vocabulary_book_study_daily <span>&#x8BCD;&#x4E66;&#x5B66;&#x4E60;&#x6BCF;&#x65E5;&#x660E;&#x7EC6;</span></h2>
+          <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x7528;&#x6237; &#xD7; &#x8BCD;&#x4E66; &#xD7; &#x4E1A;&#x52A1;&#x65E5;&#x671F; &#x4E00;&#x884C;&#xFF0C;&#x53EA;&#x8BB0;&#x5F55;&#x5F53;&#x5929;&#x5B66;&#x4E60; / &#x590D;&#x4E60;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#xFF1B;&#x300C;&#x5F53;&#x5929;&#x65B0;&#x5B66;&#x8BCD;&#x6570;&#x300D;&#x4E0D;&#x843D;&#x5E93;&#xFF0C;&#x7BA1;&#x7406;&#x7AEF;&#x6309; learning_record.first_completed_at &#x5B9E;&#x65F6;&#x7EDF;&#x8BA1;&#xFF0C;&#x5386;&#x53F2;&#x56DE;&#x586B;&#x4E5F;&#x53EA;&#x56DE;&#x586B;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#x3002;</p>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>&#x5B57;&#x6BB5;</th>
+                  <th>&#x7C7B;&#x578B;</th>
+                  <th>&#x53EF;&#x7A7A;</th>
+                  <th>&#x9ED8;&#x8BA4;</th>
+                  <th>&#x8BF4;&#x660E;</th>
+                  <th>&#x903B;&#x8F91;&#x5173;&#x8054;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <code>id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x4E3B;&#x952E;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>owner_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x7528;&#x6237;&#x3002;</td>
+                  <td>app_user.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>book_id</code>
+                  </td>
+                  <td>CHAR(32) CHARACTER SET ascii COLLATE ascii_bin</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x8BCD;&#x4E66;&#x3002;</td>
+                  <td>vocabulary_book.id</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>business_date</code>
+                  </td>
+                  <td>DATE</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>&#x65E0;</code>
+                  </td>
+                  <td>&#x4E1A;&#x52A1;&#x65E5;&#x671F;&#xFF08;Asia/Shanghai&#xFF09;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>study_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x5F53;&#x5929;&#x5B66;&#x4E60;&#x52A8;&#x4F5C;&#x6B21;&#x6570;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>reviewed_count</code>
+                  </td>
+                  <td>INT</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>0</code>
+                  </td>
+                  <td>&#x5F53;&#x5929;&#x590D;&#x4E60;&#x6B21;&#x6570;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>created_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>CURRENT_TIMESTAMP(3)</code>
+                  </td>
+                  <td>&#x521B;&#x5EFA;&#x65F6;&#x95F4;&#x3002;</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>updated_at</code>
+                  </td>
+                  <td>DATETIME(3)</td>
+                  <td>&#x5426;</td>
+                  <td>
+                    <code>CURRENT_TIMESTAMP(3)</code>
+                  </td>
+                  <td>&#x66F4;&#x65B0;&#x65F6;&#x95F4;&#x3002;</td>
+                  <td></td>
+                </tr>
+            </table>
+          </div>
+          <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_book_study_daily(owner_id, book_id, business_date); idx_book_study_daily_owner(owner_id, business_date)</p>
+        </section>
+<section id="word_alias">
           <h2>word_alias <span>&#x5355;&#x8BCD;&#x522B;&#x540D;&#x4E0E;&#x89C4;&#x8303;&#x8BCD;&#x6620;&#x5C04;</span></h2>
           <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x5C06;&#x9519;&#x62FC;&#x3001;&#x65E7;&#x62FC;&#x5199;&#x3001;&#x7F29;&#x5199;&#x548C;&#x8BCD;&#x5F62;&#x53D8;&#x4F53;&#x6620;&#x5C04;&#x5230;&#x552F;&#x4E00; canonical word&#xFF1B;&#x641C;&#x7D22;&#x522B;&#x540D;&#x547D;&#x4E2D;&#x540E;&#x8FDB;&#x5165;&#x540C;&#x4E00;&#x5B66;&#x4E60;&#x5185;&#x5BB9;&#x3002;</p>
           <div class="scroll">

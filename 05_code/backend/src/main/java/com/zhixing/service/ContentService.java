@@ -30,7 +30,8 @@ public class ContentService {
     private final DailyTaskService dailyTasks;
     private final MediaService media;
     private final ObjectMapper json;
-    public ContentService(ContentMapper contents, DailyTaskService dailyTasks, MediaService media,ObjectMapper json) { this.contents=contents; this.dailyTasks=dailyTasks; this.media=media; this.json=json; }
+    private final BookStudyService bookStudy;
+    public ContentService(ContentMapper contents, DailyTaskService dailyTasks, MediaService media,ObjectMapper json,BookStudyService bookStudy) { this.contents=contents; this.dailyTasks=dailyTasks; this.media=media; this.json=json; this.bookStudy=bookStudy; }
 
     public ContentDetailView get(String ownerId, String contentId) {
         ContentDetailView view = required(ownerId, contentId);
@@ -96,6 +97,7 @@ public class ContentService {
         Instant now = Instant.now();
         contents.markUnderstood(CryptoUtils.randomId(), ownerId, contentId, learningKey(view, contentId), view.getVersionId(), now);
         appendLearningEvent(ownerId, contentId, request == null ? null : request.getTaskId(), "understood", now);
+        bookStudy.record(ownerId, contentId, BookStudyService.KIND_STUDY, now);
         if (request != null && request.getTaskId() != null) {
             dailyTasks.completeContentTask(ownerId, request.getTaskId(), contentId, request.getExpectedVersion());
         }
@@ -113,6 +115,7 @@ public class ContentService {
         contents.upsertWordFeedback(CryptoUtils.randomId(),ownerId,contentId,learningKey(view,contentId),view.getVersionId(),
                 rule.learningStatus,rule.familiarity,now);
         appendLearningEvent(ownerId,contentId,request.getTaskId(),feedback,now);
+        bookStudy.record(ownerId,contentId,BookStudyService.KIND_STUDY,now);
         scheduleFeedback(ownerId,contentId,view,rule);
         if(request.getTaskId()!=null)dailyTasks.completeContentTask(ownerId,request.getTaskId(),contentId,request.getExpectedVersion());
         return get(ownerId,contentId);
@@ -167,6 +170,7 @@ public class ContentService {
         if(expected==0){try{changed=contents.insertFamiliarity(CryptoUtils.randomId(),ownerId,contentId,request.getFamiliarityPercent(),now);}catch(DuplicateKeyException e){changed=0;}}
         else changed=contents.updateFamiliarity(ownerId,contentId,request.getFamiliarityPercent(),expected,now);
         if(changed==0)throw new ApiException(HttpStatus.CONFLICT,"LEARNING_VERSION_CONFLICT","学习状态已更新，请重新加载后再保存熟悉度");
+        bookStudy.record(ownerId,contentId,BookStudyService.KIND_STUDY,now);
         return get(ownerId,contentId);
     }
 
