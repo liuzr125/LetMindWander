@@ -842,12 +842,14 @@ CREATE TABLE `notification_delivery` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='微信提醒发送记录〔条件能力〕';
 
 CREATE TABLE `learning_topic` (
+  `topic_type` VARCHAR(32) NOT NULL DEFAULT 'technical' COMMENT 'technical技术知识主题，vocabulary词书标签',
   `id` CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '应用生成32位小写十六进制ID',
   `scope_key` VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'system或用户ID；避免可空唯一键问题',
   `owner_id` CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL COMMENT '个人自定义主题所属用户；系统主题为空 逻辑关联 app_user.id',
   `name` VARCHAR(50) NOT NULL COMMENT '主题名称1至50字符',
   `normalized_name` VARCHAR(50) NOT NULL COMMENT '去前后空格并规范化名称',
   `state` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active' COMMENT 'active/disabled',
+  `del_is` TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记：0正常，1已删除',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间 UTC',
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间 UTC；ON UPDATE CURRENT_TIMESTAMP(3)',
   PRIMARY KEY (`id`) COMMENT '主键',
@@ -2089,7 +2091,7 @@ INSERT INTO `app_parameter` (`id`,`param_key`,`param_value`,`is_secret`,`descrip
 ON DUPLICATE KEY UPDATE `description`=VALUES(`description`),`state`='active';
 
 INSERT INTO `content_source` (`id`,`name`,`source_type`,`url`,`license_note`,`enabled`) VALUES
-('e0000000000000000000000000000013','知行日课分级英语短文','manual',NULL,'原创分级学习短文，可在本产品内展示、朗读与跟读',1)
+('e0000000000000000000000000000013','脑袋开小灶','manual',NULL,'原创分级学习短文，可在本产品内展示、朗读与跟读',1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`license_note`=VALUES(`license_note`),`enabled`=1;
 
 DROP PROCEDURE IF EXISTS seed_v313_articles;

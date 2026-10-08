@@ -4,6 +4,7 @@ import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
 import com.zhixing.model.AdminUserPageView;
 import com.zhixing.model.AdminUserView;
+import com.zhixing.model.AdminUserAccountDetailView;
 import com.zhixing.model.AdminUserLearningView;
 import com.zhixing.model.LearningPageView;
 import com.zhixing.model.PlanView;
@@ -63,6 +64,19 @@ public class AdminUserService {
         result.setToday(today(userId));return result;
     }
     @Transactional
+    public AdminUserAccountDetailView accountDetail(String rawUserId,String adminId){
+        String userId=rawUserId==null?"":rawUserId.trim();
+        if(userId.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_USER_ID","用户 ID 不能为空");
+        List<AdminUserAccountDetailView> rows=jdbc.query("SELECT id,seq_no,short_id,nickname,mobile,status,ai_consent_version,last_login_at,created_at FROM app_user WHERE id=?",(rs,row)->{
+            AdminUserAccountDetailView item=mapUser(rs,new AdminUserAccountDetailView());
+            item.setMobile(rs.getString("mobile"));return item;
+        },userId);
+        if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"ADMIN_USER_NOT_FOUND","用户不存在");
+        jdbc.update("INSERT INTO admin_audit(id,admin_id,action_code,target_type,target_id,result_code,metadata_json,expires_at) VALUES(?,?,?,?,?,'succeeded',?,?)",
+                CryptoUtils.randomId(),adminId,"user_account_detail_view","app_user",userId,"{}",Timestamp.from(Instant.now().plusSeconds(180L*24*3600)));
+        return rows.get(0);
+    }
+    @Transactional
     public AdminUserView setAiAuthorization(String rawUserId,boolean enabled,String adminId){
         String userId=rawUserId==null?"":rawUserId.trim();
         if(userId.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_USER_ID","用户 ID 不能为空");
@@ -78,6 +92,7 @@ public class AdminUserService {
         List<AdminUserLearningView.TodayProgressView> rows=jdbc.query("SELECT COUNT(*) total_count,SUM(CASE WHEN dt.status='DONE' THEN 1 ELSE 0 END) completed_count,SUM(CASE WHEN dt.status='DOING' THEN 1 ELSE 0 END) doing_count FROM daily_task dt JOIN daily_package dp ON dp.id=dt.package_id WHERE dt.owner_id=? AND dp.business_date=?",(rs,row)->{AdminUserLearningView.TodayProgressView item=new AdminUserLearningView.TodayProgressView();int total=rs.getInt("total_count"),done=rs.getInt("completed_count");item.setTotalCount(total);item.setCompletedCount(done);item.setDoingCount(rs.getInt("doing_count"));item.setCompletionRate(total==0?0.0:Math.round(done*1000.0/total)/10.0);return item;},userId,date);
         if(!rows.isEmpty())return rows.get(0);AdminUserLearningView.TodayProgressView empty=new AdminUserLearningView.TodayProgressView();empty.setTotalCount(0);empty.setCompletedCount(0);empty.setDoingCount(0);empty.setCompletionRate(0.0);return empty;
     }
-    private AdminUserView mapUser(java.sql.ResultSet rs)throws java.sql.SQLException{AdminUserView item=new AdminUserView();item.setUserId(rs.getString("id"));Number seq=(Number)rs.getObject("seq_no");item.setSeqNo(seq==null?null:seq.intValue());item.setShortId(rs.getString("short_id"));item.setNickname(rs.getString("nickname"));item.setMobileMasked(mask(rs.getString("mobile")));item.setStatus(rs.getString("status"));item.setAiConsented(rs.getString("ai_consent_version")!=null);Timestamp login=rs.getTimestamp("last_login_at"),created=rs.getTimestamp("created_at");item.setLastLoginAt(login==null?null:login.toInstant());item.setCreatedAt(created==null?null:created.toInstant());return item;}
+    private AdminUserView mapUser(java.sql.ResultSet rs)throws java.sql.SQLException{return mapUser(rs,new AdminUserView());}
+    private <T extends AdminUserView> T mapUser(java.sql.ResultSet rs,T item)throws java.sql.SQLException{item.setUserId(rs.getString("id"));Number seq=(Number)rs.getObject("seq_no");item.setSeqNo(seq==null?null:seq.intValue());item.setShortId(rs.getString("short_id"));item.setNickname(rs.getString("nickname"));item.setMobileMasked(mask(rs.getString("mobile")));item.setStatus(rs.getString("status"));item.setAiConsented(rs.getString("ai_consent_version")!=null);Timestamp login=rs.getTimestamp("last_login_at"),created=rs.getTimestamp("created_at");item.setLastLoginAt(login==null?null:login.toInstant());item.setCreatedAt(created==null?null:created.toInstant());return item;}
     private String mask(String mobile){if(mobile==null||mobile.length()<7)return mobile;return mobile.substring(0,3)+"****"+mobile.substring(mobile.length()-4);}
 }

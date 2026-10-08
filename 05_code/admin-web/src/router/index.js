@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import OverviewPage from '../pages/overview/index.vue'
 import UsersPage from '../pages/users/index.vue'
+import InvitesPage from '../pages/invites/index.vue'
+import TopicsPage from '../pages/topics/index.vue'
 import ContentPage from '../pages/content/index.vue'
 import JobsPage from '../pages/jobs/index.vue'
 import AiPage from '../pages/ai/index.vue'
@@ -22,10 +24,12 @@ export default createRouter({
     { path: '/', redirect: '/users' },
     { path: '/overview', component: OverviewPage, meta: { title: '概览' } },
     { path: '/content', component: ContentPage, meta: { title: '内容与来源' } },
+    { path: '/topics', component: TopicsPage, meta: { title: '主题管理' } },
     { path: '/words', component: WordsPage, meta: { title: '英语单词' } },
     { path: '/vocabulary-imports', component: VocabularyImportsPage, meta: { title: '词库批次自动化' } },
     { path: '/articles', component: ArticlesPage, meta: { title: '英语短文' } },
-    { path: '/users', component: UsersPage, meta: { title: '用户状态' } },
+    { path: '/users', component: UsersPage, meta: { title: '账号列表' } },
+    { path: '/invites', component: InvitesPage, meta: { title: '邀请码' } },
     { path: '/users/:userId/learning', component: UserLearningPage, meta: { title: '用户学习详情' } },
     { path: '/feedback', component: FeedbackPage, meta: { title: '用户反馈' } },
     { path: '/study-records', component: StudyRecordsPage, meta: { title: '词书学习记录' } },

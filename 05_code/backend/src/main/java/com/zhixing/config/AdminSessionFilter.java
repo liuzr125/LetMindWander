@@ -55,10 +55,12 @@ public class AdminSessionFilter extends OncePerRequestFilter {
         if(path.startsWith("/api/admin/roles")||path.startsWith("/api/admin/accounts"))return "roles";
         if(path.startsWith("/api/admin/overview"))return "overview";
         if(path.startsWith("/api/admin/content"))return "content";
+        if(path.startsWith("/api/admin/topics"))return "topics";
         if(path.startsWith("/api/admin/vocabulary/"))return "imports";
         if(path.startsWith("/api/admin/vocabulary-books"))return "words";
-        if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/invites")||path.startsWith("/api/admin/admission")||path.startsWith("/api/admin/invite-stats"))return "users";
-        if(path.startsWith("/api/admin/collection"))return "jobs";
+        if(path.startsWith("/api/admin/invites")||path.startsWith("/api/admin/admission")||path.startsWith("/api/admin/invite-stats"))return "invites";
+        if(path.startsWith("/api/admin/users"))return "users";
+        if(path.startsWith("/api/admin/collection")||path.startsWith("/api/admin/tasks/"))return "jobs";
         if(path.startsWith("/api/admin/feedback"))return "feedback";
         if(path.startsWith("/api/admin/study-records"))return "study_records";
         if(path.startsWith("/api/admin/ai/usage-logs"))return "ai_usage";
@@ -72,7 +74,7 @@ public class AdminSessionFilter extends OncePerRequestFilter {
         byte[] actual=token.getBytes(StandardCharsets.UTF_8),expected=properties.getAdminToken().getBytes(StandardCharsets.UTF_8);
         if(!MessageDigest.isEqual(actual,expected))return null;
         return new AdminPrincipal(properties.getAdminPrincipalId(),"legacy-test-admin","SUPER_ADMIN","测试管理员",
-                new LinkedHashSet<String>(Arrays.asList("overview","group_content","content","words","imports","articles","group_users","users","feedback","study_records","jobs","group_ai","ai","ai_audit","ai_usage","group_system","parameters","roles")));
+                new LinkedHashSet<String>(Arrays.asList("overview","group_content","content","topics","words","imports","articles","group_users","users","invites","feedback","study_records","jobs","group_ai","ai","ai_audit","ai_usage","group_system","parameters","roles")));
     }
     private static final class LegacyAdminHeaderRequest extends HttpServletRequestWrapper {
         private final String token; LegacyAdminHeaderRequest(HttpServletRequest request,String token){super(request);this.token=token;}

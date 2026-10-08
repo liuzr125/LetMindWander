@@ -6,7 +6,7 @@ import com.zhixing.mapper.ContentCollectionMapper;
 import com.zhixing.model.CollectionRunView;
 import com.zhixing.model.CollectionScheduleView;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.xml.XMLConstants;
@@ -37,16 +37,27 @@ public class ContentCollectionService {
     );
     private final ContentCollectionMapper mapper;
     private final AppProperties properties;
+    @Autowired private TaskScheduleSettings taskSchedules;
 
     public ContentCollectionService(ContentCollectionMapper mapper, AppProperties properties) { this.mapper = mapper; this.properties = properties; }
 
-    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Shanghai")
-    public void scheduledCollection() { run(false); }
+    public void scheduledCollection() {
+        CollectionScheduleView schedule = mapper.selectSchedule();
+        if (schedule == null || !"active".equals(schedule.getState())) return;
+        run(false);
+    }
 
     public CollectionScheduleView schedule() {
         CollectionScheduleView schedule = mapper.selectSchedule();
-        if (schedule != null) schedule.setNextRunAt(nextRun(Instant.now()));
+        if (schedule != null) { schedule.setTimezone("Asia/Shanghai");schedule.setNextRunAt("active".equals(schedule.getState()) ? nextRun(Instant.now()) : null); }
         return schedule;
+    }
+
+    public CollectionScheduleView updateEnabled(boolean enabled) {
+        CollectionScheduleView schedule = mapper.selectSchedule();
+        if (schedule == null) throw new IllegalStateException("未找到采集任务；请先执行 V3.3_content_collection_schedule.sql");
+        mapper.updateScheduleState(schedule.getId(), enabled ? "active" : "paused", enabled ? nextRun(Instant.now()) : null);
+        return schedule();
     }
 
     public List<CollectionRunView> runs(int limit) {
@@ -72,7 +83,7 @@ public class ContentCollectionService {
                 "INSERT learning_content、content_version：仅把新条目写为 pending / 待审核，不自动发布。",
                 "INSERT learning_topic、content_topic：补齐主题与内容版本的关联；重复关联由唯一约束保护。"
         ));
-        result.put("tools", Arrays.asList("Spring @Scheduled（Asia/Shanghai 的 Cron 调度）", "JDK HttpURLConnection（HTTPS 请求；8 秒连接、12 秒读取超时）", "JDK XML DOM 解析（启用安全处理并禁用 DTD/外部实体）", "MyBatis + MySQL InnoDB（运行账本、唯一键与事务性写入）", "SHA-256（内容去重与链接指纹）"));
+        result.put("tools", Arrays.asList("Spring TaskScheduler（Asia/Shanghai，数据库 Cron 修改后即时生效）", "JDK HttpURLConnection（HTTPS 请求；8 秒连接、12 秒读取超时）", "JDK XML DOM 解析（启用安全处理并禁用 DTD/外部实体）", "MyBatis + MySQL InnoDB（运行账本、唯一键与事务性写入）", "SHA-256（内容去重与链接指纹）"));
         result.put("steps", Arrays.asList("按 Cron 或手动按钮生成 trigger_key，并先写入 running 运行账本。", "只访问 Kubernetes、Docker、OpenAI、Spring 的精确 HTTPS 白名单域名；不跟随重定向。", "解析 RSS/Atom，剔除没有标题或链接、或跳转到非白名单主机的条目；每来源最多处理配置上限。", "为每条合格数据计算 SHA-256 去重指纹；重复项计入“去重跳过”。", "新条目保存标题、受限摘要、来源链接和许可快照，状态固定为 pending，等待管理员审核。", "写回成功/部分完成/失败、各项计数、错误信息和完成时间，并计算下一次执行时间。"));
         result.put("principles", Arrays.asList("幂等：定时任务用 daily:日期 作为触发键，数据库唯一索引阻止同一天重复落库。", "最小采集：不抓取任意 URL，不保存整篇第三方正文；只保存审核所需的受限字段。", "安全：HTTPS + 精确主机校验 + 禁止重定向 + XXE 防护，降低 SSRF 与 XML 实体攻击风险。", "可恢复：单个来源失败不会阻断其他来源；有新增数据时标记为“部分完成”，并记录错误。", "人工发布：采集与发布解耦，任何新数据都必须经管理员审核。"));
         return result;
@@ -180,7 +191,7 @@ public class ContentCollectionService {
     private String shorten(String value){return crop(value==null?"未知错误":value,400);}
     private String hex(String value) { try { byte[] bytes=MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)); StringBuilder out=new StringBuilder(64); for(byte b:bytes)out.append(String.format("%02x",b)); return out.toString(); } catch(Exception exception){throw new IllegalStateException(exception);} }
     private String topicId(String topic){return hex("content-collection-topic:"+topic).substring(0,32);}
-    private Instant nextRun(Instant from){ZonedDateTime now=from.atZone(BUSINESS_ZONE); ZonedDateTime next=now.withHour(22).withMinute(0).withSecond(0).withNano(0); if(!next.isAfter(now))next=next.plusDays(1);return next.toInstant();}
+    private Instant nextRun(Instant from){if(taskSchedules!=null)return taskSchedules.next("collection",from);ZonedDateTime now=from.atZone(BUSINESS_ZONE); ZonedDateTime next=now.withHour(22).withMinute(0).withSecond(0).withNano(0); if(!next.isAfter(now))next=next.plusDays(1);return next.toInstant();}
     private CollectionRunView latestByTrigger(String scheduleId,String trigger){for(CollectionRunView run:mapper.selectRuns(scheduleId,50))if(trigger.equals(run.getTriggerKey()))return run;throw new IllegalStateException("运行记录创建失败");}
     private CollectionRunView findRun(String id,String scheduleId){CollectionRunView run=mapper.selectRun(id,scheduleId);if(run!=null)return run;throw new IllegalStateException("运行记录不存在");}
     private Map<String,Object> mapOf(Object... values){Map<String,Object> result=new LinkedHashMap<String,Object>();for(int i=0;i<values.length;i+=2)result.put(String.valueOf(values[i]),values[i+1]);return result;}

@@ -10,7 +10,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,12 +26,16 @@ class F17AdminArticleIntegrationTest {
     private static final String SOURCE="f1700000000000000000000000000001";
     private static final String CONTENT="f1700000000000000000000000000002";
     private static final String VERSION="f1700000000000000000000000000003";
+    private static final String BOOK="f1700000000000000000000000000005";
 
     @BeforeEach
     void seed(){
+        jdbc.update("DELETE FROM english_article_category WHERE content_id=?",CONTENT);
         jdbc.update("DELETE FROM content_version WHERE id=?",VERSION);
         jdbc.update("DELETE FROM learning_content WHERE id=?",CONTENT);
         jdbc.update("DELETE FROM content_source WHERE id=?",SOURCE);
+        jdbc.update("DELETE FROM vocabulary_book WHERE id=?",BOOK);
+        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,state,sort_no) VALUES(?,'F17_BOOK','F17 测试词书','official','primary','active',17)",BOOK);
         jdbc.update("INSERT INTO content_source(id,name,source_type,url,license_note,enabled) VALUES(?,?,?, ?,?,1)",SOURCE,"English Lab","original","https://example.com/articles","Original test content");
         jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,state,current_version_id,published_version_id,published_at) VALUES(?,'english_article',?,?, 'published',?,?,CURRENT_TIMESTAMP)",CONTENT,SOURCE,CryptoUtils.sha256("f17-content"),VERSION,VERSION);
         jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,?,?,?,'intro',95,?,?,CURRENT_TIMESTAMP,?,?,'approved','00000000000000000000000000000002')",VERSION,CONTENT,"A Quiet Morning F17","A short reading test","The morning was quiet, and Mia opened her book.","https://example.com/articles/f17","Test Author","Original test content",CryptoUtils.sha256("f17-body"));
@@ -60,6 +66,27 @@ class F17AdminArticleIntegrationTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DIFFICULTY"));
         mvc.perform(get("/api/admin/content/articles/{id}","00000000000000000000000000000000").header("X-Admin-Token","dev-admin-token"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ARTICLE_CONTENT_NOT_FOUND"));
+    }
+
+    @Test
+    void adminCanEditBookDifficultyAndReadingTimeTogether() throws Exception {
+        mvc.perform(put("/api/admin/content/articles/{id}/metadata",CONTENT).contentType(APPLICATION_JSON).content("{\"bookId\":\""+BOOK+"\",\"difficulty\":\"advanced\",\"estimatedMinutes\":3}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/admin/content/articles/{id}/metadata",CONTENT).header("X-Admin-Token","dev-admin-token").contentType(APPLICATION_JSON).content("{\"bookId\":\"00000000000000000000000000000000\",\"difficulty\":\"advanced\",\"estimatedMinutes\":3}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTICLE_BOOK_NOT_AVAILABLE"));
+        mvc.perform(put("/api/admin/content/articles/{id}/metadata",CONTENT).header("X-Admin-Token","dev-admin-token").contentType(APPLICATION_JSON).content("{\"bookId\":\""+BOOK+"\",\"difficulty\":\"advanced\",\"estimatedMinutes\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.audienceBookId").value(BOOK))
+                .andExpect(jsonPath("$.audienceBookNames").value("F17 测试词书"))
+                .andExpect(jsonPath("$.difficulty").value("advanced"))
+                .andExpect(jsonPath("$.estimatedSeconds").value(180));
+        mvc.perform(get("/api/admin/content/articles").header("X-Admin-Token","dev-admin-token").param("bookId",BOOK))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+        mvc.perform(put("/api/admin/content/articles/{id}/metadata",CONTENT).header("X-Admin-Token","dev-admin-token").contentType(APPLICATION_JSON).content("{\"bookId\":null,\"difficulty\":\"intro\",\"estimatedMinutes\":0}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_READING_TIME"));
+        mvc.perform(put("/api/admin/content/articles/{id}/metadata",CONTENT).header("X-Admin-Token","dev-admin-token").contentType(APPLICATION_JSON).content("{\"bookId\":null,\"difficulty\":\"intro\",\"estimatedMinutes\":2}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.audienceBookId").doesNotExist()).andExpect(jsonPath("$.estimatedSeconds").value(120));
+        org.junit.jupiter.api.Assertions.assertEquals(1,jdbc.queryForObject("SELECT del_is FROM english_article_category WHERE content_id=?",Integer.class,CONTENT));
     }
 
     @Test

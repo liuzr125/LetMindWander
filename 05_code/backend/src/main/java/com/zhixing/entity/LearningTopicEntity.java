@@ -12,6 +12,10 @@ public class LearningTopicEntity {
     private String name;
     @TableField("normalized_name") private String normalizedName;
     private String state;
+    @TableField("topic_type") private String topicType;
+    public String getTopicType(){return topicType;} public void setTopicType(String v){topicType=v;}
+    @TableField("del_is") private Integer delIs;
+    public Integer getDelIs(){return delIs;} public void setDelIs(Integer v){delIs=v;}
     public String getId() { return id; } public void setId(String id) { this.id = id; }
     public String getScopeKey() { return scopeKey; } public void setScopeKey(String scopeKey) { this.scopeKey = scopeKey; }
     public String getOwnerId() { return ownerId; } public void setOwnerId(String ownerId) { this.ownerId = ownerId; }

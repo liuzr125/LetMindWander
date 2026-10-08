@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `english_article_generation_run` (
   COMMENT='每日分词书英语短文生成运行日志';
 
 INSERT INTO `content_source` (`id`,`name`,`source_type`,`url`,`license_note`,`enabled`) VALUES
-('e0000000000000000000000000000017','知行日课每日分词书英语短文','ai_original',NULL,
+('e0000000000000000000000000000017','脑袋开小灶','ai_original',NULL,
  '系统仅参考官方 RSS 的标题和受限摘要选题；英文正文按词书目标词原创生成，不复制第三方正文。',1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`source_type`=VALUES(`source_type`),
  `license_note`=VALUES(`license_note`),`enabled`=1;

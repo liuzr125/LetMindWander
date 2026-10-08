@@ -64,6 +64,7 @@ class F22DailyEnglishArticleGenerationIntegrationTest {
         assertEquals(1,((Number)model.get("callCount")).intValue());
         assertEquals(jdbc.queryForObject("SELECT model_code FROM ai_model_price WHERE id=?",String.class,priceId),model.get("modelCode"));
         assertEquals(5,count("SELECT COUNT(*) FROM english_article_book WHERE book_id=?",book));
+        assertEquals(5,count("SELECT COUNT(*) FROM english_article_category WHERE book_id=? AND del_is=0",book));
         assertEquals(5,count("SELECT COUNT(*) FROM learning_content WHERE content_type='english_article' AND state='published'"));
         assertEquals(5,count("SELECT COUNT(*) FROM content_version WHERE article_blocks LIKE '%translation%' AND article_blocks LIKE '%校园花园%'"));
         assertEquals(5,count("SELECT COUNT(*) FROM content_version WHERE title_translation LIKE '校园花园故事%'"));

@@ -35,13 +35,13 @@ public interface LearningPlanMapper extends BaseMapper<LearningPlanEntity> {
     Integer selectMaxVersion(@Param("ownerId") String ownerId);
 
     @Select("SELECT t.* FROM learning_topic t INNER JOIN learning_plan_topic pt ON pt.topic_id = t.id " +
-            "WHERE pt.plan_id = #{planId} AND t.state = 'active' ORDER BY t.name")
+            "WHERE pt.plan_id = #{planId} AND t.del_is=0 AND t.state = 'active' ORDER BY t.name")
     List<LearningTopicEntity> selectPlanTopics(@Param("planId") String planId);
 
-    @Select("SELECT * FROM learning_topic WHERE state = 'active' AND (scope_key = 'system' OR owner_id = #{ownerId}) ORDER BY name")
+    @Select("SELECT * FROM learning_topic WHERE del_is=0 AND topic_type='technical' AND state = 'active' AND (scope_key = 'system' OR owner_id = #{ownerId}) ORDER BY name")
     List<LearningTopicEntity> selectAvailableTopics(@Param("ownerId") String ownerId);
 
-    @Select("SELECT * FROM learning_topic WHERE scope_key = 'system' AND normalized_name = 'ai' AND state = 'active' LIMIT 1")
+    @Select("SELECT * FROM learning_topic WHERE del_is=0 AND scope_key = 'system' AND normalized_name = 'ai' AND state = 'active' LIMIT 1")
     LearningTopicEntity selectLegacyAiTopic();
 
     @Select("SELECT * FROM learning_topic WHERE scope_key = #{scopeKey} AND normalized_name = #{normalizedName}")

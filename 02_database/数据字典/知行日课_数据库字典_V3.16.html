@@ -4,15 +4,15 @@
   <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width,initial-scale=1" name="viewport"/>
-    <title>知行日课 V3.22 合并版数据库字典</title>
+    <title>知行日课 V3.23 合并版数据库字典</title>
     <style>
 *{box-sizing:border-box}body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172554;background:#f5f8ff}header{position:sticky;top:0;z-index:2;padding:20px 28px;background:#fff;border-bottom:1px solid #dbe5f5}h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#64748b}main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;max-width:1680px;margin:auto;padding:20px}nav{position:sticky;top:105px;align-self:start;max-height:calc(100vh - 125px);overflow:auto;background:#fff;border:1px solid #dbe5f5;border-radius:14px;padding:10px}nav a{display:block;padding:8px 10px;color:#1d4ed8;text-decoration:none;border-radius:8px}nav a:hover{background:#eff6ff}nav small{display:block;color:#64748b}section{margin:0 0 18px;padding:22px;background:#fff;border:1px solid #dbe5f5;border-radius:14px;box-shadow:0 5px 18px rgba(30,64,175,.05)}h2{margin:0;font-size:21px}h2 span{font-size:15px;color:#64748b;font-weight:500}.meta{color:#64748b}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #e6edf7;text-align:left;vertical-align:top}th{background:#eff6ff}code{color:#0f3e9e}.indexes{color:#475569}@media(max-width:900px){main{display:block}nav{position:static;margin-bottom:16px}}
 </style>
   </head>
   <body>
     <header>
-      <h1>知行日课 V3.22 合并版数据库字典</h1>
-      <p>当前唯一 HTML 数据库设计：完整承接 V3.14、V3.15，并包含 V3.16.1—V3.16.10 的学习、词书、短文、媒体与自动化结构；V3.16.11 补充短文点词释义来源，V3.16.12 为英语短文增加独立的标题中文译文，V3.16.13 增加段落解释缓存。V3.17 把 AI 每日额度上限改由 <code>app_parameter</code> 维护并在改参数时即时同步当天额度快照；V3.18 为 <code>admin_menu</code> 增加 <code>parent_id</code> / <code>description</code>，侧栏改为一组一级（分类）＋二级（页面）两级菜单；V3.19 增加「用户反馈」菜单；V3.20 新增「词书学习记录」两张表（用户 × 词书汇总与每日明细）与对应管理端菜单；V3.21 把学习记录按「轮次」组织（一轮 = 一次选定词书，切走冻结、切回新开一轮并带入已学/未学）。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
+      <h1>知行日课 V3.23 合并版数据库字典</h1>
+      <p>当前唯一 HTML 数据库设计：完整承接 V3.14—V3.22；V3.23 新增 <code>english_article_category</code>，把管理员可编辑的短文主适用词书与不可改写的每日生成槽位历史分离，并以软删除记录“明确未分类”。旧版 HTML 可从 Git 历史恢复；现有数据库必须按迁移脚本升级，不会因更新本文件而自动变更。</p>
     </header>
     <main>
       <nav>
@@ -32,6 +32,8 @@
         <a href="#v320-changelog">V3.20 增量<small>词书学习记录</small></a>
         <a href="#v321-changelog">V3.21 增量<small>学习记录按轮次</small></a>
         <a href="#v322-changelog">V3.22 增量<small>重新学习记录</small></a>
+        <a href="#v323-changelog">V3.23 增量<small>英语短文主词书分类可编辑</small></a>
+        <a href="#english-article-category">english_article_category<small>短文主适用词书与软删除标记</small></a>
         <a href="#vocabulary_dataset_catalog">vocabulary_dataset_catalog<small>词库数据源目录</small></a>
         <a href="#vocabulary_import_batch">vocabulary_import_batch<small>词库导入批次</small></a>
         <a href="#vocabulary_import_item">vocabulary_import_item<small>词库导入行与审核</small></a>
@@ -122,6 +124,7 @@
         <a href="#admin-session">admin_session<small>管理端会话</small></a>
         <a href="#content-collection-schedule">content_collection_schedule<small>每日官方技术资料采集计划</small></a>
         <a href="#content-collection-run">content_collection_run<small>每日官方技术资料采集运行账本</small></a>
+        <a href="#ai-pricing-sync-run">ai_pricing_sync_run<small>AI 官网价格同步运行账本</small></a>
       </nav>
       <article>
         <section id="article-temporary-token">
@@ -187,6 +190,16 @@
           </tbody></table>
           <p><code>overview</code>（概览）保持一级单项；原有二级菜单（content / words / imports / articles / users / jobs / ai / ai_audit / parameters / roles）补写 <code>parent_id</code>。菜单为空的 <code>path</code> 表示该行只是分组标题，不参与路由。接口与菜单码的权限映射：<code>/api/admin/ai/usage-logs</code> → <code>ai_usage</code>（由 <code>AdminSessionFilter</code> 校验）。</p>
 
+          <h3>V3.26 技术主题与词书标签分离（表结构变更）</h3>
+          <p>迁移脚本：<code>05_code/backend/sql/V3.26_topic_classification.sql</code>。learning_topic 新增 <code>topic_type VARCHAR(32) NOT NULL DEFAULT 'technical'</code>，允许 technical（技术知识主题）与 vocabulary（词书标签）。首次增列时，仅将存在有效单词内容、无其他有效内容且无学习计划引用的系统主题分类为 vocabulary；重复运行不覆盖人工分类，删除标记不变。主题管理默认展示技术主题，可筛选词书标签或全部类型；新增、编辑可选类型，有非单词内容或学习计划引用时禁止改为词书标签。技术知识覆盖率、目标缺口和可用学习主题只统计 technical；词书标签不再产生技术知识未达标提示。关联内容按 content_topic → content_version → learning_content 的有效内容 ID 去重，不计孤立历史版本；已发布技术知识仍以当前发布版本为准。不修改 vocabulary_book_word、词书成员、内容或已有主题关联，软删除规则不变。</p>
+          <h3>V3.25 主题软删除（表结构变更，替代物理删除规则）</h3>
+          <p>迁移脚本：<code>05_code/backend/sql/V3.25_topic_soft_delete.sql</code>。<code>learning_topic</code> 新增 <code>del_is TINYINT NOT NULL DEFAULT 0</code>：0=正常，1=已删除。管理端删除只更新该字段与 updated_at，保留主题行、content_topic 关联及所有内容；仍保护已有发布技术知识或学习计划引用的主题。管理端列表、覆盖率、主题筛选、内容标签、小程序可用主题及计划读取排除 del_is=1。采集不重置删除标记、不为已删除主题新增关联。原唯一键 (scope_key, normalized_name) 保留，已删除名称仍保留占用，避免采集重复创建。所有删除操作记录 admin_audit；本次不提供恢复入口，可通过受控数据修复恢复标记。历史 V3.24 的物理删除描述已由本节替代。</p>
+          <h3>V3.24 主题达标设置与零知识主题删除（仅参数数据）</h3>
+          <p>迁移脚本：<code>05_code/backend/sql/V3.24_technical_topic_target.sql</code>。复用 <code>app_parameter</code> 新增普通参数 <code>content.technical_topic_target</code>，默认 25，范围 1–10000。内容与来源的「未达目标」详情弹窗可修改，系统参数页也可维护；统一按全库每个启用系统主题的已发布技术知识数量统计，不受日期及关键词筛选影响。删除规则更新为：已发布技术知识为 0 且无学习计划引用的系统主题允许删除，事务内先解除 <code>content_topic</code> 关联再删除主题；不会删除 <code>learning_content</code>、<code>content_version</code> 或词书词条。历史内容可能失去该主题标签，删除须确认。不新增表、字段或索引。</p>
+          <h3>V3.23 主题管理独立菜单（仅数据）</h3>
+          <p>迁移脚本：<code>05_code/backend/sql/V3.23_topic_management_menu.sql</code>。新增 <code>topics</code> 菜单，路由 <code>/topics</code>，parent=group_content；<code>/api/admin/topics</code> 由同名菜单权限保护。迁移承接原 content 角色授权，之后可独立配置。复用 <code>learning_topic</code> 管理 scope_key=system 的主题，列表统计 <code>content_topic</code> 的内容关联、已发布技术知识及 <code>learning_plan_topic</code> 的计划引用。新增、编辑名称、删除未引用主题均写入 <code>admin_audit</code>；已引用主题不能删除。编辑保留 normalized_name 作为稳定采集标识，RSS 采集不覆盖人工修改的名称；内容页下拉框包含暂无内容的启用系统主题。不新增表、字段或索引。</p>
+          <h3>V3.22 账号列表与邀请码独立菜单（仅数据）</h3>
+          <p>迁移脚本：<code>05_code/backend/sql/V3.22_separate_invite_menu.sql</code>。保留 <code>users</code> 编码与 <code>/users</code> 路由，名称改为「账号列表」；新增 <code>invites</code> 编码与 <code>/invites</code> 路由，两者均属于 <code>group_users</code>。迁移时新菜单承接原 users 角色授权，之后可独立授权。<code>/api/admin/invites</code>、<code>/api/admin/invite-stats</code>、<code>/api/admin/admission</code> 校验 invites 权限，用户账号接口仍校验 users 权限。不新增数据表、字段或索引。</p>
           <h3>V3.19 用户反馈菜单（仅数据）</h3>
           <p>新增 <code>feedback</code>（用户反馈，<code>/feedback</code>，parent=group_users，sort 61）。数据来源就是既有的 <code>user_feedback</code> 表 —— 概览页「待处理事项」统计的 <code>state='open'</code> 行数；管理端可查看反馈正文与详情，并把状态在 <code>open</code> / <code>handled</code> 间流转（写 <code>admin_audit</code> 审计），<strong>不新增表、不新增回复字段</strong>。</p>
 
@@ -343,6 +356,24 @@
           <p class="meta">&#x8FC1;&#x79FB;&#x811A;&#x672C;&#xFF1A;05_code/backend/sql/V3.22_book_reset_log.sql&#xFF0C;&#x5E42;&#x7B49;&#x53EF;&#x91CD;&#x590D;&#x6267;&#x884C;&#xFF1B;&#x8868;&#x7ED3;&#x6784;&#x540C;&#x6B65;&#x8FDB; schema.sql&#x3002;</p>
           <p>&#x65B0;&#x589E; vocabulary_book_reset_log&#xFF1A;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x300D;&#x65F6;&#x5199;&#x4E00;&#x6761;&#xFF08;&#x5F52;&#x5C5E;&#x4E8E;&#x8BE5;&#x8BCD;&#x4E66;&#x5F53;&#x65F6;&#x8FDB;&#x884C;&#x4E2D;&#x7684;&#x8F6E;&#x6B21;&#xFF09;&#xFF0C;&#x7BA1;&#x7406;&#x7AEF;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x8BE6;&#x60C5;&#x65B0;&#x589E;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60;&#x8BB0;&#x5F55;&#x300D;&#x533A;&#x5757;&#xFF08;&#x65F6;&#x95F4;/&#x91CD;&#x7F6E;&#x8BCD;&#x6570;/&#x53D6;&#x6D88;&#x7684;&#x590D;&#x4E60;&#x6392;&#x671F;&#xFF09;&#xFF0C;&#x6C47;&#x603B;&#x91CC;&#x4E5F;&#x52A0;&#x4E86;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60; N &#x6B21; &#xB7; X &#x8BCD;&#x300D;&#x4E0E;&#x6700;&#x8FD1;&#x4E00;&#x6B21;&#x65F6;&#x95F4;&#xFF1B;&#x5217;&#x8868;&#x7684;&#x8F6E;&#x6B21;&#x5355;&#x5143;&#x683C;&#x5728;&#x6709;&#x91CD;&#x7F6E;&#x65F6;&#x663E;&#x793A;&#x300C;&#x91CD;&#x65B0;&#x5B66;&#x4E60; N &#x6B21; &#xB7; X &#x8BCD;&#x300D;&#x3002;&#x7A7A;&#x70B9;&#xFF08;&#x6CA1;&#x6709;&#x5DF2;&#x5B66;&#x8BCD;&#xFF09;&#x4E0D;&#x7559;&#x8BB0;&#x5F55;&#x3002;</p>
           <p>&#x5386;&#x53F2;&#x56DE;&#x586B;&#xFF1A;&#x88AB;&#x91CD;&#x7F6E;&#x5212;&#x56DE;&#x672A;&#x5B66;&#x7684;&#x8BCD;&#x6761;&#x6EE1;&#x8DB3; learning_status='unlearned' &#x4E14; updated_at>created_at&#xFF08;&#x540C;&#x4E00;&#x6B21;&#x91CD;&#x7F6E;&#x5171;&#x7528;&#x4E00;&#x4E2A;&#x65F6;&#x95F4;&#x6233;&#xFF09;&#xFF0C;&#x6309; (owner, book, &#x65F6;&#x95F4;) &#x7CBE;&#x786E;&#x805A;&#x5408;&#x56DE;&#x586B;&#xFF0C;&#x8F6E;&#x6B21;&#x53D6;&#x91CD;&#x7F6E;&#x65F6;&#x523B;&#x6B63;&#x5728;&#x8FDB;&#x884C;&#x7684;&#x90A3;&#x4E00;&#x8F6E;&#x3002;</p>
+        </section>
+        <section id="v323-changelog">
+          <h2>V3.23 <span>英语短文主适用词书可编辑（表结构变更）</span></h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.23_article_category_editing.sql</code>；表结构同步进入 <code>schema.sql</code>（H2 测试库）。</p>
+          <p>V3.23.1 数据调整：自有英语短文来源统一显示为“脑袋开小灶”。脚本 <code>05_code/backend/sql/V3.23.1_article_source_brand.sql</code> 只更新 <code>content_source.name</code>，限定分级原创来源 <code>e0000000000000000000000000000013</code> 与每日原创来源 <code>e0000000000000000000000000000017</code>；来源 ID、类型、许可和短文关联保持原值，没有表结构变更。初始化与来源登记脚本同步使用此名称，后续生成短文自动沿用。</p>
+          <p>新增独立主分类关系，不复用 <code>english_article_book</code>。后者记录生成日期、每日槽位、目标词和选题快照，是不可伪造或覆盖的生成历史；若直接用它编辑分类，会被非空日期／槽位和每日唯一键约束阻断。管理端通过操作列的统一编辑入口，一次保存适用词书、难度和预计阅读时长：分类影响后台筛选及小程序按当前词书分发；难度和时长继续复用当前发布 <code>content_version.difficulty</code> 与 <code>content_version.estimated_seconds</code>，不新增重复字段，也不修改正文、音频和每日生成历史。</p>
+        </section>
+        <section id="english-article-category">
+          <h2>english_article_category <span>英语短文人工可编辑的主适用词书分类</span></h2>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>content_id</td><td>CHAR(32)，主键</td><td>对应已发布的 <code>learning_content.id</code>；一篇短文最多一条主分类记录。</td></tr>
+            <tr><td>book_id</td><td>CHAR(32)，可空</td><td>对应启用的 <code>vocabulary_book.id</code>；分类有效时非空。</td></tr>
+            <tr><td>assigned_by</td><td>CHAR(32)，可空</td><td>最后设置分类的管理员主体；历史回填记录为空。</td></tr>
+            <tr><td>row_version</td><td>INT UNSIGNED，1</td><td>每次保存或清除分类递增，用于变更追踪与后续并发控制。</td></tr>
+            <tr><td>del_is</td><td>TINYINT UNSIGNED，0</td><td>软删除标记。0 表示已分类；1 且 book_id=NULL 表示管理员明确改为未分类，不回退到旧生成关系。</td></tr>
+            <tr><td>created_at / updated_at</td><td>DATETIME(3)，CURRENT_TIMESTAMP(3)</td><td>创建与最后编辑时间。</td></tr>
+          </tbody></table>
+          <p class="indexes"><b>索引：</b>PRIMARY(content_id); idx_article_category_book(book_id, del_is, content_id)。不声明物理外键，短文发布状态、词书启用状态和管理员主体由服务层事务校验。迁移只为尚无分类行的历史生成短文回填；多词书历史映射按词书排序取第一本，已有人工分类与软删除标记均不覆盖。</p>
         </section>
 <section id="vocabulary_dataset_catalog">
           <h2>vocabulary_dataset_catalog <span>词库数据源目录</span></h2>
@@ -773,6 +804,11 @@
             </table>
           </div>
           <p class="meta">两项均为普通参数（<code>is_secret=0</code>、<code>state=active</code>、<code>del_is=0</code>）。迁移脚本重复执行时只补齐描述和启用状态，不覆盖管理员已经保存的 <code>param_value</code>。</p>
+          <h3>AI 价格同步任务参数（V3.19）</h3>
+          <div class="scroll"><table><thead><tr><th>param_key</th><th>迁移种子值</th><th>约束与运行语义</th></tr></thead><tbody>
+            <tr><td><code>ai.pricing.deepseek.enabled</code></td><td><code>true</code></td><td>DeepSeek 官网价格同步任务开关；<code>false</code> 时每日 22:00 不发起官网请求、不写新价格版本，管理端手动执行也会被拒绝。启用后恢复后续调度。</td></tr>
+          </tbody></table></div>
+          <p class="meta">该参数为普通参数（<code>is_secret=0</code>），与价格同步的最后状态键共同复用 <code>app_parameter</code>；价格版本仍写入既有 <code>ai_model_price</code>。</p>
         </section>
         <section id="app_user">
           <h2>app_user <span>&#x5C0F;&#x7A0B;&#x5E8F;&#x7528;&#x6237;</span></h2>
@@ -11230,6 +11266,7 @@
             </table>
           </div>
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_1(scope_key, normalized_name)</p>
+          <table><thead><tr><th>新增字段（V3.25–V3.26）</th><th>类型</th><th>默认值</th><th>用途</th></tr></thead><tbody><tr><td>del_is</td><td>TINYINT NOT NULL</td><td>0</td><td>0 正常，1 已删除；软删除保留主题、内容关联和唯一名称。</td></tr><tr><td>topic_type</td><td>VARCHAR(32) NOT NULL</td><td>technical</td><td>technical 技术主题；vocabulary 词书标签。仅技术主题参与技术知识达标统计，不改变词书成员关系。</td></tr></tbody></table>
         </section>
         <section id="friend_relation">
           <h2>friend_relation <span>&#x597D;&#x53CB;&#x5173;&#x7CFB;&#x4E0E;&#x7533;&#x8BF7;&#x4E32;&#x884C;&#x9501;</span></h2>
@@ -13710,7 +13747,7 @@
         </section>
         <section id="daily-graded-articles">
           <h2>english_article_book / english_article_generation_run — V3.16.7 每日分级短文（2026-09-20）</h2>
-          <p>每天按启用的正式词书生成分级英语短文；默认在 Asia/Shanghai 22:30 运行。联网内容只提供选题索引，英文正文由系统原创生成；不得复制第三方正文。短文仍保存到 learning_content / content_version，以下两表只负责词书归属、每日槽位、目标词快照及运行审计。迁移同时登记 content_source：知行日课每日分词书英语短文（source_type=ai_original），并在 app_parameter 登记任务开关与每本目标篇数。</p>
+          <p>每天按启用的正式词书生成分级英语短文；默认在 Asia/Shanghai 22:30 运行。联网内容只提供选题索引，英文正文由系统原创生成；不得复制第三方正文。短文仍保存到 learning_content / content_version，以下两表只负责词书归属、每日槽位、目标词快照及运行审计。迁移同时登记 content_source：脑袋开小灶（source_type=ai_original），并在 app_parameter 登记任务开关与每本目标篇数。</p>
           <p>正文和对应中文译文共同保存在既有 <code>content_version.article_blocks</code> JSON 的同一个段落对象中（<code>paragraph_id</code>、<code>text</code>、<code>translation</code>）；生成任务缺少有效中文译文时拒绝发布。历史短文若缺译文，由已登录用户明确触发补齐，服务端在 AI 配额和预算门禁内生成并写回当前发布版本，不在普通读取时隐式付费。短文内未收录词条的点词音频复用 <code>pronunciation</code>（<code>content_version_id</code> 指向短文版本、<code>target_key</code> 为 <code>article-word:</code> 前缀）和 <code>media_asset</code> 缓存；语音临时 Token 仅从服务端加密系统参数读取，不下发小程序。无新表或字段。</p>
           <h3>english_article_book — 短文与词书的每日槽位关系</h3>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
@@ -13724,6 +13761,8 @@
             <tr><td>created_at</td><td>DATETIME(3)，CURRENT_TIMESTAMP(3)</td><td>UTC 创建时间。</td></tr>
           </tbody></table>
           <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_book_daily_slot(book_id, generated_date, slot_no); idx_article_book_content(content_id, book_id); idx_article_book_daily(generated_date, book_id)</p>
+          <h3>english_article_category — 可编辑主适用词书（V3.23）</h3>
+          <p>后台展示和编辑的“适用词书”读取本表；小程序短文列表也按本表路由。尚未执行历史迁移且没有分类行时，应用兼容读取 <code>english_article_book</code>；一旦存在分类行（包括 <code>del_is=1</code> 的明确未分类标记），不再回退。完整字段见 <a href="#english-article-category">english_article_category</a>。</p>
           <h3>english_article_generation_run — 每日生成运行审计</h3>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>id</td><td>CHAR(32)，主键</td><td>一次运行的应用生成 ID。</td></tr>
@@ -13738,6 +13777,7 @@
           </tbody></table>
           <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_generation_trigger(trigger_key); idx_article_generation_date(run_date, created_at)</p>
           <p>生成与校验采用同一组要求：英文标题 3–100 字符、中文标题 2–200 字符、中文摘要 2–500 字符、英文正文 120–1800 字符、完整中文译文 10–3000 字符；小学／初中／高中正文 45–80 个英文单词，其他词书 75–120 个，分别覆盖至少 3／4 个不同目标词。同批逐篇校验，合格篇保留；只对不合格槽位补生成一次，仍失败则记入运行摘要，等待后续手动补齐。补齐查询实际缺失槽位，不以已有篇数推算槽位，避免局部成功后重复插入。本次复用既有字段，无数据库结构变更。</p>
+          <p>可编辑执行计划：采集 Cron 复用 <code>content_collection_schedule.cron_expression</code>；短文和价格同步分别使用非敏感 <code>app_parameter</code> 键 <code>article_generation.cron</code>、<code>ai.pricing.deepseek.cron</code>。管理端“修改计划”校验六段 Spring Cron 与可用的下次运行时间后保存，动态 TaskScheduler 即时更新后续触发，重启后恢复；统一使用 Asia/Shanghai。修改不启用已停止任务、不立即运行、不打断当前执行，切换计划期间同一任务不重叠运行，原有按日幂等保护保持不变。无新表或字段；直接从系统参数修改 Cron 需要重启，推荐从任务页面修改。</p>
           <h3>参数、停用与运行历史</h3>
           <table><thead><tr><th>能力</th><th>持久化位置</th><th>说明</th></tr></thead><tbody>
             <tr><td>每日篇数</td><td><code>app_parameter</code>（<code>param_key=article_generation.per_book_count</code>）</td><td>默认 5、范围 1–20；修改后，下一次定时运行与“补齐今日短文”均按新数量补足缺少槽位，不重复插入已有槽位。</td></tr>
@@ -13879,6 +13919,13 @@
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>id / schedule_id</td><td>CHAR(32) / CHAR(32)</td><td>运行 ID；逻辑关联 content_collection_schedule.id。</td></tr><tr><td>trigger_key</td><td>VARCHAR(80)</td><td><code>daily:业务日期</code> 或 <code>manual:随机 ID</code>；同一任务和触发键唯一，保证幂等。</td></tr><tr><td>state</td><td>VARCHAR(32)，running</td><td>running、success、partial、failed。</td></tr><tr><td>fetched_count / inserted_count / skipped_count</td><td>INT UNSIGNED，0</td><td>抓取、实际新入库、去重跳过数量。</td></tr><tr><td>error_code / error_message</td><td>VARCHAR(64) / VARCHAR(500)，可空</td><td>稳定错误码和受限错误描述。</td></tr><tr><td>started_at / finished_at</td><td>DATETIME(3)，可空</td><td>执行开始与结束时间（UTC）。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
           </tbody></table><p>索引：PRIMARY(id)、uk_collection_run_trigger(schedule_id,trigger_key)、idx_collection_run_history(schedule_id,created_at,id)。采集结果写入既有 learning_content、content_version 等表，均以 pending 状态等待人工审核；AI 使用追溯复用既有 ai_job、ai_attempt，不新增审计副本表。</p>
+        </section>
+        <section id="ai-pricing-sync-run">
+          <h2 id="ai_pricing_sync_run">ai_pricing_sync_run — AI 官网价格同步运行账本（V3.19）</h2>
+          <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.19_pricing_sync_run_history.sql</code>。记录 DeepSeek 官网价格同步的定时与手动执行结果，供管理端“任务与运行”按任务查看历史。现有 MySQL 数据库必须执行此迁移；开发环境 SQL 自动初始化关闭，更新 <code>schema.sql</code> 或 HTML 字典不会自动创建此表。缺表会导致启动后补偿任务及运行历史接口报错。该表不保存官网页面正文、模型凭据或用户提问内容。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>id</td><td>CHAR(32)，主键</td><td>运行 ID，由应用生成。</td></tr><tr><td>trigger_key</td><td>VARCHAR(80)，唯一</td><td><code>daily:业务日期</code> 或 <code>manual:随机 ID</code>；定时键唯一，防止同一日期重复写入价格版本。</td></tr><tr><td>state</td><td>VARCHAR(16)，running</td><td>running、success、failed；解析或校验失败不会覆盖上一有效价格版本。</td></tr><tr><td>changed_model_count</td><td>INT UNSIGNED，0</td><td>本次通过完整校验并写入新 <code>ai_model_price</code> 版本的模型数量。</td></tr><tr><td>error_code / error_message</td><td>VARCHAR(80) / VARCHAR(1000)，可空</td><td>失败时的异常类别及受限错误说明。</td></tr><tr><td>started_at / finished_at / created_at</td><td>DATETIME(3)</td><td>执行开始、结束与账本创建时间（UTC）。</td></tr>
+          </tbody></table><p>索引：PRIMARY(id)、uk_ai_pricing_sync_trigger(trigger_key)、idx_ai_pricing_sync_run_history(created_at,id)。任务开关保存在 <code>app_parameter.ai.pricing.deepseek.enabled</code>；价格同步成功后仍只向既有 <code>ai_model_price</code> 追加新版本。</p>
         </section>
       </article>
     </main>

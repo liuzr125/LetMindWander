@@ -30,6 +30,9 @@ public interface ContentCollectionMapper {
     @Update("UPDATE content_collection_schedule SET last_run_at=#{lastRunAt},next_run_at=#{nextRunAt} WHERE id=#{id}")
     int updateScheduleTimes(@Param("id") String id, @Param("lastRunAt") Instant lastRunAt, @Param("nextRunAt") Instant nextRunAt);
 
+    @Update("UPDATE content_collection_schedule SET state=#{state},next_run_at=#{nextRunAt} WHERE id=#{id}")
+    int updateScheduleState(@Param("id") String id, @Param("state") String state, @Param("nextRunAt") Instant nextRunAt);
+
     @Select("SELECT COUNT(*) FROM learning_content WHERE dedup_hash=UNHEX(#{hash})")
     int countContentByDedup(@Param("hash") String hash);
 
@@ -46,10 +49,10 @@ public interface ContentCollectionMapper {
                              @Param("license") String license, @Param("bodyHash") String bodyHash, @Param("adminId") String adminId);
 
     @Insert("INSERT INTO learning_topic (id,scope_key,owner_id,name,normalized_name,state) VALUES (#{id},'system',NULL,#{name},#{normalizedName},'active') " +
-            "ON DUPLICATE KEY UPDATE name=VALUES(name),state='active'")
+            "ON DUPLICATE KEY UPDATE state=CASE WHEN del_is=0 THEN 'active' ELSE state END")
     int ensureTopic(@Param("id") String id, @Param("name") String name, @Param("normalizedName") String normalizedName);
 
     @Insert("INSERT INTO content_topic (id,content_version_id,topic_id) SELECT #{id},#{versionId},id FROM learning_topic " +
-            "WHERE scope_key='system' AND normalized_name=#{normalizedName} ON DUPLICATE KEY UPDATE topic_id=VALUES(topic_id)")
+            "WHERE scope_key='system' AND del_is=0 AND topic_type='technical' AND normalized_name=#{normalizedName} ON DUPLICATE KEY UPDATE topic_id=VALUES(topic_id)")
     int insertContentTopic(@Param("id") String id, @Param("versionId") String versionId, @Param("normalizedName") String normalizedName);
 }

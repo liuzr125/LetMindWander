@@ -41,6 +41,7 @@ class F18AdminUserLearningIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.account.nickname").value("进度用户"))
                 .andExpect(jsonPath("$.account.mobileMasked").value("138****0018"))
+                .andExpect(jsonPath("$.account.mobile").doesNotExist())
                 .andExpect(jsonPath("$.account.wxOpenId").doesNotExist())
                 .andExpect(jsonPath("$.plan.id").isNotEmpty())
                 .andExpect(jsonPath("$.vocabulary.bookName").value("管理端测试词书"))

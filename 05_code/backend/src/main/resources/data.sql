@@ -39,7 +39,14 @@ INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,desc
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000be','study_records','词书学习记录','/study-records','▤',62,1,'00000000000000000000000000c2','每个用户每本英语词书每一轮的学习记录：选择时间、每日明细与词条' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='study_records');
 
 UPDATE admin_menu SET parent_id='00000000000000000000000000c1' WHERE code IN ('content','words','imports','articles');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description)
+SELECT '00000000000000000000000000c5','topics','主题管理','/topics','▤',21,1,'00000000000000000000000000c1','技术知识主题与关联内容统计'
+WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='topics');
 UPDATE admin_menu SET parent_id='00000000000000000000000000c2' WHERE code='users';
+UPDATE admin_menu SET name='账号列表',description='用户账号状态、AI 授权与学习进度' WHERE code='users';
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description)
+SELECT '00000000000000000000000000bf','invites','邀请码','/invites','＋',60,1,'00000000000000000000000000c2','邀请码与准入名额管理'
+WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='invites');
 UPDATE admin_menu SET parent_id='00000000000000000000000000c3' WHERE code IN ('ai','ai_audit','ai_usage');
 UPDATE admin_menu SET parent_id='00000000000000000000000000c4' WHERE code IN ('jobs','parameters','roles');
 
@@ -48,7 +55,7 @@ SELECT '00000000000000000000000000a1',id FROM admin_menu
 WHERE NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a1' AND menu_id=admin_menu.id);
 INSERT INTO admin_role_menu (role_id,menu_id)
 SELECT '00000000000000000000000000a2',id FROM admin_menu
-WHERE code IN ('overview','content','words','imports','articles','users','feedback','study_records','jobs','ai','ai_audit','ai_usage','parameters','group_content','group_users','group_ai','group_system')
+WHERE code IN ('overview','content','topics','words','imports','articles','users','invites','feedback','study_records','jobs','ai','ai_audit','ai_usage','parameters','group_content','group_users','group_ai','group_system')
 AND NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a2' AND menu_id=admin_menu.id);
 
 INSERT INTO ai_model_config (id,provider_code,model_code,display_name,specification,base_url,api_key_param_key,enabled,is_default,max_output_tokens,timeout_seconds)

@@ -5,7 +5,8 @@ import { showError } from '../../services/notification.js'
 
 const loading = ref(false)
 const message = ref('')
-const activeTab = ref('invites')
+const props = defineProps({ mode: { type: String, default: 'accounts' } })
+const activeTab = computed(() => props.mode)
 const status = ref('all')
 const page = ref(1)
 const total = ref(0)
@@ -58,7 +59,6 @@ async function loadAccounts() {
   finally { loading.value = false }
 }
 
-function switchTab(tab) { if (activeTab.value === tab) return; activeTab.value = tab; message.value = ''; if (tab === 'accounts') loadAccounts(); else load() }
 function searchAccounts() { accountKeyword.value = accountKeywordInput.value.trim(); accountPage.value = 1; loadAccounts() }
 function clearAccountSearch() { accountKeywordInput.value = ''; accountKeyword.value = ''; accountPage.value = 1; loadAccounts() }
 function filterAccounts() { accountPage.value = 1; loadAccounts() }
@@ -117,11 +117,10 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
 <template>
   <section class="users-page">
     <div class="page-heading">
-      <div><h1>用户状态</h1><p>查看账号学习情况，管理试用资格、邀请码与准入名额。</p></div>
+      <div><h1>{{ activeTab === 'invites' ? '邀请码' : '账号列表' }}</h1><p>{{ activeTab === 'invites' ? '管理邀请码、试用资格与准入名额。' : '查看用户账号状态、学习情况与 AI 使用授权。' }}</p></div>
       <button class="refresh-button" :disabled="loading" @click="load">↻ 刷新</button>
     </div>
 
-    <div class="tabs"><button :class="{active:activeTab==='accounts'}" @click="switchTab('accounts')">账号列表</button><button :class="{active:activeTab==='invites'}" @click="switchTab('invites')">邀请码</button></div>
     <template v-if="activeTab==='invites'">
     <div class="notice-line"><span>ⓘ</span><span>邀请码明文仅在生成时显示一次，后续只保留安全摘要和状态。</span></div>
 

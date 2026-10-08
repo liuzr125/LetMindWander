@@ -45,7 +45,7 @@ INSERT INTO `app_parameter` (`id`,`param_key`,`param_value`,`is_secret`,`descrip
 ON DUPLICATE KEY UPDATE `description`=VALUES(`description`),`state`='active';
 
 INSERT INTO `content_source` (`id`,`name`,`source_type`,`url`,`license_note`,`enabled`) VALUES
-('e0000000000000000000000000000013','知行日课分级英语短文','manual',NULL,'原创分级学习短文，可在本产品内展示、朗读与跟读',1)
+('e0000000000000000000000000000013','脑袋开小灶','manual',NULL,'原创分级学习短文，可在本产品内展示、朗读与跟读',1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`license_note`=VALUES(`license_note`),`enabled`=1;
 
 DROP PROCEDURE IF EXISTS seed_v313_articles;

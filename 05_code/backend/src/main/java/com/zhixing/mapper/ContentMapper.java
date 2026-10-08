@@ -32,7 +32,7 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
     ContentDetailView selectDetail(@Param("ownerId") String ownerId, @Param("contentId") String contentId);
 
     @Select("SELECT t.name FROM content_topic ct JOIN learning_topic t ON t.id=ct.topic_id " +
-            "WHERE ct.content_version_id=#{versionId} AND t.state='active' ORDER BY t.name")
+            "WHERE ct.content_version_id=#{versionId} AND t.del_is=0 AND t.state='active' ORDER BY t.name")
     List<String> selectTopics(@Param("versionId") String versionId);
 
     @Select("SELECT id, part_of_speech, meaning, sort_no FROM word_sense WHERE content_version_id=#{versionId} ORDER BY sort_no,id")

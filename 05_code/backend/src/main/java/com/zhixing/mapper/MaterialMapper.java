@@ -16,7 +16,7 @@ public interface MaterialMapper {
             "WHERE lc.content_type=#{type} AND lc.state='published' AND cv.difficulty=#{difficulty} " +
             "AND (#{type}='word' OR NOT EXISTS (SELECT 1 FROM learning_plan_topic lpt WHERE lpt.plan_id=#{planId}) " +
             "OR EXISTS (SELECT 1 FROM content_topic ct JOIN learning_plan_topic lpt ON lpt.topic_id=ct.topic_id " +
-            "WHERE ct.content_version_id=cv.id AND lpt.plan_id=#{planId})) " +
+            "JOIN learning_topic live_topic ON live_topic.id=ct.topic_id AND live_topic.del_is=0 WHERE ct.content_version_id=cv.id AND lpt.plan_id=#{planId})) " +
             "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE') " +
             "ORDER BY lc.published_at, lc.id LIMIT #{limit}")
     List<MaterialCandidate> selectContent(@Param("ownerId") String ownerId, @Param("planId") String planId,

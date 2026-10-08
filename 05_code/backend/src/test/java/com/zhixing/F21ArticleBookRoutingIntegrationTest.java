@@ -33,10 +33,16 @@ class F21ArticleBookRoutingIntegrationTest {
         AdminTechnicalContentPageView filtered=admin.articles(null,primary,null,1,20);
         assertEquals(1,filtered.getTotal());assertEquals("F21 小学",filtered.getItems().get(0).getAudienceBookNames());
 
+        admin.updateArticleCategory(id("admin"),primaryArticle,cet);
+        assertEquals(0,admin.articles(null,primary,null,1,20).getTotal());
+        assertEquals(0,learning.page(owner,"english_article",null,null,null,false,null,null,1,20).getItems().size());
+
         jdbc.update("UPDATE user_vocabulary_book SET state='paused' WHERE owner_id=?",owner);
         jdbc.update("INSERT INTO user_vocabulary_book(id,owner_id,book_id,state) VALUES(?,?,?,'active')",id("selection-cet"),owner,cet);
         LearningPageView cetPage=learning.page(owner,"english_article",null,null,null,false,null,null,1,20);
-        assertEquals(1,cetPage.getItems().size());assertEquals(cetArticle,cetPage.getItems().get(0).getContentId());
+        assertEquals(2,cetPage.getItems().size());
+        java.util.Set<String> routed=new java.util.HashSet<String>();for(com.zhixing.model.LearningListItemView item:cetPage.getItems())routed.add(item.getContentId());
+        org.junit.jupiter.api.Assertions.assertTrue(routed.contains(primaryArticle));org.junit.jupiter.api.Assertions.assertTrue(routed.contains(cetArticle));
     }
 
     private String article(String source,String book,String title,int slot){

@@ -5,7 +5,7 @@ import java.util.List;
 
 public class AdminTechnicalContentPageView {
     private Integer total,page,pageSize,totalPages;
-    private String topic,keyword;
+    private String topic,keyword,sortOrder;
     private List<AdminTechnicalContentView> items=Collections.emptyList();
     public Integer getTotal(){return total;} public void setTotal(Integer v){total=v;}
     public Integer getPage(){return page;} public void setPage(Integer v){page=v;}
@@ -13,5 +13,6 @@ public class AdminTechnicalContentPageView {
     public Integer getTotalPages(){return totalPages;} public void setTotalPages(Integer v){totalPages=v;}
     public String getTopic(){return topic;} public void setTopic(String v){topic=v;}
     public String getKeyword(){return keyword;} public void setKeyword(String v){keyword=v;}
+    public String getSortOrder(){return sortOrder;} public void setSortOrder(String v){sortOrder=v;}
     public List<AdminTechnicalContentView> getItems(){return items;} public void setItems(List<AdminTechnicalContentView> v){items=v;}
 }

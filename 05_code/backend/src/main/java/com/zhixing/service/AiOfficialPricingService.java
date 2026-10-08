@@ -13,17 +13,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -44,6 +47,8 @@ public class AiOfficialPricingService {
     private static final Pattern CELL = Pattern.compile("(?is)<t[dh][^>]*>(.*?)</t[dh]>");
     private static final Pattern MONEY = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)");
     private static final String STATUS_PREFIX = "ai.pricing.deepseek.";
+    private static final String ENABLED_PARAMETER = "ai.pricing.deepseek.enabled";
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final RestTemplate http;
     private final JdbcTemplate jdbc;
@@ -63,14 +68,13 @@ public class AiOfficialPricingService {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(cron = "${app.ai.pricing-sync-cron:0 0 22 * * *}", zone = "Asia/Shanghai")
+    @Autowired private TaskScheduleSettings taskSchedules;
     public void scheduledRefresh() {
-        if (!properties.getAi().isPricingSyncEnabled()) return;
+        if (!enabled()) return;
         try {
-            RefreshResult result = refresh();
+            RefreshResult result = run("daily:" + LocalDate.now(BUSINESS_ZONE));
             LOGGER.info("DeepSeek official pricing checked: changedModels={}", result.changedModels);
         } catch (RuntimeException exception) {
-            recordStatus("failed", exception.getClass().getSimpleName());
             LOGGER.warn("DeepSeek official pricing refresh failed; keeping last verified version", exception);
         }
     }
@@ -81,8 +85,47 @@ public class AiOfficialPricingService {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void refreshAfterStartup() {
-        if (!properties.getAi().isPricingSyncEnabled() || isH2()) return;
+        if (!enabled() || isH2()) return;
         scheduledRefresh();
+    }
+
+    /** 管理端手动核验也进入运行账本，便于和其他定时任务统一追溯。 */
+    public Map<String,Object> runManually() {
+        if (!enabled()) throw new IllegalStateException("AI 价格同步任务当前已停止；请先启用任务");
+        RefreshResult result = run("manual:" + CryptoUtils.randomId());
+        Map<String,Object> latest = latestRun("manual:", 1);
+        if (latest == null) throw new IllegalStateException("价格同步运行记录不存在");
+        latest.put("changedModels", result.changedModels);
+        return latest;
+    }
+
+    public Map<String,Object> updateEnabled(boolean value) {
+        parameters.saveValue(ENABLED_PARAMETER, String.valueOf(value), "DeepSeek 官网价格同步定时任务开关；false 时 22:00 不访问官网且不更新价格版本");
+        return status();
+    }
+
+    public List<Map<String,Object>> runs(int limit) {
+        return jdbc.queryForList("SELECT id,trigger_key,state,changed_model_count,error_code,error_message,started_at,finished_at,created_at FROM ai_pricing_sync_run ORDER BY created_at DESC,id DESC LIMIT ?", Math.max(1, Math.min(limit, 50)));
+    }
+
+    private RefreshResult run(String triggerKey) {
+        String runId = CryptoUtils.randomId();
+        try {
+            jdbc.update("INSERT INTO ai_pricing_sync_run(id,trigger_key,state,started_at) VALUES(?,?, 'running', CURRENT_TIMESTAMP)", runId, triggerKey);
+        } catch (DuplicateKeyException duplicate) {
+            Map<String,Object> existing = latestRun(triggerKey, 1);
+            if (existing != null) return new RefreshResult(number(existing.get("changed_model_count")), 0);
+            throw new IllegalStateException("价格同步运行记录创建失败", duplicate);
+        }
+        try {
+            RefreshResult result = refresh();
+            jdbc.update("UPDATE ai_pricing_sync_run SET state='success',changed_model_count=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", result.changedModels, runId);
+            return result;
+        } catch (RuntimeException exception) {
+            recordStatus("failed", exception.getClass().getSimpleName());
+            jdbc.update("UPDATE ai_pricing_sync_run SET state='failed',error_code=?,error_message=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", exception.getClass().getSimpleName(), shorten(exception.getMessage()), runId);
+            throw exception;
+        }
     }
 
     public synchronized RefreshResult refresh() {
@@ -105,14 +148,40 @@ public class AiOfficialPricingService {
 
     public Map<String, Object> status() {
         Map<String, Object> result = new LinkedHashMap<String, Object>();
-        result.put("enabled", properties.getAi().isPricingSyncEnabled());
+        result.put("enabled", enabled());
         result.put("source", SOURCE_URL);
-        result.put("schedule", "每天 22:00");
+        String cron=taskSchedules==null?"0 0 22 * * *":taskSchedules.cron("pricing");
+        result.put("schedule",cron);
+        result.put("cronExpression",cron);
+        result.put("nextRunAt",enabled()&&taskSchedules!=null?taskSchedules.next("pricing",Instant.now()):null);
         result.put("timezone", "Asia/Shanghai");
         result.put("lastCheckedAt", parameters.optional(STATUS_PREFIX + "last_checked_at", null));
         result.put("lastStatus", parameters.optional(STATUS_PREFIX + "last_status", "not_run"));
         result.put("lastMessage", parameters.optional(STATUS_PREFIX + "last_message", null));
         return result;
+    }
+
+    private boolean enabled() {
+        String fallback = String.valueOf(properties.getAi().isPricingSyncEnabled());
+        String configured = parameters.optionalStored(ENABLED_PARAMETER, fallback);
+        if ("true".equalsIgnoreCase(configured) || "1".equals(configured)) return true;
+        if ("false".equalsIgnoreCase(configured) || "0".equals(configured)) return false;
+        LOGGER.warn("AI 价格同步任务开关配置无效，使用服务默认值 {}", fallback);
+        return properties.getAi().isPricingSyncEnabled();
+    }
+
+    private Map<String,Object> latestRun(String trigger, int limit) {
+        List<Map<String,Object>> rows = jdbc.queryForList("SELECT id,trigger_key,state,changed_model_count,error_code,error_message,started_at,finished_at,created_at FROM ai_pricing_sync_run WHERE trigger_key LIKE ? ORDER BY created_at DESC,id DESC LIMIT ?", trigger.endsWith(":") ? trigger + "%" : trigger, limit);
+        return rows.isEmpty() ? null : new LinkedHashMap<String,Object>(rows.get(0));
+    }
+
+    private int number(Object value) {
+        return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    private String shorten(String value) {
+        String safe = value == null || value.trim().isEmpty() ? "未知错误" : value.trim();
+        return safe.length() <= 1000 ? safe : safe.substring(0, 999) + "…";
     }
 
     private int persist(ParsedPage page) {

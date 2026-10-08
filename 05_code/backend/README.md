@@ -79,7 +79,7 @@ DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录�
 ## Web 技术知识查看
 
 - `GET /api/learning/contents/{contentId}`：用户详情返回当前 `published_version_id` 指向的正文和版本化来源字段，并同时返回 `originPublishedAt`（原文发布时间）与 `publishedAt`（站内发布时间）。
-- `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持按主题过滤以及标题、摘要、正文关键词搜索；列表返回原文发布时间，缺失时由前端回退站内发布时间。
+- `GET /api/admin/content/technical`：分页查看已发布的技术知识，默认 20 条/页，支持主题、关键词及来源日期范围（`startDate`/`endDate`，按北京时间自然日）筛选。`sortOrder=asc|desc` 按来源日期全量排序后分页，默认 `desc`（最新在前）；缺失来源日期时回退站内发布时间，两者均缺失时排在末尾，同日期按标题和内容 ID 保持稳定顺序。
 - `GET /api/admin/content/technical/{contentId}`：查看已发布版本的正文、难度、预计时长、主题、审核状态、来源、原文/站内发布时间和许可快照。
 - `GET /api/admin/content/articles`：分页查看已发布英语短文，支持按 `intro`/`advanced` 难度筛选以及标题、摘要、正文关键词搜索；时间字段语义与技术知识一致。
 - `GET /api/admin/content/articles/{contentId}`：查看英语短文正文、难度、预计时长、审核状态、来源、原文/站内发布时间和许可快照。
@@ -119,6 +119,12 @@ DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录�
 ## 每日英语短文校验与补齐
 
 生成提示与服务端校验统一要求五个文本字段的类型、字符长度、英文单词数、中文译文、不同目标词覆盖及标题去重。小学／初中／高中正文 45–80 个英文单词，其他词书 75–120 个。每批最多 5 篇；合格篇保留，只对不合格槽位补生成一次，避免反复生成已通过的内容。再次点击“补齐今日短文”时查询实际缺失槽位，不依赖已有篇数。运行详情的失败摘要标明词书、槽位、字段及实际／要求长度，模型调用仍受原有配额与预算限制。本次无需新增数据库迁移。
+
+## 管理端执行计划编辑
+
+任务与运行页面支持每日时间或六段 Cron 编辑，固定使用北京时间（`Asia/Shanghai`）。`PUT /api/admin/tasks/{collection|article|pricing}/schedule` 需要管理员令牌，先校验表达式与可用的下次运行时间，再保存并即时更新 Spring TaskScheduler；旧的固定 `@Scheduled` 已移除，避免重复触发。修改不会立即执行、启用已停止任务或中断本次执行，同一任务切换计划期间也不会重叠运行。既有按日幂等规则不变：同日多次触发仍只处理当日任务，不等于多次新增内容。
+
+采集计划复用 `content_collection_schedule.cron_expression`；短文和价格计划分别保存到非敏感系统参数 `article_generation.cron`、`ai.pricing.deepseek.cron`，重启后恢复。无新表或字段，无需数据库迁移。首次部署需要重启后端以加载动态调度器；之后从本页面保存即可即时生效。直接从系统参数页面修改 Cron 时需重启后端，推荐使用任务页面的“修改计划”。
 
 ## F02 媒体配置
 

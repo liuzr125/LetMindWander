@@ -19,7 +19,7 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "CASE WHEN lr.learning_status IN ('understood','mastered') THEN TRUE ELSE FALSE END AS understood,",
             "CASE WHEN rs.state='active' THEN TRUE ELSE FALSE END AS in_review,CASE WHEN wn.state='active' THEN TRUE ELSE FALSE END AS in_word_book,",
             "<choose><when test=\"keyword != null and keyword != ''\">CASE WHEN EXISTS (SELECT 1 FROM word_alias wam WHERE wam.content_id=lc.id AND wam.state='active' AND wam.normalized_alias=LOWER(TRIM(#{keyword}))) THEN TRUE ELSE FALSE END AS alias_match,</when><otherwise>FALSE AS alias_match,</otherwise></choose>",
-            "(SELECT MIN(lt.name) FROM content_topic ct JOIN learning_topic lt ON lt.id=ct.topic_id AND lt.state='active' WHERE ct.content_version_id=cv.id) AS topic_name,",
+            "(SELECT MIN(lt.name) FROM content_topic ct JOIN learning_topic lt ON lt.id=ct.topic_id AND lt.del_is=0 AND lt.state='active' WHERE ct.content_version_id=cv.id) AS topic_name,",
             "CASE WHEN lc.content_type='english_article' AND cv.body IS NOT NULL AND TRIM(cv.body)&lt;&gt;'' ",
             "THEN LENGTH(TRIM(cv.body))-LENGTH(REPLACE(TRIM(cv.body),' ',''))+1 ELSE 0 END AS word_count ",
             "FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id ",
@@ -28,10 +28,10 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
             "LEFT JOIN knowledge_item ki ON ki.owner_id=#{ownerId} AND ki.bookmark_content_id=lc.id AND ki.state&lt;&gt;'deleted' ",
             "LEFT JOIN review_schedule rs ON rs.owner_id=#{ownerId} AND rs.knowledge_id=ki.id ",
             "WHERE lc.state='published' AND lc.content_type=#{type} ",
-            "<if test=\"type == 'english_article'\">AND EXISTS (SELECT 1 FROM english_article_book eab JOIN user_vocabulary_book uvb ON uvb.book_id=eab.book_id AND uvb.owner_id=#{ownerId} AND uvb.state='active' JOIN vocabulary_book active_book ON active_book.id=uvb.book_id AND active_book.state='active' WHERE eab.content_id=lc.id) </if>",
+            "<if test=\"type == 'english_article'\">AND (EXISTS (SELECT 1 FROM english_article_category eac JOIN user_vocabulary_book uvb ON uvb.book_id=eac.book_id AND uvb.owner_id=#{ownerId} AND uvb.state='active' JOIN vocabulary_book active_book ON active_book.id=uvb.book_id AND active_book.state='active' WHERE eac.content_id=lc.id AND eac.del_is=0) OR (NOT EXISTS(SELECT 1 FROM english_article_category marker WHERE marker.content_id=lc.id) AND EXISTS (SELECT 1 FROM english_article_book eab JOIN user_vocabulary_book uvb ON uvb.book_id=eab.book_id AND uvb.owner_id=#{ownerId} AND uvb.state='active' JOIN vocabulary_book active_book ON active_book.id=uvb.book_id AND active_book.state='active' WHERE eab.content_id=lc.id))) </if>",
             "<if test=\"difficulty != null and difficulty != ''\">AND cv.difficulty=#{difficulty} </if>",
             "<if test=\"stage != null and stage != ''\">AND EXISTS (SELECT 1 FROM vocabulary_book_word sbw JOIN vocabulary_book sb ON sb.id=sbw.book_id WHERE sbw.content_id=lc.id AND sb.state='active' AND sb.level_code=#{stage}) </if>",
-            "<if test=\"topicId != null and topicId != ''\">AND EXISTS (SELECT 1 FROM content_topic x WHERE x.content_version_id=cv.id AND x.topic_id=#{topicId}) </if>",
+            "<if test=\"topicId != null and topicId != ''\">AND EXISTS (SELECT 1 FROM content_topic x JOIN learning_topic active_topic ON active_topic.id=x.topic_id AND active_topic.del_is=0 WHERE x.content_version_id=cv.id AND x.topic_id=#{topicId}) </if>",
             "<if test=\"notebook\">AND wn.state='active' </if>",
             "<if test=\"status == 'review'\">AND rs.state='active' AND rs.due_date&lt;=#{today} </if>",
             "<if test=\"status == 'familiar'\">AND COALESCE(lr.familiarity_percent,0)&gt;=80 </if>",
@@ -46,7 +46,7 @@ public interface LearningContentMapper extends BaseMapper<LearningContentEntity>
 
     @Select("SELECT DISTINCT lt.id,lt.name FROM learning_topic lt JOIN content_topic ct ON ct.topic_id=lt.id " +
             "JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.published_version_id=cv.id " +
-            "WHERE lt.state='active' AND (lt.scope_key='system' OR lt.owner_id=#{ownerId}) AND lc.content_type='tech' AND lc.state='published' ORDER BY lt.name")
+            "WHERE lt.del_is=0 AND lt.topic_type='technical' AND lt.state='active' AND (lt.scope_key='system' OR lt.owner_id=#{ownerId}) AND lc.content_type='tech' AND lc.state='published' ORDER BY lt.name")
     List<LearningTopicView> selectTopics(@Param("ownerId") String ownerId);
 
     @Select("SELECT COUNT(*) FROM word_notebook wn JOIN learning_content lc ON lc.id=wn.content_id " +

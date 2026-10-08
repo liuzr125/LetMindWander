@@ -21,6 +21,39 @@ class DailyEnglishArticleValidationTest {
     private static final String BODY="Every morning our happy family walks to school. I carry a book and an apple. We learn how to keep the garden clean, share simple work, and help new friends. The small project gives us a dream for a greener home and a kinder day together.";
     private static final LocalDate DATE=LocalDate.of(2026,10,8);
 
+    @Test void coverageFillDoesNotCallModelWhenBothLevelsHaveReachedTarget(){
+        try(Fixture f=new Fixture()){
+            f.seedArticles("intro",101);f.seedArticles("advanced",105);
+            assertThat(f.service.fillCoverage()).containsEntry("generatedCount",0).containsEntry("remainingCount",0);
+            verifyNoInteractions(f.ai);
+            assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM english_article_generation_run",Integer.class)).isZero();
+        }
+    }
+
+    @Test void coverageFillGeneratesOnlyGlobalDeficitAndIsSafeToRepeat() throws Exception {
+        try(Fixture f=new Fixture()){
+            f.seedArticles("intro",100);f.seedArticles("advanced",101);
+            when(f.parameters.optionalStored(eq("article_generation.enabled"),anyString())).thenReturn("true");
+            when(f.ai.generateSystemContent(anyString(),anyString(),anyString(),anyString())).thenReturn(response(articles(1,1)));
+            Map<String,Object> result=f.service.fillCoverage();
+            assertThat(result).containsEntry("generatedCount",1).containsEntry("remainingCount",0);
+            assertThat(f.service.fillCoverage()).containsEntry("generatedCount",0);
+            verify(f.ai,times(1)).generateSystemContent(anyString(),anyString(),anyString(),anyString());
+            assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM english_article_generation_run",Integer.class)).isEqualTo(1);
+        }
+    }
+
+    @Test void coverageFillReportsMissingLevelWithoutAnEligibleBook() throws Exception {
+        try(Fixture f=new Fixture()){
+            f.seedArticles("intro",101);f.seedArticles("advanced",100);
+            when(f.parameters.optionalStored(eq("article_generation.enabled"),anyString())).thenReturn("true");
+            Map<String,Object> result=f.service.fillCoverage();
+            assertThat(result).containsEntry("generatedCount",0).containsEntry("remainingCount",1);
+            verifyNoInteractions(f.ai);
+            assertThat(f.jdbc.queryForObject("SELECT state FROM english_article_generation_run",String.class)).isEqualTo("failed");
+        }
+    }
+
     @Test void regeneratesOnlyTheInvalidSlotAndPersistsItsValidatedSiblings() throws Exception {
         try(Fixture f=new Fixture()){
             List<Map<String,Object>> first=articles(1,5);first.get(2).put("body","");
@@ -127,6 +160,13 @@ class DailyEnglishArticleValidationTest {
         }
 
         List<Integer> slots(){return jdbc.queryForList("SELECT slot_no FROM english_article_book WHERE book_id=? AND generated_date=? ORDER BY slot_no",Integer.class,book,DATE);}
+        void seedArticles(String difficulty,int count){
+            for(int i=0;i<count;i++){
+                String content=CryptoUtils.randomId(),version=CryptoUtils.randomId();
+                jdbc.update("INSERT INTO learning_content(id,content_type,source_id,dedup_hash,state,current_version_id,published_version_id) VALUES(?,'english_article','e0000000000000000000000000000017',?,'published',?,?)",content,CryptoUtils.sha256(content),version,version);
+                jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,body,difficulty,license_snapshot,body_hash,review_status,created_by) VALUES(?,?,1,?,'Test body',?,'原创',?,'approved','e0000000000000000000000000000017')",version,content,"Existing "+i,difficulty,CryptoUtils.sha256(version));
+            }
+        }
         public void close(){db.shutdown();}
     }
 }

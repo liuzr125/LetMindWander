@@ -11,7 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -45,12 +45,12 @@ public class DailyEnglishArticleService {
     private final AppParameterService parameters;
     private final AppProperties properties;
     private final TransactionTemplate transactions;
+    @Autowired private TaskScheduleSettings taskSchedules;
 
     public DailyEnglishArticleService(JdbcTemplate jdbc,ObjectMapper json,AiService ai,AppParameterService parameters,AppProperties properties,PlatformTransactionManager manager){
         this.jdbc=jdbc;this.json=json;this.ai=ai;this.parameters=parameters;this.properties=properties;this.transactions=new TransactionTemplate(manager);
     }
 
-    @Scheduled(cron="${app.article-generation.cron:0 30 22 * * *}",zone="Asia/Shanghai")
     public void scheduledGeneration(){
         if(!enabled())return;
         try{generate(LocalDate.now(BUSINESS_ZONE),"daily");}
@@ -58,6 +58,10 @@ public class DailyEnglishArticleService {
     }
 
     public Map<String,Object> generate(LocalDate date,String triggerType){
+        return generate(date,triggerType,false);
+    }
+
+    private synchronized Map<String,Object> generate(LocalDate date,String triggerType,boolean fillCoverage){
         int perBook=perBookCount();
         String triggerKey=(triggerType==null?"manual":triggerType)+":"+date;
         String runId=CryptoUtils.randomId();Instant started=Instant.now();
@@ -68,11 +72,18 @@ public class DailyEnglishArticleService {
             List<Map<String,Object>> topics=latestOnlineTopics();
             if(topics.isEmpty())throw new IllegalStateException("没有可用的官方 RSS 选题；请先执行每日内容采集");
             for(Map<String,Object> book:eligibleBooks()){
-                books++;
                 String bookId=text(book,"id"),bookCode=text(book,"book_code"),bookName=text(book,"book_name"),level=text(book,"level_code");
+                String difficulty=Arrays.asList("primary","junior","senior").contains(level)?"intro":"advanced";
+                int needed=fillCoverage?coverageGap(difficulty):perBook;
+                if(needed==0)continue;
+                books++;
                 Set<Integer> existingSlots=new HashSet<Integer>(jdbc.queryForList("SELECT slot_no FROM english_article_book WHERE book_id=? AND generated_date=?",Integer.class,bookId,date));
                 List<Integer> missingSlots=new ArrayList<Integer>();
-                for(int slot=1;slot<=perBook;slot++){if(existingSlots.contains(slot))skipped++;else missingSlots.add(slot);}
+                for(int slot=1;slot<=(fillCoverage?255:perBook);slot++){
+                    if(existingSlots.contains(slot)){if(!fillCoverage)skipped++;}
+                    else missingSlots.add(slot);
+                    if(fillCoverage&&missingSlots.size()>=needed)break;
+                }
                 if(missingSlots.isEmpty())continue;
                 try{
                     List<Map<String,Object>> words=targetWords(bookId,date,25);
@@ -92,9 +103,32 @@ public class DailyEnglishArticleService {
                 for(Integer slot:missingSlots)if(!completed.contains(slot))failed++;
             }
         }catch(Exception exception){errors.add(shorten(exception.getMessage()));failed++;}
+        if(fillCoverage){
+            failed=coverageGap("intro")+coverageGap("advanced");
+            if(failed>0)errors.add("仍缺 "+failed+" 篇；请检查可用词书、官方选题、AI 配额或校验错误后重试");
+        }
         String state=failed==0?"success":generated>0?"partial":"failed";String error=errors.isEmpty()?null:shorten(String.join("；",errors));
         jdbc.update("UPDATE english_article_generation_run SET state=?,book_count=?,generated_count=?,skipped_count=?,failed_count=?,error_message=?,finished_at=? WHERE id=?",state,books,generated,skipped,failed,error,Timestamp.from(Instant.now()),runId);
         return runById(runId);
+    }
+
+    private int coverageGap(String difficulty){
+        Integer count=jdbc.queryForObject("SELECT COUNT(*) FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id WHERE lc.content_type='english_article' AND lc.state='published' AND cv.difficulty=?",Integer.class,difficulty);
+        return Math.max(0,101-(count==null?0:count));
+    }
+
+    /** 全库按难度补齐，不受列表筛选影响，也不改变每日每词书的生成配置。 */
+    public synchronized Map<String,Object> fillCoverage(){
+        int before=coverageGap("intro")+coverageGap("advanced");
+        Map<String,Object> result=new LinkedHashMap<String,Object>();
+        if(before==0){result.put("generatedCount",0);result.put("remainingCount",0);result.put("message","入门、进阶均已达标，无需生成");return result;}
+        if(!enabled())throw new IllegalStateException("短文生成任务已停止，请先在任务与运行中启用");
+        Map<String,Object> run=generate(LocalDate.now(BUSINESS_ZONE),"manual:coverage:"+CryptoUtils.randomId(),true);
+        ArticleGenerationRunView view=toRun(run);
+        int remaining=coverageGap("intro")+coverageGap("advanced");
+        result.put("run",view);result.put("generatedCount",view.getGeneratedCount());result.put("remainingCount",remaining);
+        result.put("message",remaining==0?"短文补齐完成，两个难度均已达标":"本次补齐结束，仍有缺口，请查看运行详情中的失败原因");
+        return result;
     }
 
     public ArticleGenerationRunView runManually(){
@@ -106,7 +140,7 @@ public class DailyEnglishArticleService {
     public ArticleGenerationStatusView status(){
         ArticleGenerationStatusView result=new ArticleGenerationStatusView();
         result.setEnabled(enabled());
-        result.setCronExpression(properties.getArticleGeneration().getCron());
+        result.setCronExpression(taskSchedules==null?properties.getArticleGeneration().getCron():taskSchedules.cron("article"));
         result.setTimezone(BUSINESS_ZONE.getId());
         result.setPerBookCount(perBookCount());
         result.setEligibleBookCount(eligibleBooks().size());
@@ -158,9 +192,13 @@ public class DailyEnglishArticleService {
         }
         result.put("models",models);
         result.put("tables",Arrays.asList("english_article_generation_run：任务运行结果","english_article_book：短文与词书、日期和槽位映射","learning_content / content_version：已校验发布的原创短文","app_parameter：任务开关和每日篇数"));
-        result.put("tools",Arrays.asList("Spring @Scheduled（Asia/Shanghai）","官方 RSS 选题索引","AI 全局配额、并发和月度预算门禁","字段类型、字符长度、英文单词数、目标词覆盖与重复标题校验"));
+        result.put("tools",Arrays.asList("Spring TaskScheduler（Asia/Shanghai，数据库 Cron 修改后即时生效）","官方 RSS 选题索引","AI 全局配额、并发和月度预算门禁","字段类型、字符长度、英文单词数、目标词覆盖与重复标题校验"));
         result.put("steps",Arrays.asList("读取持久化任务开关；禁用时不执行","筛选至少含 10 个已审核词条的启用词书","按缺少的实际槽位最多 5 篇一批生成，仅不合格项补生成一次","合格短文按日期和实际槽位事务入库","记录生成、已存在和失败数量；说明标出槽位、字段和实际长度"));
         result.put("principles",Arrays.asList("定时运行按日期幂等，手动运行仅补齐缺少槽位","官方来源只提供选题，不复制第三方正文","数量增加会提高模型调用次数与费用","同批合格短文保留，不合格槽位最多补生成一次，之后等待手动补齐"));
+        if(run.getTriggerKey().startsWith("manual:coverage:")){
+            result.put("steps",Arrays.asList("统计全库已发布入门、进阶短文，各以 101 篇为目标计算缺口","筛选对应难度至少含 10 个审核词条的启用词书","使用未占用槽位，最多 5 篇一批原创生成，沿用 AI 预算及内容校验","合格短文事务入库；不合格项最多修复一次","每处理一本词书重新统计缺口，记录新增篇数和剩余缺口"));
+            result.put("principles",Arrays.asList("一键补齐按全库难度总量计算，不受列表筛选影响","已达标不调用模型，不修改每日每词书生成配置","失败后的再次补齐只处理剩余缺口，保留已发布内容","当前服务实例串行处理生成任务，避免同时补齐"));
+        }
         return result;
     }
 
@@ -260,6 +298,7 @@ public class DailyEnglishArticleService {
         Map<String,Object> paragraph=new LinkedHashMap<String,Object>();paragraph.put("paragraph_id","p1");paragraph.put("text",article.body);paragraph.put("translation",article.translation);
         jdbc.update("INSERT INTO content_version(id,content_id,version_no,title,title_translation,summary,body,difficulty,estimated_seconds,origin_url,origin_author,origin_published_at,license_snapshot,body_hash,review_status,reviewed_at,created_by,article_blocks) VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?, 'approved',CURRENT_TIMESTAMP,?,?)",versionId,contentId,article.title,article.titleTranslation,article.summary,article.body,difficulty,Math.max(60,article.body.split("\\s+").length),topicUrl,"知行日课原创生成",value(topic,"origin_published_at"),LICENSE,CryptoUtils.sha256(article.body),properties.getAdminPrincipalId(),write(Collections.singletonList(paragraph)));
         jdbc.update("INSERT INTO english_article_book(id,content_id,book_id,generated_date,slot_no,target_words_json,topic_snapshot_json) VALUES(?,?,?,?,?,?,?)",CryptoUtils.randomId(),contentId,bookId,date,slot,targetJson,topicJson);
+        jdbc.update("INSERT INTO english_article_category(content_id,book_id,assigned_by,row_version,del_is,created_at,updated_at) VALUES(?,?,?,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",contentId,bookId,properties.getAdminPrincipalId());
     }
 
     private Map<String,Object> runByTrigger(String key){List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM english_article_generation_run WHERE trigger_key=?",key);return rows.isEmpty()?Collections.<String,Object>emptyMap():rows.get(0);}
@@ -284,6 +323,7 @@ public class DailyEnglishArticleService {
         return result==null?null:Instant.parse(String.valueOf(result));
     }
     private Instant nextRun(Instant from){
+        if(taskSchedules!=null)return taskSchedules.next("article",from);
         try{ZonedDateTime next=CronExpression.parse(properties.getArticleGeneration().getCron()).next(from.atZone(BUSINESS_ZONE));return next==null?null:next.toInstant();}
         catch(IllegalArgumentException exception){LOGGER.warn("英语短文生成 cron 配置无效，状态页使用默认 22:30",exception);ZonedDateTime now=from.atZone(BUSINESS_ZONE);ZonedDateTime next=now.withHour(22).withMinute(30).withSecond(0).withNano(0);if(!next.isAfter(now))next=next.plusDays(1);return next.toInstant();}
     }

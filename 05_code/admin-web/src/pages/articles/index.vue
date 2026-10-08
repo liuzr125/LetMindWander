@@ -12,6 +12,7 @@ const audioTarget = ref(null), nlsToken = ref(''), audioError = ref(''), audioSu
 const articles = ref({ total: 0, page: 1, pageSize: 20, totalPages: 0, items: [] })
 const page = ref(1), pageSize = ref(20), difficulty = ref(''), bookId = ref(''), audioStatus = ref(''), keywordInput = ref(''), keyword = ref('')
 const detailOpen = ref(false), detailLoading = ref(false), detailError = ref(''), detail = ref(null)
+const editTarget = ref(null), editBookId = ref(''), editDifficulty = ref('intro'), editMinutes = ref(1), editError = ref(''), editSaving = ref(false)
 const generatingArticleId = ref('')
 let currentAudio = null
 const selectedIds = ref([]), batchPreparing = ref(false), batchRunning = ref(false)
@@ -85,10 +86,11 @@ async function generateBatchAudio() {
   finally { batchRunning.value = false; nlsToken.value = '' }
 }
 function beforeUnload(event) {
-  if (!audioBusy.value) return
+  if (!audioBusy.value && !fillingArticles.value) return
   event.preventDefault(); event.returnValue = ''
 }
 onBeforeRouteLeave(() => {
+  if (fillingArticles.value) { showError(new Error('正在补齐短文，请等待执行结果后再离开。')); return false }
   if (!audioBusy.value) return true
   showError(new Error('音频任务正在处理，请先点击“停止后续生成”，等待当前音频保存后再离开。'))
   return false
@@ -103,6 +105,20 @@ const levels = computed(() => {
 })
 const publishedTotal = computed(() => levels.value.reduce((sum, item) => sum + item.count, 0))
 const insufficientCount = computed(() => levels.value.filter(item => item.count < 101).length)
+const fillingArticles = ref(false), fillMessage = ref('')
+const missingArticleCount = computed(() => levels.value.reduce((sum,item) => sum + Math.max(0,101-item.count),0))
+async function fillArticles() {
+  if (fillingArticles.value || audioBusy.value || !missingArticleCount.value) return
+  const gaps=levels.value.filter(item=>item.count<101).map(item=>`${item.name}缺 ${101-item.count} 篇`).join('，')
+  if (!window.confirm(`${gaps}。将按全库总量补齐至各 101 篇，不受当前筛选影响。需要“任务与运行”权限，生成会产生 AI 费用；不会自动生成音频。是否继续？`)) return
+  fillingArticles.value=true; fillMessage.value='正在补齐短文，请勿重复提交…'; error.value=''
+  try {
+    const result=await request('/admin/collection/article-generation/fill',{method:'POST'})
+    fillMessage.value=`${result.message}。本次新增 ${result.generatedCount} 篇，剩余缺口 ${result.remainingCount} 篇。${result.run?.errorMessage ? '原因：'+result.run.errorMessage : ''}`
+    await load()
+  } catch(e) { error.value=e.message || '补齐失败'; fillMessage.value='补齐请求未成功，请刷新数据并到“任务与运行”查看执行记录后重试。' }
+  finally { fillingArticles.value=false }
+}
 const detailUrl = computed(() => {
   const value = detail.value?.originUrl || detail.value?.sourceUrl
   if (!value) return ''
@@ -140,6 +156,33 @@ async function loadArticles() {
 function chooseLevel(code = '') { difficulty.value = code; page.value = 1; loadArticles() }
 function chooseBook(code = '') { bookId.value = code; page.value = 1; loadArticles() }
 function chooseAudioStatus(code = '') { audioStatus.value = code; page.value = 1; loadArticles() }
+function openMetadataEditor(item) {
+  if (audioBusy.value || editSaving.value) return
+  editTarget.value = item
+  editBookId.value = item.audienceBookId || ''
+  editDifficulty.value = item.difficulty || 'intro'
+  editMinutes.value = Math.max(1, Math.ceil((item.estimatedSeconds || 0) / 60))
+  editError.value = ''
+}
+function closeMetadataEditor() {
+  if (editSaving.value) return
+  editTarget.value = null; editBookId.value = ''; editError.value = ''
+}
+async function saveMetadata() {
+  if (!editTarget.value?.contentId || editSaving.value) return
+  const minutes = Number(editMinutes.value)
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 240) { editError.value = '预计阅读时长只能填写 1 至 240 的整数分钟'; return }
+  editSaving.value = true; editError.value = ''; error.value = ''
+  try {
+    const updated = await request(`/admin/content/articles/${encodeURIComponent(editTarget.value.contentId)}/metadata`, {
+      method: 'PUT', body: JSON.stringify({ bookId: editBookId.value || null, difficulty: editDifficulty.value, estimatedMinutes: minutes })
+    })
+    if (detail.value?.contentId === updated.contentId) detail.value = { ...detail.value, ...updated }
+    editTarget.value = null; editBookId.value = ''; page.value = Math.max(1, page.value)
+    await loadArticles()
+  } catch (e) { editError.value = e.message || '短文信息保存失败' }
+  finally { editSaving.value = false }
+}
 function search() { keyword.value = keywordInput.value.trim(); page.value = 1; loadArticles() }
 function clearSearch() { keywordInput.value = ''; keyword.value = ''; page.value = 1; loadArticles() }
 function turn(target) { if (target < 1 || target > articles.value.totalPages || target === page.value) return; page.value = target; loadArticles() }
@@ -195,7 +238,8 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
 
 <template>
   <section>
-    <div class="page-heading"><div><h1>英语短文</h1><p>按难度管理已发布短文，查看正文、来源与许可信息。</p></div><button class="refresh" :disabled="audioBusy" @click="load">刷新数据</button></div>
+    <div class="page-heading"><div><h1>英语短文</h1><p>按难度管理已发布短文，查看正文、来源与许可信息。</p></div><div style="display:flex;gap:12px"><button class="refresh" :disabled="loading || audioBusy || fillingArticles || !missingArticleCount" @click="fillArticles">{{ fillingArticles ? '补齐中…' : missingArticleCount ? '一键补齐短文' : '已达标' }}</button><button class="refresh" :disabled="audioBusy || fillingArticles" @click="load">刷新数据</button></div></div>
+    <div v-if="fillMessage" class="tts-mode temporary" role="status" aria-live="polite">{{ fillMessage }}</div>
     <div class="tts-mode temporary">支持单篇或批量生成：批量只需输入一次临时 NLS Token，逐篇上传 OSS 并保存。已有音频自动跳过。</div>
     <div v-if="audioSuccess" class="tts-mode temporary" role="status">{{ audioSuccess }}</div>
     <div v-if="batchProgress" class="panel batch-progress" role="status" aria-live="polite">
@@ -228,11 +272,30 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
           <button class="refresh" :disabled="audioBusy || listLoading || !articles.total" @click="openBatchGeneration('all')">{{ batchPreparing ? '正在读取范围…' : '批量生成当前筛选全部' }}</button>
           <span>勾选仅针对本页；“筛选全部”包含所有分页，开始前会确认篇数。</span>
         </div>
-        <div class="table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="全选本页未生成音频的短文" :checked="allPageSelected" :disabled="audioBusy || listLoading || !selectableItems.length" @change="selectPage($event.target.checked)" /></th><th>标题</th><th>适用词书</th><th>难度</th><th>阅读时长</th><th>来源</th><th>来源日期</th><th>操作</th></tr></thead><tbody><tr v-for="item in articles.items" :key="item.contentId"><td><input v-model="selectedIds" type="checkbox" :value="item.contentId" :aria-label="'选择 ' + item.title" :disabled="audioBusy || listLoading || !!item.articleAudioUrl" /></td><td><strong>{{ item.title }}</strong><small>{{ item.summary || '暂无摘要' }}</small></td><td>{{ item.audienceBookNames || '未分类' }}</td><td><span class="difficulty">{{ label(item.difficulty) }}</span></td><td>{{ Math.max(1,Math.ceil((item.estimatedSeconds||0)/60)) }} 分钟</td><td>{{ item.sourceName }}</td><td>{{ date(item.originPublishedAt || item.publishedAt) }}</td><td><div class="article-actions"><button class="link" @click="openDetail(item.contentId)">查看详情 ›</button><button v-if="item.articleAudioUrl" class="audio-button" @click="playAudio(item)">▶ 播放</button><button v-else class="generate-button" :disabled="audioBusy" @click="openAudioGeneration(item)">{{ generatingArticleId===item.contentId ? '生成中…' : '生成音频' }}</button></div></td></tr><tr v-if="!listLoading&&!articles.items.length"><td colspan="8" class="empty">没有符合条件的英语短文</td></tr></tbody></table><div v-if="listLoading" class="loading">正在加载…</div></div>
+        <div class="table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="全选本页未生成音频的短文" :checked="allPageSelected" :disabled="audioBusy || listLoading || !selectableItems.length" @change="selectPage($event.target.checked)" /></th><th>标题</th><th>适用词书</th><th>难度</th><th>阅读时长</th><th>来源</th><th>来源日期</th><th>操作</th></tr></thead><tbody><tr v-for="item in articles.items" :key="item.contentId"><td><input v-model="selectedIds" type="checkbox" :value="item.contentId" :aria-label="'选择 ' + item.title" :disabled="audioBusy || listLoading || !!item.articleAudioUrl" /></td><td><strong>{{ item.title }}</strong><small>{{ item.summary || '暂无摘要' }}</small></td><td>{{ item.audienceBookNames || '未分类' }}</td><td><span class="difficulty">{{ label(item.difficulty) }}</span></td><td>{{ Math.max(1,Math.ceil((item.estimatedSeconds||0)/60)) }} 分钟</td><td>{{ item.sourceName }}</td><td>{{ date(item.originPublishedAt || item.publishedAt) }}</td><td><div class="article-actions"><button class="link" :disabled="audioBusy || editSaving" @click="openMetadataEditor(item)">编辑</button><button class="link" @click="openDetail(item.contentId)">查看详情 ›</button><button v-if="item.articleAudioUrl" class="audio-button" @click="playAudio(item)">▶ 播放</button><button v-else class="generate-button" :disabled="audioBusy" @click="openAudioGeneration(item)">{{ generatingArticleId===item.contentId ? '生成中…' : '生成音频' }}</button></div></td></tr><tr v-if="!listLoading&&!articles.items.length"><td colspan="8" class="empty">没有符合条件的英语短文</td></tr></tbody></table><div v-if="listLoading" class="loading">正在加载…</div></div>
         <div class="pagination"><span>{{ articles.total ? `${(articles.page-1)*articles.pageSize+1}–${Math.min(articles.total,articles.page*articles.pageSize)} / ${articles.total}` : '0 篇' }}</span><button :disabled="audioBusy || page<=1" @click="turn(page-1)">‹</button><span>第 {{ page }} / {{ articles.totalPages || 1 }} 页</span><button :disabled="audioBusy || page>=articles.totalPages" @click="turn(page+1)">›</button></div>
       </div>
     </template>
   </section>
+
+  <div v-if="editTarget" class="modal-mask" @click.self="closeMetadataEditor">
+    <form class="category-modal" role="dialog" aria-modal="true" aria-labelledby="article-edit-modal-title" @submit.prevent="saveMetadata">
+      <h2 id="article-edit-modal-title">编辑短文信息</h2>
+      <p class="category-title">{{ editTarget.title }}</p>
+      <div class="metadata-fields"><label for="article-category-book">适用词书</label>
+      <select id="article-category-book" v-model="editBookId" :disabled="editSaving">
+        <option value="">未分类</option>
+        <option v-for="book in books" :key="book.bookId" :value="book.bookId">{{ book.bookName }}</option>
+      </select>
+      <label for="article-difficulty">难度</label>
+      <select id="article-difficulty" v-model="editDifficulty" :disabled="editSaving"><option value="intro">入门</option><option value="advanced">进阶</option></select>
+      <label for="article-reading-minutes">预计阅读时长（分钟）</label>
+      <input id="article-reading-minutes" v-model.number="editMinutes" type="number" min="1" max="240" step="1" required :disabled="editSaving" /></div>
+      <p>三个字段将一次保存。适用词书同步影响后台筛选及小程序分发；不会修改正文、音频或每日生成历史。</p>
+      <p v-if="editError" class="notice" role="alert">{{ editError }}</p>
+      <div class="audio-modal-actions"><button type="button" class="refresh" :disabled="editSaving" @click="closeMetadataEditor">取消</button><button class="generate-button" :disabled="editSaving">{{ editSaving ? '保存中…' : '保存修改' }}</button></div>
+    </form>
+  </div>
 
   <div v-if="audioTarget" class="modal-mask" @click.self="closeAudioGeneration">
     <form class="audio-modal" role="dialog" aria-modal="true" aria-labelledby="audio-modal-title" @submit.prevent="audioTarget.batch ? generateBatchAudio() : generateAudio()">
@@ -254,6 +317,7 @@ onBeforeUnmount(() => { batchStopRequested.value = true; stopAudio(); nlsToken.v
 .batch-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}.batch-toolbar span{font-size:12px;color:#71809a}.batch-progress{margin-top:18px;padding:20px}.batch-progress p{color:#65738d;font-size:13px}.batch-progress progress{width:100%;height:14px;accent-color:#0d6ff5}.batch-progress details{margin-top:14px}.batch-results{max-height:220px;overflow:auto;line-height:1.8;padding-left:22px;font-size:13px}.batch-results span{color:#b83c48}.body-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.body-heading h3{margin:0!important}.audio-unavailable{color:#8a96a8;font-size:12px}button:disabled{cursor:not-allowed;opacity:.6}
 
 .audio-modal{width:min(620px,90vw);max-height:90vh;overflow:auto;padding:28px;border-radius:16px;background:white}.audio-modal p{color:#65738d;line-height:1.7}.audio-modal label{display:block;margin:16px 0 8px}.audio-modal input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #c9daf3;border-radius:8px}.audio-modal-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:22px}.audio-modal-actions .generate-button{height:40px;padding:0 18px}
+.category-modal{width:min(520px,90vw);padding:28px;border-radius:16px;background:#fff}.category-modal h2{margin:0}.category-modal p{color:#65738d;line-height:1.7}.category-modal .category-title{color:#11204a;font-weight:700}.metadata-fields{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:14px 12px;margin-top:20px}.category-modal label{color:#43516b;font-size:13px}.category-modal select,.category-modal input{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid #c9daf3;border-radius:8px;background:#fff}
 .refresh{height:40px;padding:0 18px;border:1px solid #c9daf3;border-radius:9px;color:#126ff4;background:#fff}.tts-mode{margin-top:18px;padding:12px 15px;border-radius:9px;font-size:13px}.tts-mode.temporary{border:1px solid #bfe8d7;color:#087951;background:#e8f8f2}.tts-mode.access-key{border:1px solid #d9e2ef;color:#65738d;background:#f7f9fc}.notice{margin-top:18px;padding:13px 16px;border:1px solid #efc7cb;border-radius:10px;color:#b83c48;background:#fff4f5}.state{margin-top:24px;padding:60px;text-align:center;color:#71809a}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}.metric{padding:22px}.metric span{display:block;color:#71809a;font-size:13px}.metric strong{display:block;margin-top:10px;font-size:30px}.danger{color:#d8424f}.level-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:18px}.level-card{padding:20px;border:1px solid #dde6f1;text-align:left;cursor:pointer}.level-card.active{border-color:#3d8cff;background:linear-gradient(145deg,#fff,#eef5ff)}.level-card span,.level-card strong{display:block}.level-card span{color:#667590}.level-card strong{margin:10px 0;font-size:25px}.level-card small{color:#7a879c;font-size:12px}.level-card em,.difficulty{display:inline-block;padding:4px 9px;border-radius:99px;font-size:12px;font-style:normal}.ok{color:#15845f;background:#e8f8f1}.bad{color:#c43a47;background:#fff0f1}.difficulty{color:#176fdc;background:#eaf3ff}.article-panel{margin-top:18px;padding:22px}.panel-head,.toolbar,.pagination{display:flex;align-items:center;justify-content:space-between}.panel-head h2{margin:0 0 5px}.panel-head p{margin:0;color:#7a869d;font-size:12px}.plain{border:1px solid #d7dfeb!important;color:#62718c!important;background:#fff!important}.toolbar{margin:18px 0 13px}.toolbar form{display:flex;gap:8px}.toolbar input{width:340px;height:38px;padding:0 11px;border:1px solid #d7dfeb;border-radius:8px}.toolbar button{height:38px;padding:0 16px;border:0;border-radius:8px;color:#fff;background:#0d6ff5}.toolbar label{color:#6c7890;font-size:12px}.toolbar select{height:34px;border:1px solid #d7dfeb;border-radius:7px;background:#fff}.table-wrap{position:relative;min-height:220px;overflow:auto;border:1px solid #e2e7ef;border-radius:9px}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid #edf0f5;text-align:left;font-size:12px}th{color:#75819a;background:#f8faff}td{color:#53617a}td strong,td small{display:block}td strong{color:#11204a;font-size:14px}td small{max-width:390px;margin-top:5px;overflow:hidden;color:#7c889d;text-overflow:ellipsis;white-space:nowrap}.link{padding:4px;border:0;color:#0d6ff5;background:transparent;white-space:nowrap}.empty{height:170px;text-align:center;color:#8994a7}.loading{position:absolute;inset:42px 0 0;display:grid;place-items:center;color:#71809a;background:rgba(255,255,255,.86)}.pagination{justify-content:flex-end;gap:10px;margin-top:14px;color:#6f7c94;font-size:12px}.pagination button{width:32px;height:30px;border:1px solid #d7dfeb;border-radius:7px;color:#0d6ff5;background:#fff}.pagination button:disabled{color:#bbc3cf}.detail-modal{width:min(820px,88vw);max-height:88vh;overflow:auto;border-radius:16px;background:#fff;box-shadow:0 25px 70px rgba(19,36,70,.24)}.detail-modal header{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;padding:24px 28px;border-bottom:1px solid #e8edf4;background:#fff}.detail-modal header span{color:#72809a;font-size:12px}.detail-modal header h2{margin:6px 0 0}.detail-modal header button{border:0;background:transparent;color:#6f7d95;font-size:28px}.detail-state{padding:80px;text-align:center;color:#73819a}.detail-state.error{color:#c53f4c}.detail-meta,.detail-modal>section{margin:20px 28px}.detail-meta{display:flex;gap:8px}.detail-meta span{padding:5px 9px;border-radius:6px;color:#566681;background:#f1f4f8;font-size:12px}.detail-modal section h3{margin:0 0 10px;font-size:15px}.detail-modal section p,.body{color:#3e4d69;line-height:1.8}.body{white-space:pre-wrap;user-select:text}.source-box{padding:18px;border-radius:10px;background:#f7f9fc}.source-box dl{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.source-box dt{color:#8490a4;font-size:11px}.source-box dd{margin:5px 0 0;overflow-wrap:anywhere;color:#42516d;font-size:13px}.source-box a{display:inline-block;margin-top:14px;color:#0d6ff5;text-decoration:none}@media(max-width:1100px){.metrics{grid-template-columns:1fr 1fr}.level-grid{grid-template-columns:1fr}.source-box dl{grid-template-columns:1fr}}
 .level-picker{display:flex;align-items:center;gap:26px;margin-top:18px;padding:14px 18px}.level-picker label{display:flex;align-items:center;gap:10px;color:#667590;font-size:12px}.level-picker select{width:170px;height:38px;padding:0 10px;border:1px solid #d7dfeb;border-radius:8px;background:#fff}.level-summary{display:flex;flex-wrap:wrap;gap:16px;color:#667590;font-size:12px}.level-summary span{display:flex;align-items:center;gap:6px}.level-summary em{display:inline-block;padding:4px 9px;border-radius:99px;font-size:12px;font-style:normal}@media(max-width:1100px){.level-picker{align-items:flex-start;flex-direction:column}}
  .article-actions{display:flex;align-items:center;gap:8px}.audio-button,.generate-button{height:29px;padding:0 9px;border:1px solid #b9d3fb;border-radius:7px;color:#0d6ff5;background:#fff;white-space:nowrap}.generate-button{border-color:#0d6ff5;color:#fff;background:#0d6ff5}.generate-button:disabled{opacity:.62}

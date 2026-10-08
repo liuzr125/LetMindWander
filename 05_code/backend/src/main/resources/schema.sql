@@ -105,12 +105,14 @@ CREATE TABLE IF NOT EXISTS learning_plan (
 CREATE INDEX IF NOT EXISTS idx_learning_plan_effective ON learning_plan (owner_id, effective_date, version_no);
 
 CREATE TABLE IF NOT EXISTS learning_topic (
+  topic_type VARCHAR(32) NOT NULL DEFAULT 'technical',
   id CHAR(32) NOT NULL PRIMARY KEY,
   scope_key VARCHAR(40) NOT NULL,
   owner_id CHAR(32),
   name VARCHAR(50) NOT NULL,
   normalized_name VARCHAR(50) NOT NULL,
   state VARCHAR(32) NOT NULL DEFAULT 'active',
+  del_is TINYINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uk_learning_topic_scope_name UNIQUE (scope_key, normalized_name)
@@ -221,6 +223,17 @@ CREATE TABLE IF NOT EXISTS english_article_book (
 CREATE INDEX IF NOT EXISTS idx_article_book_content ON english_article_book (content_id,book_id);
 CREATE INDEX IF NOT EXISTS idx_article_book_daily ON english_article_book (generated_date,book_id);
 
+CREATE TABLE IF NOT EXISTS english_article_category (
+  content_id CHAR(32) NOT NULL PRIMARY KEY,
+  book_id CHAR(32),
+  assigned_by CHAR(32),
+  row_version INT NOT NULL DEFAULT 1,
+  del_is SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_article_category_book ON english_article_category (book_id,del_is,content_id);
+
 CREATE TABLE IF NOT EXISTS english_article_generation_run (
   id CHAR(32) NOT NULL PRIMARY KEY,
   trigger_key VARCHAR(80) NOT NULL,
@@ -237,6 +250,21 @@ CREATE TABLE IF NOT EXISTS english_article_generation_run (
   CONSTRAINT uk_article_generation_trigger UNIQUE (trigger_key)
 );
 CREATE INDEX IF NOT EXISTS idx_article_generation_date ON english_article_generation_run (run_date,created_at);
+
+-- DeepSeek 官网价格同步的执行账本；保存每次定时或手动核验结果，不保存外部页面正文。
+CREATE TABLE IF NOT EXISTS ai_pricing_sync_run (
+  id CHAR(32) NOT NULL PRIMARY KEY,
+  trigger_key VARCHAR(80) NOT NULL,
+  state VARCHAR(16) NOT NULL DEFAULT 'running',
+  changed_model_count INT NOT NULL DEFAULT 0,
+  error_code VARCHAR(80),
+  error_message VARCHAR(1000),
+  started_at TIMESTAMP(3) NOT NULL,
+  finished_at TIMESTAMP(3),
+  created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_ai_pricing_sync_trigger UNIQUE (trigger_key)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_pricing_sync_run_history ON ai_pricing_sync_run (created_at,id);
 
 CREATE TABLE IF NOT EXISTS learning_record (
   id CHAR(32) NOT NULL PRIMARY KEY,

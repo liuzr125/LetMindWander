@@ -17,10 +17,13 @@ public class AdminContentController {
     private final AdminContentService contents; private final AppProperties properties; private final AliyunTtsService tts;
     public AdminContentController(AdminContentService contents,AppProperties properties,AliyunTtsService tts){this.contents=contents;this.properties=properties;this.tts=tts;}
     @GetMapping("/coverage") public ContentCoverageView coverage(@RequestHeader(value="X-Admin-Token",required=false)String token){admin(token);return contents.coverage();}
-    @GetMapping("/technical") public AdminTechnicalContentPageView technical(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String topic,@RequestParam(required=false)String keyword,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.technical(topic,keyword,page,pageSize);}
+    @PutMapping("/coverage/target") public ContentCoverageView target(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestBody java.util.Map<String,Object> body){admin(token);Object raw=body.get("target");if(!(raw instanceof Number)||((Number)raw).doubleValue()!=((Number)raw).intValue())throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_TOPIC_TARGET","达标数量必须为 1 至 10000 的整数");return contents.updateTechnicalTarget(((Number)raw).intValue());}
+    @GetMapping("/technical") public AdminTechnicalContentPageView technical(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String topic,@RequestParam(required=false)String keyword,@RequestParam(required=false)String startDate,@RequestParam(required=false)String endDate,@RequestParam(defaultValue="desc")String sortOrder,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.technical(topic,keyword,startDate,endDate,sortOrder,page,pageSize);}
     @GetMapping("/technical/{contentId}") public AdminTechnicalContentView technicalDetail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId){admin(token);return contents.technicalDetail(contentId);}
     @GetMapping("/articles") public AdminTechnicalContentPageView articles(@RequestHeader(value="X-Admin-Token",required=false)String token,@RequestParam(required=false)String difficulty,@RequestParam(required=false)String bookId,@RequestParam(required=false)String keyword,@RequestParam(required=false)String audioStatus,@RequestParam(defaultValue="1")Integer page,@RequestParam(defaultValue="20")Integer pageSize){admin(token);return contents.articles(difficulty,bookId,keyword,audioStatus,page,pageSize);}
     @GetMapping("/articles/{contentId}") public AdminTechnicalContentView articleDetail(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId){admin(token);return contents.articleDetail(contentId);}
+    @PutMapping("/articles/{contentId}/category") public AdminTechnicalContentView updateArticleCategory(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId,@RequestBody(required=false)ArticleCategoryRequest request){admin(token);return contents.updateArticleCategory(properties.getAdminPrincipalId(),contentId,request==null?null:request.getBookId());}
+    @PutMapping("/articles/{contentId}/metadata") public AdminTechnicalContentView updateArticleMetadata(@RequestHeader(value="X-Admin-Token",required=false)String token,@PathVariable String contentId,@RequestBody(required=false)ArticleMetadataRequest request){admin(token);if(request==null)throw new ApiException(HttpStatus.BAD_REQUEST,"ARTICLE_METADATA_REQUIRED","请提交短文分类、难度和阅读时长");return contents.updateArticleMetadata(properties.getAdminPrincipalId(),contentId,request.getBookId(),request.getDifficulty(),request.getEstimatedMinutes());}
     @GetMapping("/tts-status") public java.util.Map<String,Object> ttsStatus(@RequestHeader(value="X-Admin-Token",required=false)String token){admin(token);return tts.productionStatus();}
     @PostMapping("/articles/{contentId}/speech")
     public java.util.Map<String,Object> articleSpeech(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -34,6 +37,18 @@ public class AdminContentController {
         private String nlsToken;
         public String getNlsToken() { return nlsToken; }
         public void setNlsToken(String nlsToken) { this.nlsToken = nlsToken; }
+    }
+    public static class ArticleCategoryRequest {
+        private String bookId;
+        public String getBookId(){return bookId;}
+        public void setBookId(String bookId){this.bookId=bookId;}
+    }
+    public static class ArticleMetadataRequest {
+        private String bookId,difficulty;
+        private Integer estimatedMinutes;
+        public String getBookId(){return bookId;} public void setBookId(String bookId){this.bookId=bookId;}
+        public String getDifficulty(){return difficulty;} public void setDifficulty(String difficulty){this.difficulty=difficulty;}
+        public Integer getEstimatedMinutes(){return estimatedMinutes;} public void setEstimatedMinutes(Integer estimatedMinutes){this.estimatedMinutes=estimatedMinutes;}
     }
     private void admin(String token){if(!CryptoUtils.constantTimeEquals(properties.getAdminToken(),token))throw new ApiException(HttpStatus.UNAUTHORIZED,"ADMIN_UNAUTHORIZED","管理员访问令牌无效");}
 }

@@ -4,6 +4,8 @@ import java.util.List;
 
 public class ContentCoverageView {
     private Integer publishedTotal,sourceCount;
+    private Integer technicalTarget;
+    public Integer getTechnicalTarget(){return technicalTarget;} public void setTechnicalTarget(Integer v){technicalTarget=v;}
     private List<CoverageItem> technicalTopics,wordStages,articleDifficulties;
     public Integer getPublishedTotal(){return publishedTotal;} public void setPublishedTotal(Integer v){publishedTotal=v;}
     public Integer getSourceCount(){return sourceCount;} public void setSourceCount(Integer v){sourceCount=v;}

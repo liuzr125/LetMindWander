@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request } from '../../../services/request.js'
 
@@ -10,6 +10,9 @@ const error = ref('')
 const detail = ref(null)
 const notebookPage = ref(1)
 const notebookPageSize = ref(20)
+const accountOpen = ref(false), accountLoading = ref(false), accountError = ref(''), accountDetail = ref(null)
+const accountCloseButton = ref(null), accountTrigger = ref(null), accountModal = ref(null)
+let accountRequestId = 0
 
 const userId = computed(() => String(route.params.userId || ''))
 const notebookItems = computed(() => detail.value?.notebookItems?.items || [])
@@ -44,11 +47,38 @@ async function load() {
 
 function changePageSize() { notebookPage.value = 1; load() }
 function turnPage(target) { if (target < 1 || target > notebookPages.value || target === notebookPage.value) return; notebookPage.value = target; load() }
-function tokenUpdated() { load() }
+async function openAccountDetail() {
+  const requestId = ++accountRequestId
+  accountOpen.value = true; accountLoading.value = true; accountError.value = ''; accountDetail.value = null
+  nextTick(() => accountCloseButton.value?.focus())
+  try {
+    const result = await request(`/admin/users/${encodeURIComponent(userId.value)}/account`, { silentError: true })
+    if (requestId === accountRequestId && accountOpen.value) accountDetail.value = result
+  } catch (e) {
+    if (requestId === accountRequestId && accountOpen.value) accountError.value = e.message || '账号详情加载失败'
+  } finally {
+    if (requestId === accountRequestId) accountLoading.value = false
+  }
+}
+function closeAccountDetail() {
+  accountRequestId++; accountOpen.value = false; accountDetail.value = null; accountError.value = ''; accountLoading.value = false
+  nextTick(() => accountTrigger.value?.focus())
+}
+function handleAccountKeys(event) {
+  if (!accountOpen.value) return
+  if (event.key === 'Escape') closeAccountDetail()
+  else if (event.key === 'Tab') {
+    const buttons = accountModal.value?.querySelectorAll('button:not([disabled])') || []
+    const first = buttons[0], last = buttons[buttons.length - 1]
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+  }
+}
+function tokenUpdated() { closeAccountDetail(); load() }
 
-watch(userId, () => { notebookPage.value = 1; load() })
-onMounted(() => { window.addEventListener('admin-token-updated', tokenUpdated); load() })
-onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpdated))
+watch(userId, () => { closeAccountDetail(); notebookPage.value = 1; detail.value = null; load() })
+onMounted(() => { window.addEventListener('admin-token-updated', tokenUpdated); window.addEventListener('keydown', handleAccountKeys); load() })
+onBeforeUnmount(() => { accountRequestId++; accountDetail.value = null; window.removeEventListener('admin-token-updated', tokenUpdated); window.removeEventListener('keydown', handleAccountKeys) })
 </script>
 
 <template>
@@ -69,7 +99,7 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
       <section class="panel identity">
         <div class="avatar">{{ (detail.account.nickname || '?').slice(0,1) }}</div>
         <div class="identity-main"><span>学习账号</span><strong>{{ detail.account.nickname || '未设置昵称' }}</strong><small>{{ detail.account.shortId || (detail.account.seqNo ? `#${detail.account.seqNo}` : detail.account.userId) }}</small></div>
-        <dl><div><dt>手机号</dt><dd>{{ detail.account.mobileMasked || '未绑定' }}</dd></div><div><dt>账号状态</dt><dd><i :class="['status',detail.account.status]">{{ statusText(detail.account.status) }}</i></dd></div><div><dt>最后登录</dt><dd>{{ fmt(detail.account.lastLoginAt) }}</dd></div><div><dt>AI 授权</dt><dd>{{ detail.account.aiConsented ? '已同意' : '未同意' }}</dd></div></dl>
+        <dl><div><dt>手机号</dt><dd><button ref="accountTrigger" type="button" class="mobile-detail" aria-haspopup="dialog" :aria-expanded="accountOpen" title="查看账号详细信息" @click="openAccountDetail">{{ detail.account.mobileMasked || '未绑定' }} <span aria-hidden="true">›</span></button></dd></div><div><dt>账号状态</dt><dd><i :class="['status',detail.account.status]">{{ statusText(detail.account.status) }}</i></dd></div><div><dt>最后登录</dt><dd>{{ fmt(detail.account.lastLoginAt) }}</dd></div><div><dt>AI 授权</dt><dd>{{ detail.account.aiConsented ? '已同意' : '未同意' }}</dd></div></dl>
       </section>
 
       <div class="summary-grid">
@@ -114,8 +144,25 @@ onBeforeUnmount(() => window.removeEventListener('admin-token-updated', tokenUpd
       </section>
     </template>
   </section>
+  <div v-if="accountOpen" class="account-modal-mask" @click.self="closeAccountDetail">
+    <section ref="accountModal" class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-detail-title" :aria-busy="accountLoading">
+      <header><div><h2 id="account-detail-title">账号详细信息</h2><p>{{ accountDetail?.nickname || detail?.account?.nickname || '学习账号' }}</p></div><button ref="accountCloseButton" type="button" class="account-close" aria-label="关闭账号详情" @click="closeAccountDetail">×</button></header>
+      <div v-if="accountLoading" class="account-state" role="status">正在读取账号详情…</div>
+      <div v-else-if="accountError" class="account-state account-error" role="alert"><p>{{ accountError }}</p><button type="button" class="refresh" @click="openAccountDetail">重新加载</button></div>
+      <dl v-else-if="accountDetail" class="account-values">
+        <div><dt>账号编号</dt><dd>{{ accountDetail.shortId || (accountDetail.seqNo ? `#${accountDetail.seqNo}` : '—') }}</dd></div>
+        <div><dt>昵称</dt><dd>{{ accountDetail.nickname || '未设置昵称' }}</dd></div>
+        <div class="account-mobile"><dt>完整手机号</dt><dd>{{ accountDetail.mobile || '未绑定' }}</dd></div>
+        <div><dt>账号状态</dt><dd><i :class="['status',accountDetail.status]">{{ statusText(accountDetail.status) }}</i></dd></div>
+        <div><dt>注册时间</dt><dd>{{ fmt(accountDetail.createdAt) }}</dd></div>
+        <div><dt>最后登录</dt><dd>{{ fmt(accountDetail.lastLoginAt) }}</dd></div>
+        <div><dt>AI 授权</dt><dd>{{ accountDetail.aiConsented ? '已授权' : '未授权' }}</dd></div>
+      </dl>
+    </section>
+  </div>
 </template>
 
 <style scoped>
+.mobile-detail{display:inline-flex;align-items:center;gap:9px;padding:0;border:0;color:#1474f8;background:transparent;font:inherit;cursor:pointer}.mobile-detail:hover{text-decoration:underline}.mobile-detail:focus-visible,.account-close:focus-visible{outline:2px solid #1474f8;outline-offset:4px}.mobile-detail span{font-size:18px;line-height:1}.account-modal-mask{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(17,32,74,.4)}.account-modal{box-sizing:border-box;width:min(560px,100%);max-height:85vh;overflow:auto;padding:26px;border-radius:16px;background:#fff;box-shadow:0 20px 70px rgba(17,32,74,.2)}.account-modal header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid #e8edf4}.account-modal h2{margin:0;color:#13234a;font-size:21px}.account-modal header p{margin:6px 0 0;color:#79869d;font-size:13px}.account-close{padding:0 5px;border:0;color:#6f7d95;background:transparent;font-size:28px;line-height:1;cursor:pointer}.account-state{padding:45px 0;text-align:center;color:#79869d}.account-error{color:#bf3f4b}.account-values{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:22px 0 0}.account-values dt{color:#8490a4;font-size:12px}.account-values dd{margin:7px 0 0;color:#13234a;font-size:14px;overflow-wrap:anywhere}.account-mobile{grid-column:1 / -1;padding:16px;border-radius:10px;background:#eff6ff}.account-mobile dd{color:#1474f8;font-size:22px;letter-spacing:1px;user-select:text}@media(max-width:520px){.account-values{grid-template-columns:1fr}.account-modal{padding:20px}}
 .back{display:block;margin:0 0 10px;padding:0;border:0;color:#1474f8;background:transparent;font-size:13px}.refresh{height:40px;padding:0 17px;border:1px solid #bad3fb;border-radius:8px;color:#0b6ff5;background:#fff}.state{margin-top:22px;padding:60px;text-align:center;color:#74819a}.state strong,.state span{display:block}.state span{margin-top:8px}.state button{margin-top:16px;padding:8px 16px;border:1px solid #e4b8bd;border-radius:7px;color:#b93c48;background:#fff}.state.error{color:#bf3f4b}.identity{display:flex;align-items:center;gap:16px;margin-top:22px;padding:20px 24px}.avatar{width:58px;height:58px;display:grid;place-items:center;border-radius:50%;color:#1474f8;background:#e8f2ff;font-size:24px;font-weight:700}.identity-main{min-width:190px}.identity-main span,.identity-main strong,.identity-main small{display:block}.identity-main span,.identity-main small{color:#79869d;font-size:12px}.identity-main strong{margin:5px 0;color:#13234a;font-size:20px}.identity dl{flex:1;display:grid;grid-template-columns:repeat(4,1fr);margin:0}.identity dl div{padding:0 20px;border-left:1px solid #e8edf4}.identity dt{color:#8490a4;font-size:11px}.identity dd{margin:7px 0 0;color:#42516d;font-size:13px}.status,.plan-state{display:inline-flex;padding:4px 9px;border-radius:99px;color:#13845f;background:#e8f8f1;font-size:12px;font-style:normal}.status.disabled,.plan-state.paused{color:#b4404a;background:#fff0f1}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}.summary{padding:20px 22px}.summary span,.summary strong,.summary small{display:block}.summary span{color:#76839a;font-size:12px}.summary strong{margin:10px 0 7px;color:#11204a;font-size:23px}.summary small{color:#71809a}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}.block,.notebook-block{padding:22px}.block header,.notebook-block header{display:flex;align-items:flex-start;justify-content:space-between}.block h2,.notebook-block h2{margin:0;font-size:18px}.block header p,.notebook-block header p{margin:5px 0 0;color:#7b879c;font-size:12px}.plan-content{display:grid;grid-template-columns:132px minmax(0,1fr);gap:18px 20px;margin-top:22px}.budget{width:auto;padding:18px;border-radius:12px;background:#eff6ff}.budget strong,.budget span,.budget small{display:block}.budget strong{color:#1474f8;font-size:34px}.budget span{color:#40506c;font-size:12px}.budget small{margin-top:10px;color:#75829a}.plan-values{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0}.plan-values div{padding:12px;border:1px solid #e5eaf2;border-radius:9px}.plan-values dt{color:#8290a5;font-size:12px;white-space:nowrap}.plan-values dd{margin:6px 0 0;color:#1b2c4d;font-size:15px;font-weight:600;white-space:nowrap}.topics{grid-column:1 / -1;display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:auto;margin-top:2px;padding-top:14px;border-top:1px solid #eef2f8}.topics span{margin-right:2px;color:#76839b;font-size:12px;white-space:nowrap}.topics b,.topics em{margin:0;padding:4px 9px;border-radius:99px;color:#176fdc;background:#eaf3ff;font-size:12px;font-style:normal;font-weight:600}.book-title{display:flex;align-items:flex-end;justify-content:space-between;margin-top:24px}.book-title span,.book-title strong,.book-title small{display:block}.book-title span,.book-title small{color:#7a879d;font-size:12px}.book-title strong{margin:5px 0;color:#11204a;font-size:22px}.book-title>b{color:#1474f8;font-size:28px}.progress{height:10px;margin-top:18px;overflow:hidden;border-radius:99px;background:#dce9fa}.progress i{display:block;height:100%;border-radius:inherit;background:#1a79f8}.book-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:19px}.book-stats div{text-align:center;border-right:1px solid #e5eaf2}.book-stats div:last-child{border:0}.book-stats strong,.book-stats span{display:block}.book-stats strong{color:#14244c;font-size:20px}.book-stats span{margin-top:4px;color:#7b879d;font-size:11px}.estimate{margin:18px 0 0;padding:11px 13px;border-radius:8px;color:#5f6e88;background:#f7f9fc;font-size:12px}.estimate b{color:#1474f8}.empty-card{display:flex;min-height:160px;flex-direction:column;align-items:center;justify-content:center;color:#8a96a9}.empty-card strong{color:#59677f}.empty-card span{margin-top:8px;font-size:12px}.notebook-block{margin-top:18px}.notebook-block label{color:#6c7890;font-size:12px}.notebook-block select{height:34px;margin-left:5px;border:1px solid #d7dfeb;border-radius:7px;background:#fff}.table-wrap{position:relative;min-height:160px;margin-top:16px;overflow:auto;border:1px solid #e2e7ef;border-radius:9px}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid #edf0f5;text-align:left;font-size:12px}th{color:#75819a;background:#f8faff}td{color:#53617a}td strong{color:#11204a;font-size:14px}.meaning{max-width:390px;white-space:normal}.tag{display:inline-block;padding:4px 8px;border-radius:6px;color:#176fdc;background:#eaf3ff}.empty{height:130px;text-align:center;color:#8994a7}.loading-mask{position:absolute;inset:40px 0 0;display:grid;place-items:center;color:#71809a;background:rgba(255,255,255,.86)}.pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;color:#6f7c94;font-size:12px}.pagination button{width:32px;height:30px;border:1px solid #d7dfeb;border-radius:7px;color:#0d6ff5;background:#fff}.pagination button:disabled{color:#bbc3cf}@media(max-width:1200px){.identity dl{grid-template-columns:1fr 1fr;gap:14px}.summary-grid,.detail-grid{grid-template-columns:1fr}.plan-content{flex-wrap:wrap}}
 </style>
