@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AnnouncementMapper">
+  <resultMap id="announcement" type="com.zhixing.entity.AnnouncementEntity">
+    <id column="id" property="id"/>
+    <result column="title" property="title"/>
+    <result column="body" property="body"/>
+    <result column="state" property="state"/>
+    <result column="publish_at" property="publishAt"/>
+    <result column="updated_at" property="updatedAt"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="updated_by" property="updatedBy"/>
+  </resultMap>
+  <select id="selectPageItems" resultMap="announcement">
+    SELECT id,title,state,publish_at,updated_at FROM announcement
+    <if test="!admin">WHERE state='published' AND publish_at &lt;= #{now}</if>
+    ORDER BY publish_at DESC,updated_at DESC,id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <select id="selectPublishedById" resultMap="announcement">
+    SELECT id,title,body,state,publish_at,updated_at FROM announcement
+    WHERE id=#{id} AND state='published' AND publish_at &lt;= #{now}
+  </select>
+</mapper>

@@ -17,6 +17,6 @@ function formatBusinessDate(date = new Date()) {
 }
 function formatBusinessChineseDate(date = new Date()) {
   const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-  return `${beijing.getUTCMonth() + 1}月${beijing.getUTCDate()}日 周${['日','一','二','三','四','五','六'][beijing.getUTCDay()]}`;
+  return `${beijing.getUTCMonth() + 1}月${beijing.getUTCDate()}日 周${['日', '一', '二', '三', '四', '五', '六'][beijing.getUTCDay()]}`;
 }
 module.exports = { formatDate, formatChineseDate, formatBusinessDate, formatBusinessChineseDate };

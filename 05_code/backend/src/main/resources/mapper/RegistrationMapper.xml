@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.RegistrationMapper">
+  <select id="lockTrialAdmission" resultType="map">
+    SELECT id, invited_limit, invited_used FROM admission_counter WHERE scope_code = 'trial' FOR UPDATE
+  </select>
+  <select id="lockInviteByCodeHash" resultType="map">
+    SELECT id, status, expires_at FROM invite_code WHERE code_hash = #{codeHash.bytes,jdbcType=BINARY} FOR UPDATE
+  </select>
+  <insert id="insertRegisteredUser">
+    INSERT INTO app_user (id, wx_app_id, wx_open_id, nickname, mobile, avatar_url, status, current_plan_id, seq_no, short_id, last_login_at, mobile_bound_at, created_at, updated_at) VALUES (#{id}, #{appId}, #{openId}, #{nickname}, #{mobile}, #{avatarUrl}, 'active', #{planId}, #{seqNo}, #{shortId}, #{lastLoginAt}, #{mobileBoundAt}, #{createdAt}, #{updatedAt})
+  </insert>
+  <insert id="insertInitialPlan">
+    INSERT INTO learning_plan (id, owner_id, version_no, effective_date, change_reason, created_at) VALUES (#{id}, #{ownerId}, 1, #{effectiveDate}, 'registration_default', #{createdAt})
+  </insert>
+  <update id="redeemInvite">
+    UPDATE invite_code SET status = 'redeemed', redeemed_by = #{userId}, redeemed_at = #{redeemedAt}, updated_at = #{updatedAt} WHERE id = #{inviteId} AND status = 'available'
+  </update>
+  <update id="occupyAdmission">
+    UPDATE admission_counter SET invited_used = invited_used + 1, updated_at = #{updatedAt} WHERE id = #{counterId} AND invited_used &lt; invited_limit
+  </update>
+  <insert id="insertConsent">
+    INSERT INTO user_consent (id, owner_id, purpose, document_version, decision, occurred_at, created_at) VALUES (#{id}, #{ownerId}, #{purpose}, #{version}, #{decision}, #{occurredAt}, #{createdAt})
+  </insert>
+</mapper>

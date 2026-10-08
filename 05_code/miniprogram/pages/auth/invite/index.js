@@ -11,7 +11,7 @@ function getProfile() {
     wx.getUserProfile({
       desc: '用于完善注册昵称与头像',
       success: (result) => resolve(result.userInfo || null),
-      fail: () => resolve(null)
+      fail: () => resolve(null),
     });
   });
 }
@@ -23,7 +23,7 @@ Page({
     privacyAccepted: false,
     canSubmit: false,
     loading: false,
-    errorMessage: ''
+    errorMessage: '',
   },
 
   onLoad() {
@@ -33,11 +33,14 @@ Page({
       const menu = wx.getMenuButtonBoundingClientRect();
       topInset = menu.bottom + 12;
     } catch (error) {}
-    this.setData({
-      topInset,
-      inviteCode: draft.inviteCode || '',
-      privacyAccepted: Boolean(draft.privacyAccepted)
-    }, () => this.refreshState());
+    this.setData(
+      {
+        topInset,
+        inviteCode: draft.inviteCode || '',
+        privacyAccepted: Boolean(draft.privacyAccepted),
+      },
+      () => this.refreshState(),
+    );
     // 静默登录：先查 openid，老用户直接免输入邀请码进入小程序。
     this.silentLogin();
   },
@@ -51,7 +54,7 @@ Page({
       if (!loginResult.code) return;
       const result = await authService.wechatLogin({
         code: loginResult.code,
-        privacyVersion: getApp().globalData.privacyVersion
+        privacyVersion: getApp().globalData.privacyVersion,
       });
       if (result.stage === 'authenticated') {
         setAccessToken(result.accessToken);
@@ -72,43 +75,59 @@ Page({
   onShow() {
     if (this.silentChecking || !getApp().globalData.accessToken || this.sessionChecked) return;
     this.sessionChecked = true;
-    authService.me().then((user) => {
-      setUserInfo(user);
-      wx.switchTab({ url: '/pages/today/index' });
-    }).catch(() => {
-      setAccessToken('');
-      setUserInfo(null);
-    });
+    authService
+      .me()
+      .then((user) => {
+        setUserInfo(user);
+        wx.switchTab({ url: '/pages/today/index' });
+      })
+      .catch(() => {
+        setAccessToken('');
+        setUserInfo(null);
+      });
   },
 
-  onHide() { this.persistDraft(); },
-  onUnload() { this.persistDraft(); },
+  onHide() {
+    this.persistDraft();
+  },
+  onUnload() {
+    this.persistDraft();
+  },
 
   persistDraft() {
     wx.setStorageSync('f01_invite_draft', {
       inviteCode: this.data.inviteCode,
-      privacyAccepted: this.data.privacyAccepted
+      privacyAccepted: this.data.privacyAccepted,
     });
   },
 
   handleInviteInput(event) {
-    this.setData({ inviteCode: (event.detail.value || '').toUpperCase(), errorMessage: '' }, () => this.refreshState());
+    this.setData({ inviteCode: (event.detail.value || '').toUpperCase(), errorMessage: '' }, () =>
+      this.refreshState(),
+    );
   },
 
   togglePrivacy() {
-    this.setData({ privacyAccepted: !this.data.privacyAccepted, errorMessage: '' }, () => this.refreshState());
+    this.setData({ privacyAccepted: !this.data.privacyAccepted, errorMessage: '' }, () =>
+      this.refreshState(),
+    );
   },
 
   refreshState() {
-    this.setData({ canSubmit: Boolean(this.data.inviteCode.trim() && this.data.privacyAccepted && !this.data.loading) });
+    this.setData({
+      canSubmit: Boolean(
+        this.data.inviteCode.trim() && this.data.privacyAccepted && !this.data.loading,
+      ),
+    });
   },
 
   openAgreement() {
     wx.showModal({
       title: '用户协议',
-      content: '继续使用即表示你同意遵守账号、内容和服务使用规则。正式发布前请在此接入已审核的完整协议文本。',
+      content:
+        '继续使用即表示你同意遵守账号、内容和服务使用规则。正式发布前请在此接入已审核的完整协议文本。',
       showCancel: false,
-      confirmText: '我知道了'
+      confirmText: '我知道了',
     });
   },
 
@@ -125,7 +144,7 @@ Page({
       title: '隐私说明',
       content: '登录阶段仅使用微信身份和邀请码完成准入；手机号仅在注册确认页由你主动授权。',
       showCancel: false,
-      confirmText: '我知道了'
+      confirmText: '我知道了',
     });
   },
 
@@ -138,7 +157,7 @@ Page({
       const result = await authService.wechatLogin({
         code: loginResult.code,
         inviteCode: this.data.inviteCode.trim(),
-        privacyVersion: getApp().globalData.privacyVersion
+        privacyVersion: getApp().globalData.privacyVersion,
       });
       if (result.stage === 'authenticated') {
         setAccessToken(result.accessToken);
@@ -151,7 +170,7 @@ Page({
         ticket: result.registrationTicket,
         expiresAt: result.expiresAt,
         profile: profile || result.profile || {},
-        privacyVersion: getApp().globalData.privacyVersion
+        privacyVersion: getApp().globalData.privacyVersion,
       });
       wx.navigateTo({ url: '/pages/auth/register/index' });
     } catch (error) {
@@ -159,11 +178,13 @@ Page({
         INVITE_UNAVAILABLE: '邀请码无效、已过期或已被使用，请核对后重试。',
         ADMISSION_FULL: '受邀名额已满，暂时无法加入。',
         PRIVACY_CONSENT_REQUIRED: '请先阅读并同意用户协议和隐私说明。',
-        ACCOUNT_UNAVAILABLE: '账号当前不可用，请联系管理员。'
+        ACCOUNT_UNAVAILABLE: '账号当前不可用，请联系管理员。',
       };
-      this.setData({ errorMessage: messages[error.code] || error.message || '登录失败，请稍后重试' });
+      this.setData({
+        errorMessage: messages[error.code] || error.message || '登录失败，请稍后重试',
+      });
     } finally {
       this.setData({ loading: false }, () => this.refreshState());
     }
-  }
+  },
 });

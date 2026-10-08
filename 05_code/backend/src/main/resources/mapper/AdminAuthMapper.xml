@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminAuthMapper">
+  <resultMap id="row" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="username" property="username"/>
+    <result column="password_hash" property="password_hash"/>
+    <result column="enabled" property="enabled"/>
+    <result column="role_code" property="role_code"/>
+    <result column="role_name" property="role_name"/>
+    <result column="code" property="code"/>
+    <result column="name" property="name"/>
+    <result column="path" property="path"/>
+    <result column="icon" property="icon"/>
+    <result column="description" property="description"/>
+    <result column="role_id" property="role_id"/>
+    <result column="sortOrder" property="sortOrder"/>
+    <result column="parentId" property="parentId"/>
+    <result column="systemRole" property="systemRole"/>
+    <result column="lastLoginAt" property="lastLoginAt"/>
+    <result column="roleName" property="roleName"/>
+    <result column="roleCode" property="roleCode"/>
+  </resultMap>
+  <select id="selectAccountForLogin" resultMap="row">SELECT a.id,a.username,a.password_hash,a.enabled,r.code role_code,r.name role_name FROM admin_account a JOIN admin_role r ON r.id=a.role_id WHERE a.username=#{username}</select>
+  <insert id="insertSession">INSERT INTO admin_session(id,account_id,token_hash,expires_at,created_at,last_seen_at) VALUES(#{id},#{accountId},#{tokenHash},#{expiresAt},#{createdAt},#{lastSeenAt})</insert>
+  <update id="updateLastLogin">UPDATE admin_account SET last_login_at=#{now},updated_at=CURRENT_TIMESTAMP WHERE id=#{accountId}</update>
+  <select id="selectAuthenticatedAccount" resultMap="row">SELECT a.id,a.username,r.code role_code,r.name role_name FROM admin_session s JOIN admin_account a ON a.id=s.account_id JOIN admin_role r ON r.id=a.role_id WHERE s.token_hash=#{tokenHash} AND s.revoked_at IS NULL AND s.expires_at&gt;CURRENT_TIMESTAMP AND a.enabled=1 AND r.enabled=1</select>
+  <update id="touchSession">UPDATE admin_session SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=#{tokenHash}</update>
+  <update id="revokeToken">UPDATE admin_session SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=#{tokenHash} AND revoked_at IS NULL</update>
+  <insert id="insertRole">INSERT INTO admin_role(id,code,name,description,is_system,enabled,sort_order,created_at,updated_at) VALUES(#{id},#{code},#{name},#{description},0,1,(SELECT COALESCE(MAX(sort_order),0)+10 FROM admin_role),CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)</insert>
+  <insert id="assignRoleMenu">INSERT INTO admin_role_menu(role_id,menu_id,created_at) SELECT #{roleId},id,CURRENT_TIMESTAMP FROM admin_menu WHERE code=#{menuCode}</insert>
+  <delete id="clearRoleMenus">DELETE FROM admin_role_menu WHERE role_id=#{roleId}</delete>
+  <insert id="insertAccount">INSERT INTO admin_account(id,username,password_hash,role_id,enabled,password_updated_at,created_at,updated_at) VALUES(#{id},#{username},#{passwordHash},#{roleId},1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)</insert>
+  <select id="selectAccountWithRole" resultMap="row">SELECT a.id,a.username,r.code role_code FROM admin_account a JOIN admin_role r ON r.id=a.role_id WHERE a.id=#{accountId}</select>
+  <update id="updatePassword">UPDATE admin_account SET password_hash=#{passwordHash},password_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=#{accountId}</update>
+  <update id="revokeAccountSessions">UPDATE admin_session SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=#{accountId} AND revoked_at IS NULL</update>
+  <select id="countAccountsByUsername" resultType="int">SELECT COUNT(*) FROM admin_account WHERE username=#{username}</select>
+  <select id="selectAccountMenus" resultMap="row">SELECT m.code FROM admin_role_menu rm JOIN admin_menu m ON m.id=rm.menu_id WHERE rm.role_id=(SELECT role_id FROM admin_account WHERE id=#{accountId}) AND m.enabled=1 ORDER BY m.sort_order</select>
+  <select id="selectMenus" resultMap="row">SELECT id,code,name,path,icon,sort_order sortOrder,parent_id parentId,description FROM admin_menu WHERE enabled=1 ORDER BY sort_order,id</select>
+  <select id="selectRoles" resultMap="row">SELECT id,code,name,description,is_system systemRole FROM admin_role WHERE enabled=1 ORDER BY sort_order,id</select>
+  <select id="selectAccounts" resultMap="row">SELECT a.id,a.username,a.enabled,a.last_login_at lastLoginAt,r.id role_id,r.name roleName,r.code roleCode FROM admin_account a JOIN admin_role r ON r.id=a.role_id ORDER BY a.created_at,a.id</select>
+  <select id="countRolesByName" resultType="int">SELECT COUNT(*) FROM admin_role WHERE name=#{name}</select>
+  <select id="countEnabledRole" resultType="int">SELECT COUNT(*) FROM admin_role WHERE id=#{roleId} AND enabled=1</select>
+  <select id="selectAllRoleMenus" resultMap="row">SELECT rm.role_id,m.code FROM admin_role_menu rm JOIN admin_menu m ON m.id=rm.menu_id ORDER BY rm.role_id,m.sort_order</select>
+</mapper>

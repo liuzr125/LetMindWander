@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.WordLearningCardPreferenceMapper">
+  <resultMap id="row" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="version_id" property="version_id"/>
+    <result column="word_term" property="word_term"/>
+    <result column="meaning" property="meaning"/>
+    <result column="level_code" property="level_code"/>
+    <result column="part_of_speech" property="part_of_speech"/>
+    <result column="sense_meaning" property="sense_meaning"/>
+    <result column="example_id" property="example_id"/>
+    <result column="content_version_id" property="content_version_id"/>
+    <result column="card_key" property="card_key"/>
+    <result column="card_type" property="card_type"/>
+    <result column="amount" property="amount"/>
+    <result column="del_is" property="del_is"/>
+    <result column="state" property="state"/>
+    <result column="review_status" property="review_status"/>
+    <result column="reviewed_at" property="reviewed_at"/>
+    <result column="rights_status" property="rights_status"/>
+    <result column="dataset_code" property="dataset_code"/>
+    <result column="relation_type" property="relation_type"/>
+    <result column="related_term" property="related_term"/>
+    <result column="sense_rank" property="sense_rank"/>
+    <result column="relation_rank" property="relation_rank"/>
+    <result column="source_locator" property="source_locator"/>
+    <result column="headword_norm" property="headword_norm"/>
+    <result column="linked_example_id" property="linked_example_id"/>
+    <result column="linked_example_text" property="linked_example_text"/>
+    <result column="linked_example_translation" property="linked_example_translation"/>
+    <result column="sense_label" property="sense_label"/>
+    <result column="title" property="title"/>
+    <result column="body" property="body"/>
+    <result column="example_text" property="example_text"/>
+    <result column="example_translation" property="example_translation"/>
+    <result column="recall_prompt" property="recall_prompt"/>
+    <result column="source_kind" property="source_kind"/>
+    <result column="source_title" property="source_title"/>
+    <result column="rights_note" property="rights_note"/>
+    <result column="source_url" property="source_url"/>
+    <result column="source_verified" property="source_verified"/>
+    <result column="reviewed_by" property="reviewed_by"/>
+    <result column="enabled" property="enabled"/>
+    <result column="sort_no" property="sort_no"/>
+  </resultMap>
+  <update id="updatePreference">
+    UPDATE user_word_learning_card_preference SET enabled=#{enabled},row_version=row_version+1,del_is=0,updated_at=CURRENT_TIMESTAMP WHERE owner_id=#{ownerId} AND card_type=#{cardType}
+  </update>
+  <insert id="insertPreference">
+    INSERT INTO user_word_learning_card_preference(owner_id,card_type,enabled,row_version,del_is) VALUES(#{ownerId},#{cardType},#{enabled},1,0)
+  </insert>
+  <select id="selectPreferences" resultMap="row">
+    SELECT card_type,enabled FROM user_word_learning_card_preference WHERE owner_id=#{ownerId} AND del_is=0
+  </select>
+</mapper>

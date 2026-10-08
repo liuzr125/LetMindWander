@@ -1,5 +1,10 @@
 const { authService } = require('../../../services/index');
-const { setAccessToken, setUserInfo, setRegistrationContext, getRegistrationContext } = require('../../../utils/storage');
+const {
+  setAccessToken,
+  setUserInfo,
+  setRegistrationContext,
+  getRegistrationContext,
+} = require('../../../utils/storage');
 
 Page({
   data: {
@@ -15,7 +20,7 @@ Page({
     canSubmit: false,
     loading: false,
     fieldError: '',
-    errorMessage: ''
+    errorMessage: '',
   },
 
   onUnload() {
@@ -25,7 +30,12 @@ Page({
   onLoad() {
     const registration = getRegistrationContext();
     if (!registration || !registration.ticket) {
-      wx.showModal({ title: '注册凭证已失效', content: '请返回受邀页重新登录。', showCancel: false, success: () => wx.navigateBack() });
+      wx.showModal({
+        title: '注册凭证已失效',
+        content: '请返回受邀页重新登录。',
+        showCancel: false,
+        success: () => wx.navigateBack(),
+      });
       return;
     }
     let topInset = 44;
@@ -34,15 +44,20 @@ Page({
       topInset = menu.top;
     } catch (error) {}
     const profile = registration.profile || {};
-    this.setData({
-      topInset,
-      registration,
-      nickname: (profile.nickName || profile.nickname || '学习者').slice(0, 30),
-      avatarUrl: profile.avatarUrl || ''
-    }, () => this.refreshState());
+    this.setData(
+      {
+        topInset,
+        registration,
+        nickname: (profile.nickName || profile.nickname || '学习者').slice(0, 30),
+        avatarUrl: profile.avatarUrl || '',
+      },
+      () => this.refreshState(),
+    );
   },
 
-  goBack() { wx.navigateBack(); },
+  goBack() {
+    wx.navigateBack();
+  },
 
   handleNickname(event) {
     const nickname = event.detail.value || '';
@@ -61,12 +76,16 @@ Page({
   },
 
   handleMobile(event) {
-    const mobile = String(event.detail.value || '').replace(/\D/g, '').slice(0, 11);
+    const mobile = String(event.detail.value || '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
     this.setData({ mobile, smsCode: '', errorMessage: '' }, () => this.refreshState());
   },
 
   handleSmsCode(event) {
-    const smsCode = String(event.detail.value || '').replace(/\D/g, '').slice(0, 6);
+    const smsCode = String(event.detail.value || '')
+      .replace(/\D/g, '')
+      .slice(0, 6);
     this.setData({ smsCode, errorMessage: '' }, () => this.refreshState());
   },
 
@@ -80,7 +99,7 @@ Page({
     try {
       const result = await authService.sendSmsCode({
         registrationTicket: this.data.registration.ticket,
-        mobile: this.data.mobile
+        mobile: this.data.mobile,
       });
       this.startSmsCountdown(Number(result.retryAfter) || 60);
       // mock 模式下后端会返回验证码，直接弹窗展示（开发阶段没有真实短信）。
@@ -94,7 +113,7 @@ Page({
             if (res.confirm) {
               this.setData({ smsCode: String(result.code) }, () => this.refreshState());
             }
-          }
+          },
         });
       } else {
         wx.showToast({ title: '验证码已发送', icon: 'success' });
@@ -103,9 +122,11 @@ Page({
       const messages = {
         SMS_NOT_CONFIGURED: '短信服务尚未配置，请联系管理员。',
         SMS_CODE_RATE_LIMITED: error.message || '操作过于频繁，请稍后重试。',
-        REGISTRATION_TICKET_EXPIRED: '注册凭证已过期，请返回重新登录。'
+        REGISTRATION_TICKET_EXPIRED: '注册凭证已过期，请返回重新登录。',
       };
-      this.setData({ errorMessage: messages[error.code] || error.message || '验证码发送失败，请稍后重试。' });
+      this.setData({
+        errorMessage: messages[error.code] || error.message || '验证码发送失败，请稍后重试。',
+      });
     } finally {
       this.setData({ smsSending: false });
     }
@@ -131,14 +152,29 @@ Page({
   },
 
   openAgreement() {
-    wx.showModal({ title: '用户协议', content: '继续注册即表示你同意账号和服务使用规则。', showCancel: false });
+    wx.showModal({
+      title: '用户协议',
+      content: '继续注册即表示你同意账号和服务使用规则。',
+      showCancel: false,
+    });
   },
 
   openPrivacy() {
     if (wx.openPrivacyContract) {
-      wx.openPrivacyContract({ fail: () => wx.showModal({ title: '隐私政策', content: '手机号仅用于账号绑定，注册后仅脱敏展示。', showCancel: false }) });
+      wx.openPrivacyContract({
+        fail: () =>
+          wx.showModal({
+            title: '隐私政策',
+            content: '手机号仅用于账号绑定，注册后仅脱敏展示。',
+            showCancel: false,
+          }),
+      });
     } else {
-      wx.showModal({ title: '隐私政策', content: '手机号仅用于账号绑定，注册后仅脱敏展示。', showCancel: false });
+      wx.showModal({
+        title: '隐私政策',
+        content: '手机号仅用于账号绑定，注册后仅脱敏展示。',
+        showCancel: false,
+      });
     }
   },
 
@@ -147,7 +183,15 @@ Page({
     const validNickname = nickname.length > 0 && Array.from(nickname).length <= 30;
     const validMobile = /^1[3-9]\d{9}$/.test(this.data.mobile);
     const validSmsCode = /^\d{6}$/.test(this.data.smsCode);
-    this.setData({ canSubmit: Boolean(validNickname && validMobile && validSmsCode && this.data.privacyAccepted && !this.data.loading) });
+    this.setData({
+      canSubmit: Boolean(
+        validNickname &&
+        validMobile &&
+        validSmsCode &&
+        this.data.privacyAccepted &&
+        !this.data.loading,
+      ),
+    });
   },
 
   async submit() {
@@ -161,7 +205,7 @@ Page({
         nickname: this.data.nickname.trim(),
         avatarUrl: /^https:\/\//.test(this.data.avatarUrl) ? this.data.avatarUrl : '',
         privacyVersion: this.data.registration.privacyVersion || getApp().globalData.privacyVersion,
-        aiConsent: false
+        aiConsent: false,
       });
       setAccessToken(result.accessToken);
       setUserInfo(result.user);
@@ -180,12 +224,14 @@ Page({
           INVITE_UNAVAILABLE: '邀请码已失效，请返回受邀页重新获取。',
           ADMISSION_FULL: '受邀名额已满，暂时无法完成注册。',
           REGISTRATION_TICKET_EXPIRED: '注册凭证已过期，请返回重新登录。',
-          ACCOUNT_UNAVAILABLE: '账号当前不可用，请联系管理员。'
+          ACCOUNT_UNAVAILABLE: '账号当前不可用，请联系管理员。',
         };
-        this.setData({ errorMessage: messages[error.code] || error.message || '注册失败，请稍后重试' });
+        this.setData({
+          errorMessage: messages[error.code] || error.message || '注册失败，请稍后重试',
+        });
       }
     } finally {
       this.setData({ loading: false }, () => this.refreshState());
     }
-  }
+  },
 });

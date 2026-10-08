@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminContentMapper">
+  <update id="updateArticleMetadata">
+    UPDATE content_version SET difficulty=#{difficulty},estimated_seconds=#{estimatedSeconds},updated_at=CURRENT_TIMESTAMP WHERE id=#{versionId} AND content_id=#{contentId}
+  </update>
+  <select id="selectPublishedArticleVersionIds" resultType="string">
+    SELECT published_version_id FROM learning_content WHERE id=#{contentId} AND content_type='english_article' AND state='published' AND published_version_id IS NOT NULL
+  </select>
+  <select id="countActiveBook" resultType="int">
+    SELECT COUNT(*) FROM vocabulary_book WHERE id=#{bookId} AND state='active'
+  </select>
+  <update id="updateArticleCategory">
+    UPDATE english_article_category SET book_id=#{bookId},assigned_by=#{adminId},del_is=#{deleted},row_version=row_version+1,updated_at=CURRENT_TIMESTAMP WHERE content_id=#{contentId}
+  </update>
+  <insert id="insertArticleCategory">
+    INSERT INTO english_article_category(content_id,book_id,assigned_by,row_version,del_is,created_at,updated_at) VALUES(#{contentId},#{bookId},#{adminId},1,#{deleted},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+  </insert>
+</mapper>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.WordLearningCardEnrichmentMapper">
+  <resultMap id="row" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="version_id" property="version_id"/>
+    <result column="word_term" property="word_term"/>
+    <result column="meaning" property="meaning"/>
+    <result column="level_code" property="level_code"/>
+    <result column="part_of_speech" property="part_of_speech"/>
+    <result column="sense_meaning" property="sense_meaning"/>
+    <result column="example_id" property="example_id"/>
+    <result column="content_version_id" property="content_version_id"/>
+    <result column="card_key" property="card_key"/>
+    <result column="card_type" property="card_type"/>
+    <result column="amount" property="amount"/>
+    <result column="del_is" property="del_is"/>
+    <result column="state" property="state"/>
+    <result column="review_status" property="review_status"/>
+    <result column="reviewed_at" property="reviewed_at"/>
+    <result column="rights_status" property="rights_status"/>
+    <result column="dataset_code" property="dataset_code"/>
+    <result column="relation_type" property="relation_type"/>
+    <result column="related_term" property="related_term"/>
+    <result column="sense_rank" property="sense_rank"/>
+    <result column="relation_rank" property="relation_rank"/>
+    <result column="source_locator" property="source_locator"/>
+    <result column="headword_norm" property="headword_norm"/>
+    <result column="linked_example_id" property="linked_example_id"/>
+    <result column="linked_example_text" property="linked_example_text"/>
+    <result column="linked_example_translation" property="linked_example_translation"/>
+    <result column="sense_label" property="sense_label"/>
+    <result column="title" property="title"/>
+    <result column="body" property="body"/>
+    <result column="example_text" property="example_text"/>
+    <result column="example_translation" property="example_translation"/>
+    <result column="recall_prompt" property="recall_prompt"/>
+    <result column="source_kind" property="source_kind"/>
+    <result column="source_title" property="source_title"/>
+    <result column="rights_note" property="rights_note"/>
+    <result column="source_url" property="source_url"/>
+    <result column="source_verified" property="source_verified"/>
+    <result column="reviewed_by" property="reviewed_by"/>
+    <result column="enabled" property="enabled"/>
+    <result column="sort_no" property="sort_no"/>
+  </resultMap>
+  <update id="retirePreviousCards">
+    UPDATE word_learning_card SET del_is=1,updated_at=CURRENT_TIMESTAMP WHERE generator_version IN (#{generatorV1},#{generatorV2},#{generatorV3}) AND del_is=0
+  </update>
+  <select id="selectEnrichmentTargets" resultMap="row">
+    SELECT DISTINCT cv.id AS version_id,LOWER(TRIM(cv.word_term)) AS word_term,cv.meaning FROM vocabulary_book vb JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id JOIN learning_content lc ON lc.id=vbw.content_id JOIN content_version cv ON cv.id=lc.published_version_id WHERE vb.state='active' AND vb.level_code IN ('primary','junior','senior','cet4','cet6') AND lc.content_type='word' AND lc.state='published' AND lc.withdrawn_at IS NULL AND cv.review_status='approved' ORDER BY word_term,version_id
+  </select>
+  <select id="selectEnrichmentSenses" resultMap="row">
+    SELECT ws.content_version_id AS version_id,ws.part_of_speech,ws.meaning FROM word_sense ws WHERE ws.content_version_id IN (SELECT DISTINCT cv2.id FROM vocabulary_book vb2 JOIN vocabulary_book_word vbw2 ON vbw2.book_id=vb2.id JOIN learning_content lc2 ON lc2.id=vbw2.content_id JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE vb2.state='active' AND vb2.level_code IN ('primary','junior','senior','cet4','cet6') AND lc2.content_type='word' AND lc2.state='published' AND lc2.withdrawn_at IS NULL AND cv2.review_status='approved') ORDER BY ws.content_version_id,ws.sort_no
+  </select>
+  <select id="selectLexicalEvidence" resultMap="row">
+    SELECT * FROM word_lexical_relation_evidence WHERE dataset_code=#{datasetCode} AND del_is=0 ORDER BY headword_norm,relation_type,related_term
+  </select>
+  <select id="selectExistingEnrichmentCards" resultMap="row">
+    SELECT content_version_id,card_key,card_type,del_is,state,review_status,reviewed_at,rights_status FROM word_learning_card WHERE content_version_id IN (SELECT DISTINCT cv2.id FROM vocabulary_book vb2 JOIN vocabulary_book_word vbw2 ON vbw2.book_id=vb2.id JOIN learning_content lc2 ON lc2.id=vbw2.content_id JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE vb2.state='active' AND vb2.level_code IN ('primary','junior','senior','cet4','cet6') AND lc2.content_type='word' AND lc2.state='published' AND lc2.withdrawn_at IS NULL AND cv2.review_status='approved')
+  </select>
+  <insert id="insertEnrichmentCards">
+    INSERT INTO word_learning_card(id,content_version_id,card_key,card_type,sense_label,title,related_term,body,recall_prompt,source_kind,source_title,source_url,source_locator,source_verified,rights_status,rights_note,generator_version,review_status,reviewed_by,reviewed_at,state,sort_no,del_is) VALUES <foreach collection="rows" item="row" separator=",">(#{row.id},#{row.versionId},#{row.cardKey},#{row.cardType},#{row.senseLabel},#{row.title},#{row.relatedTerm},#{row.body},#{row.recallPrompt},#{row.sourceKind},#{row.sourceTitle},#{row.sourceUrl},#{row.sourceLocator},#{row.sourceVerified},#{row.rightsStatus},#{row.rightsNote},#{row.generatorVersion},'approved',#{row.reviewedBy},CURRENT_TIMESTAMP,'published',#{row.sortNo},0)</foreach>
+  </insert>
+</mapper>

@@ -1,12 +1,38 @@
 package com.zhixing.controller;
+
 import com.zhixing.service.SessionService;
 import com.zhixing.service.WordStudyService;
-import org.springframework.web.bind.annotation.*;
 import java.util.Map;
-@RestController @RequestMapping("/api/word-study")
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/word-study")
 public class WordStudyController {
- private final SessionService sessions;private final WordStudyService study;
- public WordStudyController(SessionService sessions,WordStudyService study){this.sessions=sessions;this.study=study;}
- @PostMapping("/queue") public Map<String,Object> queue(@RequestHeader(value="Authorization",required=false)String auth,@RequestBody Map<String,Object> request){return study.queue(sessions.requireUser(auth).getUserId(),String.valueOf(request.getOrDefault("mode","all")),(String)request.get("contentId"));}
- @PostMapping("/{id}/feedback") public Map<String,Object> feedback(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id,@RequestBody Map<String,Object> request){return study.feedback(sessions.requireUser(auth).getUserId(),id,request);}
+  private final SessionService sessions;
+  private final WordStudyService study;
+
+  public WordStudyController(SessionService sessions, WordStudyService study) {
+    this.sessions = sessions;
+    this.study = study;
+  }
+
+  /** 初始化当天单词学习队列，并返回当前词条及分类计数。 */
+  @PostMapping("/queue")
+  public Map<String, Object> queue(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody Map<String, Object> request) {
+    return study.queue(
+        sessions.requireUser(auth).getUserId(),
+        String.valueOf(request.getOrDefault("mode", "all")),
+        (String) request.get("contentId"));
+  }
+
+  /** 提交版本校验和幂等保护的单词反馈；一次认识完成当天学习。 */
+  @PostMapping("/{id}/feedback")
+  public Map<String, Object> feedback(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id,
+      @RequestBody Map<String, Object> request) {
+    return study.feedback(sessions.requireUser(auth).getUserId(), id, request);
+  }
 }

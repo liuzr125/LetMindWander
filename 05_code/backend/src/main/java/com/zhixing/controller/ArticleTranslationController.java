@@ -15,29 +15,42 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/learning/contents")
 public class ArticleTranslationController {
-    private final SessionService sessions;
-    private final ContentService contents;
-    private final ArticleTranslationService translations;
+  private final SessionService sessions;
+  private final ContentService contents;
+  private final ArticleTranslationService translations;
 
-    public ArticleTranslationController(SessionService sessions, ContentService contents, ArticleTranslationService translations) {
-        this.sessions = sessions; this.contents = contents; this.translations = translations;
-    }
+  public ArticleTranslationController(
+      SessionService sessions, ContentService contents, ArticleTranslationService translations) {
+    this.sessions = sessions;
+    this.contents = contents;
+    this.translations = translations;
+  }
 
-    @PostMapping("/{id}/translation")
-    public ContentDetailView translate(@RequestHeader(value = "Authorization", required = false) String auth, @PathVariable String id) {
-        AuthenticatedSession session = sessions.requireUser(auth);
-        ContentDetailView detail = contents.get(session.getUserId(), id);
-        if (!"english_article".equals(detail.getContentType())) throw new com.zhixing.common.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "NOT_ARTICLE", "仅英语短文支持译文");
-        translations.ensureTranslation(id);
-        return contents.get(session.getUserId(), id);
-    }
+  /** 验证用户和已发布短文，再补全缺失段落译文。 */
+  @PostMapping("/{id}/translation")
+  public ContentDetailView translate(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id) {
+    AuthenticatedSession session = sessions.requireUser(auth);
+    ContentDetailView detail = contents.get(session.getUserId(), id);
+    if (!"english_article".equals(detail.getContentType()))
+      throw new com.zhixing.common.ApiException(
+          org.springframework.http.HttpStatus.BAD_REQUEST, "NOT_ARTICLE", "仅英语短文支持译文");
+    translations.ensureTranslation(id);
+    return contents.get(session.getUserId(), id);
+  }
 
-    @PostMapping("/{id}/title-translation")
-    public ContentDetailView translateTitle(@RequestHeader(value = "Authorization", required = false) String auth, @PathVariable String id) {
-        AuthenticatedSession session = sessions.requireUser(auth);
-        ContentDetailView detail = contents.get(session.getUserId(), id);
-        if (!"english_article".equals(detail.getContentType())) throw new com.zhixing.common.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "NOT_ARTICLE", "仅英语短文支持标题译文");
-        translations.ensureTitleTranslation(id);
-        return contents.get(session.getUserId(), id);
-    }
+  /** 验证用户和已发布短文，再补全缺失中文标题。 */
+  @PostMapping("/{id}/title-translation")
+  public ContentDetailView translateTitle(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id) {
+    AuthenticatedSession session = sessions.requireUser(auth);
+    ContentDetailView detail = contents.get(session.getUserId(), id);
+    if (!"english_article".equals(detail.getContentType()))
+      throw new com.zhixing.common.ApiException(
+          org.springframework.http.HttpStatus.BAD_REQUEST, "NOT_ARTICLE", "仅英语短文支持标题译文");
+    translations.ensureTitleTranslation(id);
+    return contents.get(session.getUserId(), id);
+  }
 }

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.WordLearningCardCoverageMapper">
+  <resultMap id="row" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="version_id" property="version_id"/>
+    <result column="word_term" property="word_term"/>
+    <result column="meaning" property="meaning"/>
+    <result column="level_code" property="level_code"/>
+    <result column="part_of_speech" property="part_of_speech"/>
+    <result column="sense_meaning" property="sense_meaning"/>
+    <result column="example_id" property="example_id"/>
+    <result column="content_version_id" property="content_version_id"/>
+    <result column="card_key" property="card_key"/>
+    <result column="card_type" property="card_type"/>
+    <result column="amount" property="amount"/>
+    <result column="del_is" property="del_is"/>
+    <result column="state" property="state"/>
+    <result column="review_status" property="review_status"/>
+    <result column="reviewed_at" property="reviewed_at"/>
+    <result column="rights_status" property="rights_status"/>
+    <result column="dataset_code" property="dataset_code"/>
+    <result column="relation_type" property="relation_type"/>
+    <result column="related_term" property="related_term"/>
+    <result column="sense_rank" property="sense_rank"/>
+    <result column="relation_rank" property="relation_rank"/>
+    <result column="source_locator" property="source_locator"/>
+    <result column="headword_norm" property="headword_norm"/>
+    <result column="linked_example_id" property="linked_example_id"/>
+    <result column="linked_example_text" property="linked_example_text"/>
+    <result column="linked_example_translation" property="linked_example_translation"/>
+    <result column="sense_label" property="sense_label"/>
+    <result column="title" property="title"/>
+    <result column="body" property="body"/>
+    <result column="example_text" property="example_text"/>
+    <result column="example_translation" property="example_translation"/>
+    <result column="recall_prompt" property="recall_prompt"/>
+    <result column="source_kind" property="source_kind"/>
+    <result column="source_title" property="source_title"/>
+    <result column="rights_note" property="rights_note"/>
+    <result column="source_url" property="source_url"/>
+    <result column="source_verified" property="source_verified"/>
+    <result column="reviewed_by" property="reviewed_by"/>
+    <result column="enabled" property="enabled"/>
+    <result column="sort_no" property="sort_no"/>
+  </resultMap>
+  <select id="selectCoverageTargets" resultMap="row">
+    SELECT DISTINCT cv.id AS version_id,cv.word_term,cv.meaning FROM vocabulary_book vb JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id JOIN learning_content lc ON lc.id=vbw.content_id JOIN content_version cv ON cv.id=lc.published_version_id WHERE vb.state='active' AND vb.level_code IN ('primary','junior','senior','cet4','cet6') AND lc.content_type='word' AND lc.state='published' AND lc.withdrawn_at IS NULL AND cv.review_status='approved' ORDER BY cv.word_term,cv.id
+  </select>
+  <select id="selectTargetScopes" resultMap="row">
+    SELECT cv.id AS version_id,vb.level_code FROM vocabulary_book vb JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id JOIN learning_content lc ON lc.id=vbw.content_id JOIN content_version cv ON cv.id=lc.published_version_id WHERE vb.state='active' AND vb.level_code IN ('primary','junior','senior','cet4','cet6') AND lc.state='published' AND lc.withdrawn_at IS NULL AND cv.review_status='approved' ORDER BY vb.sort_no
+  </select>
+  <select id="selectTargetSensesAndExamples" resultMap="row">
+    SELECT ws.content_version_id AS version_id,ws.part_of_speech,ws.meaning AS sense_meaning,we.id AS example_id FROM word_sense ws LEFT JOIN word_example we ON we.sense_id=ws.id WHERE ws.content_version_id IN (SELECT DISTINCT cv2.id FROM vocabulary_book vb2 JOIN vocabulary_book_word vbw2 ON vbw2.book_id=vb2.id JOIN learning_content lc2 ON lc2.id=vbw2.content_id JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE vb2.state='active' AND vb2.level_code IN ('primary','junior','senior','cet4','cet6') AND lc2.content_type='word' AND lc2.state='published' AND lc2.withdrawn_at IS NULL AND cv2.review_status='approved') ORDER BY ws.content_version_id,ws.sort_no,we.sort_no,we.id
+  </select>
+  <select id="selectExistingCardKeys" resultMap="row">
+    SELECT c.content_version_id,c.card_key FROM word_learning_card c WHERE c.content_version_id IN (SELECT DISTINCT cv2.id FROM vocabulary_book vb2 JOIN vocabulary_book_word vbw2 ON vbw2.book_id=vb2.id JOIN learning_content lc2 ON lc2.id=vbw2.content_id JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE vb2.state='active' AND vb2.level_code IN ('primary','junior','senior','cet4','cet6') AND lc2.content_type='word' AND lc2.state='published' AND lc2.withdrawn_at IS NULL AND cv2.review_status='approved')
+  </select>
+  <insert id="insertBaselineCards">
+    INSERT INTO word_learning_card(id,content_version_id,card_key,card_type,sense_label,title,body,recall_prompt,example_id,source_kind,source_title,source_verified,rights_status,rights_note,generator_version,review_status,reviewed_by,reviewed_at,state,sort_no,del_is) VALUES <foreach collection="rows" item="row" separator=",">(#{row.id},#{row.versionId},#{row.cardKey},#{row.cardType},#{row.senseLabel},#{row.title},#{row.body},#{row.recallPrompt},#{row.exampleId},#{row.sourceKind},#{row.sourceTitle},#{row.sourceVerified},#{row.rightsStatus},#{row.rightsNote},#{row.generatorVersion},#{row.reviewStatus},#{row.reviewedBy},CURRENT_TIMESTAMP,'published',#{row.sortNo},0)</foreach>
+  </insert>
+  <select id="selectPublishedCardCounts" resultMap="row">
+    SELECT c.content_version_id,c.card_type,COUNT(*) AS amount FROM word_learning_card c WHERE c.content_version_id IN (SELECT DISTINCT cv2.id FROM vocabulary_book vb2 JOIN vocabulary_book_word vbw2 ON vbw2.book_id=vb2.id JOIN learning_content lc2 ON lc2.id=vbw2.content_id JOIN content_version cv2 ON cv2.id=lc2.published_version_id WHERE vb2.state='active' AND vb2.level_code IN ('primary','junior','senior','cet4','cet6') AND lc2.content_type='word' AND lc2.state='published' AND lc2.withdrawn_at IS NULL AND cv2.review_status='approved') AND c.del_is=0 AND c.state='published' AND c.review_status='approved' AND c.reviewed_at IS NOT NULL AND c.rights_status IN ('original','licensed','public_domain','inherited') GROUP BY c.content_version_id,c.card_type
+  </select>
+  <select id="countImportedLexicalSnapshots" resultType="int">
+    SELECT COUNT(*) FROM lexical_dataset_snapshot WHERE dataset_code='oewn-2025' AND del_is=0 AND import_status='complete'
+  </select>
+  <insert id="upsertCoverage">
+    INSERT INTO word_learning_card_coverage(content_version_id,target_scope_codes,required_card_count,published_card_count,baseline_status,example_status,relation_status,quotation_status,source_example_id,generator_version,issues_json,del_is,generated_at,updated_at) VALUES <foreach collection="rows" item="row" separator=",">(#{row.versionId},#{row.targetScopes},2,#{row.publishedCardCount},#{row.baselineStatus},#{row.exampleStatus},#{row.relationStatus},'optional_not_required',#{row.sourceExampleId},#{row.generatorVersion},#{row.issuesJson},0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)</foreach> ON DUPLICATE KEY UPDATE target_scope_codes=VALUES(target_scope_codes),published_card_count=VALUES(published_card_count),baseline_status=VALUES(baseline_status),example_status=VALUES(example_status),relation_status=VALUES(relation_status),source_example_id=VALUES(source_example_id),generator_version=VALUES(generator_version),issues_json=VALUES(issues_json),del_is=0,generated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+  </insert>
+  <insert id="upsertTypeCoverage">
+    INSERT INTO word_learning_card_type_coverage(content_version_id,card_type,requirement_level,published_count,coverage_status,status_note,generator_version,del_is,generated_at,updated_at) VALUES <foreach collection="rows" item="row" separator=",">(#{row.versionId},#{row.cardType},#{row.requirementLevel},#{row.publishedCount},#{row.coverageStatus},#{row.statusNote},#{row.generatorVersion},0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)</foreach> ON DUPLICATE KEY UPDATE requirement_level=VALUES(requirement_level),published_count=VALUES(published_count),coverage_status=VALUES(coverage_status),status_note=VALUES(status_note),generator_version=VALUES(generator_version),del_is=0,generated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+  </insert>
+</mapper>

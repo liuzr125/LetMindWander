@@ -1,0 +1,9 @@
+**/node_modules/**
+**/dist/**
+**/target/**
+**/assets/**
+**/logs/**
+**/*lock*.json
+**/project.private.config.json
+**/config/index.js
+**/*.zip

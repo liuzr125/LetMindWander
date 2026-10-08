@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminFeedbackMapper">
+  <sql id="feedbackFilter">
+    <where>
+      <if test="state != 'all'">f.state=#{state}</if>
+      <if test="keyword != ''">AND (u.nickname LIKE CONCAT('%',#{keyword},'%') OR u.short_id LIKE CONCAT('%',#{keyword},'%') OR u.mobile LIKE CONCAT('%',#{keyword},'%') OR f.body LIKE CONCAT('%',#{keyword},'%') OR f.id LIKE CONCAT('%',#{keyword},'%'))</if>
+    </where>
+  </sql>
+  <select id="countFilteredFeedback" resultType="int">SELECT COUNT(*) FROM user_feedback f JOIN app_user u ON u.id=f.owner_id <include refid="feedbackFilter"/></select>
+  <select id="selectFeedbackPage" resultType="map">SELECT f.id,f.owner_id,u.nickname,u.short_id,u.mobile,f.category,f.body,f.state,f.content_id,f.request_id,f.created_at,f.updated_at,v.title content_title FROM user_feedback f JOIN app_user u ON u.id=f.owner_id LEFT JOIN learning_content c ON c.id=f.content_id LEFT JOIN content_version v ON v.id=c.published_version_id  <include refid="feedbackFilter"/> ORDER BY CASE WHEN f.state='open' THEN 0 ELSE 1 END,f.created_at DESC LIMIT #{offset},#{limit}</select>
+  <select id="selectFeedbackById" resultType="map">SELECT f.id,f.owner_id,u.nickname,u.short_id,u.mobile,f.category,f.body,f.state,f.content_id,f.request_id,f.created_at,f.updated_at,v.title content_title FROM user_feedback f JOIN app_user u ON u.id=f.owner_id LEFT JOIN learning_content c ON c.id=f.content_id LEFT JOIN content_version v ON v.id=c.published_version_id  WHERE f.id=#{id}</select>
+  <update id="updateFeedbackState">UPDATE user_feedback SET state=#{state},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
+  <select id="countFeedbackByState" resultType="int">SELECT COUNT(*) FROM user_feedback <where><if test="state != null">state=#{state}</if></where></select>
+  <insert id="insertFeedbackAudit">INSERT INTO admin_audit(id,admin_id,action_code,target_type,target_id,result_code,metadata_json,expires_at) VALUES(#{id},#{adminId},#{action},#{targetType},#{targetId},'succeeded',#{metadata},#{expiresAt})</insert>
+</mapper>

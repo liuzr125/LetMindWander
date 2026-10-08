@@ -20,7 +20,7 @@ function request(options = {}) {
       header: Object.assign(
         { 'content-type': 'application/json' },
         token ? { Authorization: `Bearer ${token}` } : {},
-        options.header || {}
+        options.header || {},
       ),
       success(response) {
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -29,11 +29,12 @@ function request(options = {}) {
         }
 
         const error = new Error(
-          (response.data && response.data.message) || `请求失败（${response.statusCode}）`
+          (response.data && response.data.message) || `请求失败（${response.statusCode}）`,
         );
         error.statusCode = response.statusCode;
         error.code = response.data && response.data.code;
         error.data = response.data;
+        // 会话失效同时清理内存和本地状态，后续请求不能继续携带旧凭据。
         if (response.statusCode === 401) {
           app.globalData.accessToken = '';
           app.globalData.userInfo = null;
@@ -43,12 +44,13 @@ function request(options = {}) {
         }
         reject(error);
       },
+      // 不在通用网络层自动重发写操作，由业务层携带幂等凭据重试。
       fail(error) {
         const networkError = new Error(error.errMsg || '网络连接失败，请检查服务地址后重试');
         networkError.code = 'NETWORK_ERROR';
         networkError.data = error;
         reject(networkError);
-      }
+      },
     });
   });
 }

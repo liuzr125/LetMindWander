@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.CollectionScheduleSettingsMapper">
+  <update id="updateCron">
+    UPDATE content_collection_schedule
+    SET cron_expression=#{cron}, timezone='Asia/Shanghai',
+        next_run_at=CASE WHEN state='active' THEN #{nextRunAt} ELSE NULL END
+    WHERE id='00000000000000000000000000000090'
+  </update>
+</mapper>

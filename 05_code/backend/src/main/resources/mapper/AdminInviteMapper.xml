@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminInviteMapper">
+  <insert id="insertInvite">INSERT INTO invite_code (id, code_hash, status, expires_at, created_by, created_at, updated_at) VALUES (#{id}, #{hash.bytes,jdbcType=BINARY}, 'available', #{expiresAt}, #{creator}, #{createdAt}, #{updatedAt})</insert>
+  <update id="revokeAvailableInvite">UPDATE invite_code SET status = 'revoked', updated_at = #{updatedAt} WHERE id = #{id} AND status = 'available' AND expires_at &gt; #{now}</update>
+  <delete id="deleteUnredeemedInvite">DELETE FROM invite_code WHERE id = #{id} AND status &lt;&gt; 'redeemed'</delete>
+  <select id="selectTrialAdmission" resultType="map">SELECT invited_limit, invited_used FROM admission_counter WHERE scope_code = 'trial'</select>
+  <select id="selectTrialAdmissionForUpdate" resultType="map">SELECT invited_used FROM admission_counter WHERE scope_code = 'trial' FOR UPDATE</select>
+  <update id="updateTrialAdmissionLimit">UPDATE admission_counter SET invited_limit = #{limit}, updated_at = #{updatedAt} WHERE scope_code = 'trial'</update>
+  <select id="countInviteHash" resultType="int">SELECT COUNT(*) FROM invite_code WHERE code_hash = #{hash.bytes,jdbcType=BINARY}</select>
+  <select id="countAvailableInvites" resultType="long">SELECT COUNT(*) FROM invite_code WHERE status='available' AND expires_at &gt; CURRENT_TIMESTAMP</select>
+  <select id="countRedeemedInvites" resultType="long">SELECT COUNT(*) FROM invite_code WHERE status='redeemed'</select>
+  <select id="countRevokedInvites" resultType="long">SELECT COUNT(*) FROM invite_code WHERE status='revoked'</select>
+  <select id="countExpiredInvites" resultType="long">SELECT COUNT(*) FROM invite_code WHERE status='available' AND expires_at &lt;= CURRENT_TIMESTAMP</select>
+  <sql id="inviteStatusFilter">
+    <where>
+      <if test="status != null and status.trim() != '' and status != 'all'">
+        <choose>
+          <when test="status == 'expired'">status='available' AND expires_at &lt;= CURRENT_TIMESTAMP</when>
+          <otherwise>status=#{status}</otherwise>
+        </choose>
+      </if>
+    </where>
+  </sql>
+  <select id="countInvites" resultType="long">SELECT COUNT(*) FROM invite_code <include refid="inviteStatusFilter"/></select>
+  <select id="selectInvitePage" resultType="map">SELECT id,CASE WHEN status='available' AND expires_at &lt;= CURRENT_TIMESTAMP THEN 'expired' ELSE status END AS status,expires_at,redeemed_by,redeemed_at,created_at FROM invite_code <include refid="inviteStatusFilter"/> ORDER BY created_at DESC,id DESC LIMIT #{limit} OFFSET #{offset}</select>
+</mapper>

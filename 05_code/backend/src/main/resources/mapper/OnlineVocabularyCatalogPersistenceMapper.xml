@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.OnlineVocabularyCatalogPersistenceMapper">
+  <insert id="insertCatalogBook"><![CDATA[INSERT INTO vocabulary_online_book(book_code,book_name,edition_label,provider_name,category,sort_no,source_url,download_path,source_revision,expected_count,license_status,license_note) VALUES(#{p0},#{p1},#{p2},#{p3},#{p4},#{p5},#{p6},#{p7},#{p8},#{p9},#{p10},#{p11})]]></insert>
+  <update id="updateCatalogBook"><![CDATA[UPDATE vocabulary_online_book SET book_name=#{p0},edition_label=#{p1},provider_name=#{p2},category=#{p3},sort_no=#{p4},source_url=#{p5},download_path=#{p6},source_revision=#{p7},expected_count=#{p8},updated_at=CURRENT_TIMESTAMP WHERE book_code=#{p9}]]></update>
+  <select id="listCatalogBooks" resultType="map"><![CDATA[SELECT * FROM vocabulary_online_book WHERE del_is=0 ORDER BY sort_no,book_code]]></select>
+  <select id="countMatchingWords" resultType="int"><![CDATA[SELECT COUNT(*) FROM vocabulary_online_word WHERE dataset_id=#{p0} AND del_is=0 AND LOCATE(#{p1},normalized_word)>0]]></select>
+  <select id="listMatchingWords" resultType="map"><![CDATA[SELECT id,word_term,phonetic_us,phonetic_uk,phonetic_status,normalized_json,quality_flags_json FROM vocabulary_online_word WHERE dataset_id=#{p0} AND del_is=0 AND LOCATE(#{p1},normalized_word)>0 ORDER BY row_no LIMIT #{p2} OFFSET #{p3}]]></select>
+  <select id="lockCatalogBook" resultType="map"><![CDATA[SELECT * FROM vocabulary_online_book WHERE book_code=#{p0} AND del_is=0 FOR UPDATE]]></select>
+  <select id="countDatasetSnapshot" resultType="int"><![CDATA[SELECT COUNT(*) FROM vocabulary_dataset_catalog WHERE id=#{p0}]]></select>
+  <insert id="insertDatasetSnapshot"><![CDATA[INSERT INTO vocabulary_dataset_catalog(id,dataset_code,dataset_name,provider_name,source_type,source_url,data_format,parser_code,version_label,license_status,license_note,checksum,item_count,source_payload,enabled) VALUES(#{p0},#{p1},#{p2},#{p3},#{p4},#{p5},#{p6},#{p7},#{p8},'unknown',#{p9},#{p10.bytes,jdbcType=BINARY},#{p11},NULL,1)]]></insert>
+  <insert id="insertSnapshotWord"><![CDATA[INSERT INTO vocabulary_online_word(id,dataset_id,book_code,row_no,source_word_id,word_term,normalized_word,phonetic_us,phonetic_uk,normalized_json,raw_json,quality_flags_json) VALUES(#{p0},#{p1},#{p2},#{p3},#{p4},#{p5},#{p6},#{p7},#{p8},#{p9},#{p10},#{p11})]]></insert>
+  <update id="completeBookSync"><![CDATA[UPDATE vocabulary_online_book SET latest_dataset_id=#{p0},actual_count=#{p1},quality_summary=#{p2},last_synced_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE book_code=#{p3}]]></update>
+  <insert id="insertSyncAudit"><![CDATA[INSERT INTO admin_audit(id,admin_id,action_code,target_type,target_id,result_code,metadata_json,expires_at) VALUES(#{p0},#{p1},#{p2},#{p3},#{p4},'succeeded',#{p5},#{p6})]]></insert>
+  <select id="findCatalogBook" resultType="map"><![CDATA[SELECT * FROM vocabulary_online_book WHERE book_code=#{p0} AND del_is=0]]></select>
+</mapper>

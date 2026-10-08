@@ -1,29 +1,165 @@
 <view class="article-page">
   <view wx:if="{{loading}}" class="state">正在加载短文…</view>
-  <view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="load">重试</button></view>
+  <view wx:elif="{{error}}" class="state"
+    ><text>{{error}}</text><button bindtap="load">重试</button></view
+  >
   <block wx:else>
     <text class="title">{{detail.title}}</text>
     <block wx:if="{{showTranslation}}">
-      <text wx:if="{{detail.titleTranslation}}" class="title-translation">{{detail.titleTranslation}}</text>
-      <text wx:elif="{{titleTranslationLoading}}" class="title-translation pending">正在生成标题译文…</text>
-      <button wx:else class="title-translation-retry" bindtap="generateTitleTranslation">{{titleTranslationError || '暂无标题译文 · 点此生成'}}</button>
+      <text wx:if="{{detail.titleTranslation}}" class="title-translation"
+        >{{detail.titleTranslation}}</text
+      >
+      <text wx:elif="{{titleTranslationLoading}}" class="title-translation pending"
+        >正在生成标题译文…</text
+      >
+      <button wx:else class="title-translation-retry" bindtap="generateTitleTranslation"
+        >{{titleTranslationError || '暂无标题译文 · 点此生成'}}</button
+      >
     </block>
-    <view class="meta"><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text><text wx:for="{{detail.topics}}" wx:key="*this">{{item}}</text><text>预计 {{detail.estimatedSeconds / 60}} 分钟</text></view>
-    <text class="source">{{detail.originAuthor || '课程短文整理'}}<text wx:if="{{publishedDate}}"> · {{publishedDate}}</text></text>
+    <view class="meta"
+      ><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text
+      ><text wx:for="{{detail.topics}}" wx:key="*this">{{item}}</text
+      ><text>预计 {{detail.estimatedSeconds / 60}} 分钟</text></view
+    >
+    <text class="source"
+      >{{detail.originAuthor || '课程短文整理'}}<text wx:if="{{publishedDate}}">
+        · {{publishedDate}}</text
+      ></text
+    >
     <view class="audio-card">
-      <view class="audio-head"><view><text class="audio-title">整篇朗读</text><text class="audio-note">{{detail.articleAudioUrl ? '音频已就绪' : '首次播放由服务端生成并缓存'}}</text></view><button loading="{{audioLoading}}" bindtap="playArticle">{{articlePlaying ? '暂停' : '▶ 播放'}}</button></view>
-      <view class="speed-row"><text>语速</text><view wx:for="{{speeds}}" wx:key="*this" class="speed {{speed===item?'active':''}}" data-speed="{{item}}" bindtap="changeSpeed">{{item}}x</view></view>
-      <view class="follow-row"><view><text class="audio-title">跟读练习</text><text class="audio-note">{{recordUploading ? '正在安全上传…' : (recordSaved ? '已私密保存至云端，新录音会替换旧录音' : '录音经同意后私密保存至云端')}}</text></view><button wx:if="{{!recording}}" class="outline" loading="{{recordUploading}}" disabled="{{recordUploading}}" bindtap="startFollow">开始跟读</button><button wx:else class="recording" bindtap="stopFollow">停止录音</button></view>
-      <view wx:if="{{recordPath || recordUrl}}" class="record-actions"><button class="record-play" bindtap="playRecording">{{recordPlaying ? '停止回放' : '▶ 回放我的跟读'}}</button><button class="record-delete" disabled="{{recordUploading}}" bindtap="deleteRecording">删除录音</button></view>
+      <view class="audio-head"
+        ><view
+          ><text class="audio-title">整篇朗读</text
+          ><text class="audio-note"
+            >{{detail.articleAudioUrl ? '音频已就绪' : '首次播放由服务端生成并缓存'}}</text
+          ></view
+        ><button loading="{{audioLoading}}" bindtap="playArticle"
+          >{{articlePlaying ? '暂停' : '▶ 播放'}}</button
+        ></view
+      >
+      <view class="speed-row"
+        ><text>语速</text
+        ><view
+          wx:for="{{speeds}}"
+          wx:key="*this"
+          class="speed {{speed===item?'active':''}}"
+          data-speed="{{item}}"
+          bindtap="changeSpeed"
+          >{{item}}x</view
+        ></view
+      >
+      <view class="follow-row"
+        ><view
+          ><text class="audio-title">跟读练习</text
+          ><text class="audio-note"
+            >{{recordUploading ? '正在安全上传…' : (recordSaved ?
+            '已私密保存至云端，新录音会替换旧录音' : '录音经同意后私密保存至云端')}}</text
+          ></view
+        ><button
+          wx:if="{{!recording}}"
+          class="outline"
+          loading="{{recordUploading}}"
+          disabled="{{recordUploading}}"
+          bindtap="startFollow"
+          >开始跟读</button
+        ><button wx:else class="recording" bindtap="stopFollow">停止录音</button></view
+      >
+      <view wx:if="{{recordPath || recordUrl}}" class="record-actions"
+        ><button class="record-play" bindtap="playRecording"
+          >{{recordPlaying ? '停止回放' : '▶ 回放我的跟读'}}</button
+        ><button class="record-delete" disabled="{{recordUploading}}" bindtap="deleteRecording"
+          >删除录音</button
+        ></view
+      >
     </view>
-    <view class="translation-switch"><text>显示译文</text><switch checked="{{showTranslation}}" color="#0869f7" bindchange="toggleTranslation" /></view>
-    <view wx:for="{{detail.articleBlocks}}" wx:for-index="blockIndex" wx:key="paragraphId" class="paragraph-card">
-      <text class="english"><text wx:for="{{item.tokens}}" wx:for-item="token" wx:for-index="tokenIndex" wx:key="tokenIndex" class="{{token.word?'inline-word':''}} {{token.known?'known':''}}" data-block="{{blockIndex}}" data-token="{{tokenIndex}}" bindtap="selectWord">{{token.text}}</text></text><text wx:if="{{showTranslation && item.translation}}" class="translation">{{item.translation}}</text>
-      <button wx:if="{{showTranslation && !item.translation}}" class="translation-missing" loading="{{translationLoading}}" disabled="{{translationLoading}}" bindtap="generateTranslation">暂无译文 · 生成并保存</button>
-      <button class="explain" data-block="{{blockIndex}}" loading="{{explaining}}" disabled="{{explaining}}" bindtap="explain">✦ 解释这段内容</button>
+    <view class="translation-switch"
+      ><text>显示译文</text
+      ><switch checked="{{showTranslation}}" color="#0869f7" bindchange="toggleTranslation"
+    /></view>
+    <view
+      wx:for="{{detail.articleBlocks}}"
+      wx:for-index="blockIndex"
+      wx:key="paragraphId"
+      class="paragraph-card"
+    >
+      <text class="english"
+        ><text
+          wx:for="{{item.tokens}}"
+          wx:for-item="token"
+          wx:for-index="tokenIndex"
+          wx:key="tokenIndex"
+          class="{{token.word?'inline-word':''}} {{token.known?'known':''}}"
+          data-block="{{blockIndex}}"
+          data-token="{{tokenIndex}}"
+          bindtap="selectWord"
+          >{{token.text}}</text
+        ></text
+      ><text wx:if="{{showTranslation && item.translation}}" class="translation"
+        >{{item.translation}}</text
+      >
+      <button
+        wx:if="{{showTranslation && !item.translation}}"
+        class="translation-missing"
+        loading="{{translationLoading}}"
+        disabled="{{translationLoading}}"
+        bindtap="generateTranslation"
+        >暂无译文 · 生成并保存</button
+      >
+      <button
+        class="explain"
+        data-block="{{blockIndex}}"
+        loading="{{explaining}}"
+        disabled="{{explaining}}"
+        bindtap="explain"
+        >✦ 解释这段内容</button
+      >
     </view>
-    <view class="bottom-actions"><button bindtap="toggleFavorite">{{detail.favorite ? '★ 已收藏' : '☆ 收藏'}}</button><button bindtap="takeNote">▤ 做笔记</button><button class="primary" bindtap="understood">{{detail.understood ? '已理解' : '我已理解'}}</button></view>
-    <view wx:if="{{selectedWord}}" class="word-mask" bindtap="closeWord"><view class="word-sheet" catchtap="noop"><view class="word-top"><view><text class="selected-term">{{selectedWord.text}}</text><text class="selected-phonetic">{{selectedWord.phonetic || (wordLookupLoading ? '正在生成音标…' : '暂无音标')}}</text></view><text class="close" bindtap="closeWord">×</text></view><text class="selected-meaning">{{selectedWord.meaning || (wordLookupLoading ? '正在生成释义并保存…' : '该词暂未收录释义')}}</text><text wx:if="{{selectedWord.sourceKind === 'ai_generated'}}" class="word-source">AI 补充释义，供学习参考</text><view wx:if="{{wordLookupError}}" class="word-lookup-error"><text>{{wordLookupError}}</text><button bindtap="retryWordLookup">重试生成</button></view><view class="word-actions"><button bindtap="playWord" loading="{{wordAudioLoading}}" disabled="{{wordAudioLoading}}">{{wordAudioLoading ? '生成并保存中…' : '🔊 发音'}}</button><button wx:if="{{selectedWord.contentId}}" data-id="{{selectedWord.contentId}}" bindtap="openWord">查看词条</button></view></view></view>
-    <view wx:if="{{explanationOpen}}" class="explanation-mask" bindtap="closeExplanation"><view class="explanation-sheet" catchtap="noop"><view class="word-top"><text class="audio-title">这段内容的解释</text><text class="close" bindtap="closeExplanation">×</text></view><scroll-view scroll-y class="explanation-scroll"><text selectable="true">{{explaining ? '正在生成解释…' : explanation}}</text></scroll-view></view></view>
+    <view class="bottom-actions"
+      ><button bindtap="toggleFavorite">{{detail.favorite ? '★ 已收藏' : '☆ 收藏'}}</button
+      ><button bindtap="takeNote">▤ 做笔记</button
+      ><button class="primary" bindtap="understood"
+        >{{detail.understood ? '已理解' : '我已理解'}}</button
+      ></view
+    >
+    <view wx:if="{{selectedWord}}" class="word-mask" bindtap="closeWord"
+      ><view class="word-sheet" catchtap="noop"
+        ><view class="word-top"
+          ><view
+            ><text class="selected-term">{{selectedWord.text}}</text
+            ><text class="selected-phonetic"
+              >{{selectedWord.phonetic || (wordLookupLoading ? '正在生成音标…' : '暂无音标')}}</text
+            ></view
+          ><text class="close" bindtap="closeWord">×</text></view
+        ><text class="selected-meaning"
+          >{{selectedWord.meaning || (wordLookupLoading ? '正在生成释义并保存…' :
+          '该词暂未收录释义')}}</text
+        ><text wx:if="{{selectedWord.sourceKind === 'ai_generated'}}" class="word-source"
+          >AI 补充释义，供学习参考</text
+        ><view wx:if="{{wordLookupError}}" class="word-lookup-error"
+          ><text>{{wordLookupError}}</text><button bindtap="retryWordLookup">重试生成</button></view
+        ><view class="word-actions"
+          ><button bindtap="playWord" loading="{{wordAudioLoading}}" disabled="{{wordAudioLoading}}"
+            >{{wordAudioLoading ? '生成并保存中…' : '🔊 发音'}}</button
+          ><button
+            wx:if="{{selectedWord.contentId}}"
+            data-id="{{selectedWord.contentId}}"
+            bindtap="openWord"
+            >查看词条</button
+          ></view
+        ></view
+      ></view
+    >
+    <view wx:if="{{explanationOpen}}" class="explanation-mask" bindtap="closeExplanation"
+      ><view class="explanation-sheet" catchtap="noop"
+        ><view class="word-top"
+          ><text class="audio-title">这段内容的解释</text
+          ><text class="close" bindtap="closeExplanation">×</text></view
+        ><scroll-view scroll-y class="explanation-scroll"
+          ><text selectable="true"
+            >{{explaining ? '正在生成解释…' : explanation}}</text
+          ></scroll-view
+        ></view
+      ></view
+    >
   </block>
 </view>

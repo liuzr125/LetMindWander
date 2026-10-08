@@ -1,5 +1,9 @@
 package com.zhixing;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixing.common.CryptoUtils;
@@ -9,169 +13,624 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:f10;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE","spring.sql.init.mode=always","app.wechat.mock-enabled=true","app.sms.mock-enabled=true","app.sms.fixed-code=123456","app.registration-store=memory"})
-@ActiveProfiles("dev") @AutoConfigureMockMvc
-@DirtiesContext(classMode=DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@SpringBootTest(
+    properties = {
+      "spring.datasource.url=jdbc:h2:mem:f10;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+      "spring.sql.init.mode=always",
+      "app.wechat.mock-enabled=true",
+      "app.sms.mock-enabled=true",
+      "app.sms.fixed-code=123456",
+      "app.registration-store=memory"
+    })
+@ActiveProfiles("dev")
+@AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class F10WordMemoryIntegrationTest {
-    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
-    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
-    @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.zhixing.service.BookStudyService historicalBookStudy;
+  // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+  @Autowired com.zhixing.mapper.ContentMapper historicalContents;
+  @Autowired MockMvc mvc;
+  @Autowired ObjectMapper json;
+  @Autowired JdbcTemplate jdbc;
 
-    @Test void reviewedQuestionsHintsFirstAnswerRetriesIdempotencyAndResultsFormAClosedLoop() throws Exception {
-        Session user=register();seed();markLearned(user,WORD);
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_item WHERE owner_id=? AND bookmark_content_id=?",Integer.class,user.userId,WORD));
-        mvc.perform(get("/api/knowledge").header("Authorization",bearer(user.token)))
-                .andExpect(status().isOk()).andExpect(content().json("[]"));
-        mvc.perform(get("/api/word-memory/hints").header("Authorization",bearer(user.token)).param("contentId",WORD))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].methodType").value("association"));
-        String created=mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","session-1")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\",\"spelling\"],\"source\":\"word_detail\",\"returnTo\":\"/pages/word/detail/index?id="+WORD+"\",\"addToReview\":false}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.currentEpisode.dimension").value("meaning"))
-                .andExpect(jsonPath("$.currentEpisode.expectedAnswer").doesNotExist()).andReturn().getResponse().getContentAsString();
-        JsonNode session=json.readTree(created);String sessionId=session.path("sessionId").asText(),meaningEpisode=session.path("currentEpisode").path("id").asText();
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/hint",sessionId,meaningEpisode).header("Authorization",bearer(user.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"hintType\":\"clue\",\"expectedVersion\":1}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.content").value("表示信息所处的上下文环境")).andExpect(jsonPath("$.sessionVersion").value(2));
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM word_memory_hint_event WHERE episode_id=? AND hint_type='clue'",Integer.class,meaningEpisode));
-        String firstAttempt="{\"answer\":\"上下文\",\"durationMs\":1200,\"expectedVersion\":2}";
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",sessionId,meaningEpisode).header("Authorization",bearer(user.token))
-                .header("Idempotency-Key","attempt-meaning-1").contentType(MediaType.APPLICATION_JSON).content(firstAttempt))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("hinted_correct")).andExpect(jsonPath("$.firstAttempt").value(true)).andExpect(jsonPath("$.sessionVersion").value(3));
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",sessionId,meaningEpisode).header("Authorization",bearer(user.token))
-                .header("Idempotency-Key","attempt-meaning-1").contentType(MediaType.APPLICATION_JSON).content(firstAttempt))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.attemptNo").value(1)).andExpect(jsonPath("$.sessionVersion").value(3));
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM word_memory_attempt WHERE episode_id=?",Integer.class,meaningEpisode));
+  @Test
+  void reviewedQuestionsHintsFirstAnswerRetriesIdempotencyAndResultsFormAClosedLoop()
+      throws Exception {
+    Session user = register();
+    seed();
+    markLearned(user, WORD);
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM knowledge_item WHERE owner_id=? AND bookmark_content_id=?",
+            Integer.class,
+            user.userId,
+            WORD));
+    mvc.perform(get("/api/knowledge").header("Authorization", bearer(user.token)))
+        .andExpect(status().isOk())
+        .andExpect(content().json("[]"));
+    mvc.perform(
+            get("/api/word-memory/hints")
+                .header("Authorization", bearer(user.token))
+                .param("contentId", WORD))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].methodType").value("association"));
+    String created =
+        mvc.perform(
+                post("/api/word-memory/sessions")
+                    .header("Authorization", bearer(user.token))
+                    .header("Idempotency-Key", "session-1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"contentIds\":[\""
+                            + WORD
+                            + "\"],\"dimensions\":[\"meaning\",\"spelling\"],\"source\":\"word_detail\",\"returnTo\":\"/pages/word/detail/index?id="
+                            + WORD
+                            + "\",\"addToReview\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.version").value(1))
+            .andExpect(jsonPath("$.currentEpisode.dimension").value("meaning"))
+            .andExpect(jsonPath("$.currentEpisode.expectedAnswer").doesNotExist())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    JsonNode session = json.readTree(created);
+    String sessionId = session.path("sessionId").asText(),
+        meaningEpisode = session.path("currentEpisode").path("id").asText();
+    mvc.perform(
+            post("/api/word-memory/sessions/{sid}/episodes/{eid}/hint", sessionId, meaningEpisode)
+                .header("Authorization", bearer(user.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hintType\":\"clue\",\"expectedVersion\":1}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content").value("表示信息所处的上下文环境"))
+        .andExpect(jsonPath("$.sessionVersion").value(2));
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM word_memory_hint_event WHERE episode_id=? AND hint_type='clue'",
+            Integer.class,
+            meaningEpisode));
+    String firstAttempt = "{\"answer\":\"上下文\",\"durationMs\":1200,\"expectedVersion\":2}";
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    sessionId,
+                    meaningEpisode)
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "attempt-meaning-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(firstAttempt))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("hinted_correct"))
+        .andExpect(jsonPath("$.firstAttempt").value(true))
+        .andExpect(jsonPath("$.sessionVersion").value(3));
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    sessionId,
+                    meaningEpisode)
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "attempt-meaning-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(firstAttempt))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.attemptNo").value(1))
+        .andExpect(jsonPath("$.sessionVersion").value(3));
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM word_memory_attempt WHERE episode_id=?",
+            Integer.class,
+            meaningEpisode));
 
-        String current=mvc.perform(get("/api/word-memory/sessions/{id}",sessionId).header("Authorization",bearer(user.token)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.currentEpisode.dimension").value("spelling")).andReturn().getResponse().getContentAsString();
-        String spellingEpisode=json.readTree(current).path("currentEpisode").path("id").asText();
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",sessionId,spellingEpisode).header("Authorization",bearer(user.token))
-                .header("Idempotency-Key","attempt-spelling-1").contentType(MediaType.APPLICATION_JSON).content("{\"answer\":\"contest\",\"durationMs\":900,\"expectedVersion\":3}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("incorrect")).andExpect(jsonPath("$.canRetry").value(true)).andExpect(jsonPath("$.sessionVersion").value(4));
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",sessionId,spellingEpisode).header("Authorization",bearer(user.token))
-                .header("Idempotency-Key","attempt-spelling-2").contentType(MediaType.APPLICATION_JSON).content("{\"answer\":\"Context\",\"durationMs\":700,\"expectedVersion\":4}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("retry_correct")).andExpect(jsonPath("$.firstAttempt").value(false)).andExpect(jsonPath("$.sessionVersion").value(5));
-        assertEquals("incorrect",jdbc.queryForObject("SELECT first_result FROM word_memory_episode WHERE id=?",String.class,spellingEpisode));
+    String current =
+        mvc.perform(
+                get("/api/word-memory/sessions/{id}", sessionId)
+                    .header("Authorization", bearer(user.token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.currentEpisode.dimension").value("spelling"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String spellingEpisode = json.readTree(current).path("currentEpisode").path("id").asText();
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    sessionId,
+                    spellingEpisode)
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "attempt-spelling-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"contest\",\"durationMs\":900,\"expectedVersion\":3}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("incorrect"))
+        .andExpect(jsonPath("$.canRetry").value(true))
+        .andExpect(jsonPath("$.sessionVersion").value(4));
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    sessionId,
+                    spellingEpisode)
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "attempt-spelling-2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"Context\",\"durationMs\":700,\"expectedVersion\":4}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("retry_correct"))
+        .andExpect(jsonPath("$.firstAttempt").value(false))
+        .andExpect(jsonPath("$.sessionVersion").value(5));
+    assertEquals(
+        "incorrect",
+        jdbc.queryForObject(
+            "SELECT first_result FROM word_memory_episode WHERE id=?",
+            String.class,
+            spellingEpisode));
 
-        mvc.perform(post("/api/word-memory/sessions/{id}/finish",sessionId).header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
+    mvc.perform(
+            post("/api/word-memory/sessions/{id}/finish", sessionId)
+                .header("Authorization", bearer(user.token))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"expectedVersion\":5,\"partial\":false}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("completed")).andExpect(jsonPath("$.validObjectiveCount").value(2))
-                .andExpect(jsonPath("$.hintedCorrectCount").value(1)).andExpect(jsonPath("$.retryCorrectCount").value(1))
-                .andExpect(jsonPath("$.firstIncorrectCount").value(1)).andExpect(jsonPath("$.weakWordCount").value(1)).andExpect(jsonPath("$.sessionVersion").value(6))
-                .andExpect(jsonPath("$.reviewPlans[0].state").value("active"));
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM word_memory_evidence WHERE owner_id=?",Integer.class,user.userId));
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM learning_record WHERE owner_id=?",Integer.class,user.userId));
-    }
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.state").value("completed"))
+        .andExpect(jsonPath("$.validObjectiveCount").value(2))
+        .andExpect(jsonPath("$.hintedCorrectCount").value(1))
+        .andExpect(jsonPath("$.retryCorrectCount").value(1))
+        .andExpect(jsonPath("$.firstIncorrectCount").value(1))
+        .andExpect(jsonPath("$.weakWordCount").value(1))
+        .andExpect(jsonPath("$.sessionVersion").value(6))
+        .andExpect(jsonPath("$.reviewPlans[0].state").value("active"));
+    assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM word_memory_evidence WHERE owner_id=?",
+            Integer.class,
+            user.userId));
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM learning_record WHERE owner_id=?", Integer.class, user.userId));
+  }
 
-    @Test void approvedWordWithoutEditorialHintsCanUseGeneratedBaseTraining() throws Exception {
-        Session user=register();seedWordOnly();markLearned(user,WORD);
-        mvc.perform(get("/api/word-memory/hints").header("Authorization",bearer(user.token)).param("contentId",WORD))
-                .andExpect(status().isOk()).andExpect(content().json("[]"));
-        mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","base-session")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\",\"spelling\"],\"source\":\"word_detail\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.currentEpisode.dimension").value("meaning"));
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM word_memory_question WHERE content_version_id=? AND question_version=1000000",Integer.class,VERSION));
-    }
+  @Test
+  void approvedWordWithoutEditorialHintsCanUseGeneratedBaseTraining() throws Exception {
+    Session user = register();
+    seedWordOnly();
+    markLearned(user, WORD);
+    mvc.perform(
+            get("/api/word-memory/hints")
+                .header("Authorization", bearer(user.token))
+                .param("contentId", WORD))
+        .andExpect(status().isOk())
+        .andExpect(content().json("[]"));
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "base-session")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"contentIds\":[\""
+                        + WORD
+                        + "\"],\"dimensions\":[\"meaning\",\"spelling\"],\"source\":\"word_detail\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.currentEpisode.dimension").value("meaning"));
+    assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM word_memory_question WHERE content_version_id=? AND question_version=1000000",
+            Integer.class,
+            VERSION));
+  }
 
-    @Test void meaningAnswerAcceptsOneNormalizedSenseButNotAnArbitrarySubstring() throws Exception {
-        Session user=register();seed();markLearned(user,WORD);
-        jdbc.update("UPDATE word_memory_question SET expected_answer=?,accepted_answers_json=NULL,answer_policy='meaning_flexible' WHERE id=?","adv. 上下文；语境",MEANING);
-        JsonNode accepted=json.readTree(mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-accepted")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",accepted.path("sessionId").asText(),accepted.path("currentEpisode").path("id").asText())
-                .header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-attempt-accepted").contentType(MediaType.APPLICATION_JSON)
+  @Test
+  void meaningAnswerAcceptsOneNormalizedSenseButNotAnArbitrarySubstring() throws Exception {
+    Session user = register();
+    seed();
+    markLearned(user, WORD);
+    jdbc.update(
+        "UPDATE word_memory_question SET expected_answer=?,accepted_answers_json=NULL,answer_policy='meaning_flexible' WHERE id=?",
+        "adv. 上下文；语境",
+        MEANING);
+    JsonNode accepted =
+        json.readTree(
+            mvc.perform(
+                    post("/api/word-memory/sessions")
+                        .header("Authorization", bearer(user.token))
+                        .header("Idempotency-Key", "flexible-meaning-accepted")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            "{\"contentIds\":[\""
+                                + WORD
+                                + "\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    accepted.path("sessionId").asText(),
+                    accepted.path("currentEpisode").path("id").asText())
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "flexible-meaning-attempt-accepted")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"answer\":\"（名词）语境\",\"expectedVersion\":1}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("independent_correct"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("independent_correct"));
 
-        JsonNode rejected=json.readTree(mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-rejected")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",rejected.path("sessionId").asText(),rejected.path("currentEpisode").path("id").asText())
-                .header("Authorization",bearer(user.token)).header("Idempotency-Key","flexible-meaning-attempt-rejected").contentType(MediaType.APPLICATION_JSON)
+    JsonNode rejected =
+        json.readTree(
+            mvc.perform(
+                    post("/api/word-memory/sessions")
+                        .header("Authorization", bearer(user.token))
+                        .header("Idempotency-Key", "flexible-meaning-rejected")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            "{\"contentIds\":[\""
+                                + WORD
+                                + "\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    mvc.perform(
+            post(
+                    "/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",
+                    rejected.path("sessionId").asText(),
+                    rejected.path("currentEpisode").path("id").asText())
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "flexible-meaning-attempt-rejected")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"answer\":\"上\",\"expectedVersion\":1}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("incorrect")).andExpect(jsonPath("$.canRetry").value(true));
-    }
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("incorrect"))
+        .andExpect(jsonPath("$.canRetry").value(true));
+  }
 
-    @Test void arbitraryClientContentIdsCannotBypassLearnedWordScope() throws Exception {
-        Session user=register();seedWordOnly();
-        mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","unlearned-session")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MEMORY_SOURCE_SCOPE_VIOLATION"));
-    }
+  @Test
+  void arbitraryClientContentIdsCannotBypassLearnedWordScope() throws Exception {
+    Session user = register();
+    seedWordOnly();
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "unlearned-session")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"contentIds\":[\""
+                        + WORD
+                        + "\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("MEMORY_SOURCE_SCOPE_VIOLATION"));
+  }
 
-    @Test void revealingAnswerIsPersistedAndNeverCountedAsIndependentCorrect() throws Exception {
-        Session user=register();seed();markLearned(user,WORD);
-        JsonNode created=json.readTree(mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","answer-session")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+WORD+"\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        String sessionId=created.path("sessionId").asText(),episodeId=created.path("currentEpisode").path("id").asText();
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/hint",sessionId,episodeId).header("Authorization",bearer(user.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"hintType\":\"answer\",\"expectedVersion\":1}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.answerRevealed").value(true));
-        mvc.perform(post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts",sessionId,episodeId).header("Authorization",bearer(user.token))
-                .header("Idempotency-Key","answer-attempt").contentType(MediaType.APPLICATION_JSON)
+  @Test
+  void revealingAnswerIsPersistedAndNeverCountedAsIndependentCorrect() throws Exception {
+    Session user = register();
+    seed();
+    markLearned(user, WORD);
+    JsonNode created =
+        json.readTree(
+            mvc.perform(
+                    post("/api/word-memory/sessions")
+                        .header("Authorization", bearer(user.token))
+                        .header("Idempotency-Key", "answer-session")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            "{\"contentIds\":[\""
+                                + WORD
+                                + "\"],\"dimensions\":[\"meaning\"],\"source\":\"word_detail\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    String sessionId = created.path("sessionId").asText(),
+        episodeId = created.path("currentEpisode").path("id").asText();
+    mvc.perform(
+            post("/api/word-memory/sessions/{sid}/episodes/{eid}/hint", sessionId, episodeId)
+                .header("Authorization", bearer(user.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hintType\":\"answer\",\"expectedVersion\":1}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.answerRevealed").value(true));
+    mvc.perform(
+            post("/api/word-memory/sessions/{sid}/episodes/{eid}/attempts", sessionId, episodeId)
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "answer-attempt")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"answer\":\"上下文\",\"expectedVersion\":2}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.result").value("hinted_correct"));
-        mvc.perform(post("/api/word-memory/sessions/{id}/finish",sessionId).header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result").value("hinted_correct"));
+    mvc.perform(
+            post("/api/word-memory/sessions/{id}/finish", sessionId)
+                .header("Authorization", bearer(user.token))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"expectedVersion\":3,\"partial\":false}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.independentCorrectCount").value(0))
-                .andExpect(jsonPath("$.hintedCorrectCount").value(1)).andExpect(jsonPath("$.answerRevealedCount").value(1));
-        assertEquals(1,jdbc.queryForObject("SELECT answer_revealed FROM word_memory_evidence WHERE episode_id=?",Integer.class,episodeId));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.independentCorrectCount").value(0))
+        .andExpect(jsonPath("$.hintedCorrectCount").value(1))
+        .andExpect(jsonPath("$.answerRevealedCount").value(1));
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT answer_revealed FROM word_memory_evidence WHERE episode_id=?",
+            Integer.class,
+            episodeId));
+  }
+
+  @Test
+  void independentTrainingUsesOnlyTodayOrCurrentBookLearnedWords() throws Exception {
+    Session user = register();
+    seedWordOnly();
+    String book = "99999999999999999999999999999991";
+    seedUnlearnedWord();
+    jdbc.update(
+        "INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,word_count,sort_no,state) VALUES(?,?,?,?,?,2,1,'active')",
+        book,
+        "F10_MEMORY",
+        "记忆测试词书",
+        "school",
+        "junior");
+    jdbc.update(
+        "INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance) VALUES(?,?,?,1,1)",
+        "99999999999999999999999999999992",
+        book,
+        WORD);
+    jdbc.update(
+        "INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance) VALUES(?,?,?,2,1)",
+        "99999999999999999999999999999993",
+        book,
+        UNLEARNED_WORD);
+    mvc.perform(
+            put("/api/vocabulary-books/current")
+                .header("Authorization", bearer(user.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"bookId\":\"" + book + "\",\"dailyNewLimit\":5}"))
+        .andExpect(status().isOk());
+    LegacyWordFixtures.learn(
+        jdbc, historicalContents, historicalBookStudy, user.userId, WORD, "fuzzy");
+    mvc.perform(
+            get("/api/learning/contents/{id}", WORD)
+                .header("Authorization", "Bearer " + user.token))
+        .andExpect(status().isOk());
+
+    mvc.perform(get("/api/word-memory/sources").header("Authorization", bearer(user.token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.todayLearnedCount").value(1))
+        .andExpect(jsonPath("$.currentBookName").value("记忆测试词书"))
+        .andExpect(jsonPath("$.currentBookLearnedCount").value(1))
+        .andExpect(jsonPath("$.maxBatchSize").value(5));
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "today-source")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"dimensions\":[\"meaning\"],\"source\":\"today\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.source").value("today"))
+        .andExpect(jsonPath("$.targetCount").value(1))
+        .andExpect(jsonPath("$.currentEpisode.contentId").value(WORD));
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "book-source")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"contentIds\":[\""
+                        + UNLEARNED_WORD
+                        + "\"],\"dimensions\":[\"spelling\"],\"source\":\"current_book\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.source").value("current_book"))
+        .andExpect(jsonPath("$.targetCount").value(1))
+        .andExpect(jsonPath("$.currentEpisode.contentId").value(WORD));
+  }
+
+  private void seed() {
+    String source = "11111111111111111111111111111111";
+    jdbc.update(
+        "INSERT INTO content_source (id,name,license_note) VALUES (?,?,?)", source, "测试来源", "测试许可");
+    jdbc.update(
+        "INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+        WORD,
+        "word",
+        source,
+        CryptoUtils.sha256(WORD),
+        CryptoUtils.sha256("context"),
+        "junior",
+        "published",
+        VERSION,
+        VERSION);
+    jdbc.update(
+        "INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        VERSION,
+        WORD,
+        1,
+        "context",
+        "上下文",
+        "context",
+        "intro",
+        30,
+        "context",
+        "上下文",
+        "测试许可",
+        CryptoUtils.sha256("context"),
+        "approved",
+        "00000000000000000000000000000002");
+    jdbc.update(
+        "INSERT INTO word_memory_hint (id,content_version_id,method_type,hint_body,source_type,state,hint_version) VALUES (?,?,?,?,?,?,?)",
+        HINT,
+        VERSION,
+        "association",
+        "把 context 理解为信息所处的上下文环境",
+        "editorial",
+        "published",
+        1);
+    jdbc.update(
+        "INSERT INTO word_memory_question (id,content_version_id,dimension,prompt_text,expected_answer,accepted_answers_json,answer_policy,hint_text,state,question_version) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        MEANING,
+        VERSION,
+        "meaning",
+        "context 的中文含义是？",
+        "上下文",
+        "[\"语境\"]",
+        "exact",
+        "表示信息所处的上下文环境",
+        "published",
+        1);
+    jdbc.update(
+        "INSERT INTO word_memory_question (id,content_version_id,dimension,prompt_text,expected_answer,accepted_answers_json,answer_policy,hint_text,state,question_version) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        SPELLING,
+        VERSION,
+        "spelling",
+        "请根据“上下文”拼写英文单词",
+        "context",
+        null,
+        "case_insensitive",
+        "首字母是 c",
+        "published",
+        1);
+  }
+
+  private void seedWordOnly() {
+    String source = "11111111111111111111111111111111";
+    jdbc.update(
+        "INSERT INTO content_source (id,name,license_note) VALUES (?,?,?)", source, "测试来源", "测试许可");
+    jdbc.update(
+        "INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+        WORD,
+        "word",
+        source,
+        CryptoUtils.sha256(WORD),
+        CryptoUtils.sha256("context"),
+        "junior",
+        "published",
+        VERSION,
+        VERSION);
+    jdbc.update(
+        "INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        VERSION,
+        WORD,
+        1,
+        "context",
+        "上下文",
+        "context",
+        "intro",
+        30,
+        "context",
+        "上下文",
+        "测试许可",
+        CryptoUtils.sha256("context"),
+        "approved",
+        "00000000000000000000000000000002");
+  }
+
+  private void seedUnlearnedWord() {
+    String source = "11111111111111111111111111111111";
+    jdbc.update(
+        "INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+        UNLEARNED_WORD,
+        "word",
+        source,
+        CryptoUtils.sha256(UNLEARNED_WORD),
+        CryptoUtils.sha256("unlearned"),
+        "junior",
+        "published",
+        UNLEARNED_VERSION,
+        UNLEARNED_VERSION);
+    jdbc.update(
+        "INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        UNLEARNED_VERSION,
+        UNLEARNED_WORD,
+        1,
+        "unlearned",
+        "未学习",
+        "unlearned",
+        "intro",
+        30,
+        "unlearned",
+        "未学习",
+        "测试许可",
+        CryptoUtils.sha256("unlearned"),
+        "approved",
+        "00000000000000000000000000000002");
+  }
+
+  private void markLearned(Session user, String contentId) throws Exception {
+    LegacyWordFixtures.learn(
+        jdbc, historicalContents, historicalBookStudy, user.userId, contentId, "fuzzy");
+    mvc.perform(
+            get("/api/learning/contents/{id}", contentId)
+                .header("Authorization", "Bearer " + user.token))
+        .andExpect(status().isOk());
+  }
+
+  private Session register() throws Exception {
+    String invites =
+        mvc.perform(
+                post("/api/admin/invites")
+                    .header("X-Admin-Token", "dev-admin-token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"count\":1,\"expiresInDays\":7}"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String invite = json.readTree(invites).path("codes").get(0).path("code").asText();
+    String login =
+        mvc.perform(
+                post("/api/auth/wechat")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"code\":\"f10-user\",\"inviteCode\":\""
+                            + invite
+                            + "\",\"privacyVersion\":\"PRIVACY_V1\"}"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String ticket = json.readTree(login).path("registrationTicket").asText();
+    mvc.perform(
+        post("/api/auth/sms-code")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"registrationTicket\":\"" + ticket + "\",\"mobile\":\"13800000010\"}"));
+    JsonNode registered =
+        json.readTree(
+            mvc.perform(
+                    post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            "{\"registrationTicket\":\""
+                                + ticket
+                                + "\",\"mobile\":\"13800000010\",\"smsCode\":\"123456\",\"nickname\":\"记忆训练用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    return new Session(
+        registered.path("accessToken").asText(), registered.path("user").path("id").asText());
+  }
+
+  private String bearer(String token) {
+    return "Bearer " + token;
+  }
+
+  private static final String WORD = "44444444444444444444444444444444",
+      VERSION = "55555555555555555555555555555555";
+  private static final String UNLEARNED_WORD = "44444444444444444444444444444445",
+      UNLEARNED_VERSION = "55555555555555555555555555555556";
+  private static final String HINT = "66666666666666666666666666666666",
+      MEANING = "77777777777777777777777777777777",
+      SPELLING = "88888888888888888888888888888888";
+
+  private static class Session {
+    final String token, userId;
+
+    Session(String token, String userId) {
+      this.token = token;
+      this.userId = userId;
     }
-
-    @Test void independentTrainingUsesOnlyTodayOrCurrentBookLearnedWords() throws Exception {
-        Session user=register();seedWordOnly();
-        String book="99999999999999999999999999999991";
-        seedUnlearnedWord();
-        jdbc.update("INSERT INTO vocabulary_book(id,book_code,book_name,book_type,level_code,word_count,sort_no,state) VALUES(?,?,?,?,?,2,1,'active')",book,"F10_MEMORY","记忆测试词书","school","junior");
-        jdbc.update("INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance) VALUES(?,?,?,1,1)","99999999999999999999999999999992",book,WORD);
-        jdbc.update("INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance) VALUES(?,?,?,2,1)","99999999999999999999999999999993",book,UNLEARNED_WORD);
-        mvc.perform(put("/api/vocabulary-books/current").header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"bookId\":\""+book+"\",\"dailyNewLimit\":5}" )).andExpect(status().isOk());
-        LegacyWordFixtures.learn(jdbc,historicalContents,user.userId,WORD,"fuzzy");
-        mvc.perform(get("/api/learning/contents/{id}",WORD).header("Authorization","Bearer "+user.token)).andExpect(status().isOk());
-
-        mvc.perform(get("/api/word-memory/sources").header("Authorization",bearer(user.token)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.todayLearnedCount").value(1))
-                .andExpect(jsonPath("$.currentBookName").value("记忆测试词书"))
-                .andExpect(jsonPath("$.currentBookLearnedCount").value(1)).andExpect(jsonPath("$.maxBatchSize").value(5));
-        mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","today-source")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"dimensions\":[\"meaning\"],\"source\":\"today\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.source").value("today"))
-                .andExpect(jsonPath("$.targetCount").value(1)).andExpect(jsonPath("$.currentEpisode.contentId").value(WORD));
-        mvc.perform(post("/api/word-memory/sessions").header("Authorization",bearer(user.token)).header("Idempotency-Key","book-source")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"contentIds\":[\""+UNLEARNED_WORD+"\"],\"dimensions\":[\"spelling\"],\"source\":\"current_book\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.source").value("current_book"))
-                .andExpect(jsonPath("$.targetCount").value(1)).andExpect(jsonPath("$.currentEpisode.contentId").value(WORD));
-    }
-
-    private void seed(){String source="11111111111111111111111111111111";jdbc.update("INSERT INTO content_source (id,name,license_note) VALUES (?,?,?)",source,"测试来源","测试许可");
-        jdbc.update("INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",WORD,"word",source,CryptoUtils.sha256(WORD),CryptoUtils.sha256("context"),"junior","published",VERSION,VERSION);
-        jdbc.update("INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",VERSION,WORD,1,"context","上下文","context","intro",30,"context","上下文","测试许可",CryptoUtils.sha256("context"),"approved","00000000000000000000000000000002");
-        jdbc.update("INSERT INTO word_memory_hint (id,content_version_id,method_type,hint_body,source_type,state,hint_version) VALUES (?,?,?,?,?,?,?)",HINT,VERSION,"association","把 context 理解为信息所处的上下文环境","editorial","published",1);
-        jdbc.update("INSERT INTO word_memory_question (id,content_version_id,dimension,prompt_text,expected_answer,accepted_answers_json,answer_policy,hint_text,state,question_version) VALUES (?,?,?,?,?,?,?,?,?,?)",MEANING,VERSION,"meaning","context 的中文含义是？","上下文","[\"语境\"]","exact","表示信息所处的上下文环境","published",1);
-        jdbc.update("INSERT INTO word_memory_question (id,content_version_id,dimension,prompt_text,expected_answer,accepted_answers_json,answer_policy,hint_text,state,question_version) VALUES (?,?,?,?,?,?,?,?,?,?)",SPELLING,VERSION,"spelling","请根据“上下文”拼写英文单词","context",null,"case_insensitive","首字母是 c","published",1);}
-    private void seedWordOnly(){String source="11111111111111111111111111111111";jdbc.update("INSERT INTO content_source (id,name,license_note) VALUES (?,?,?)",source,"测试来源","测试许可");
-        jdbc.update("INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",WORD,"word",source,CryptoUtils.sha256(WORD),CryptoUtils.sha256("context"),"junior","published",VERSION,VERSION);
-        jdbc.update("INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",VERSION,WORD,1,"context","上下文","context","intro",30,"context","上下文","测试许可",CryptoUtils.sha256("context"),"approved","00000000000000000000000000000002");}
-    private void seedUnlearnedWord(){String source="11111111111111111111111111111111";
-        jdbc.update("INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",UNLEARNED_WORD,"word",source,CryptoUtils.sha256(UNLEARNED_WORD),CryptoUtils.sha256("unlearned"),"junior","published",UNLEARNED_VERSION,UNLEARNED_VERSION);
-        jdbc.update("INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",UNLEARNED_VERSION,UNLEARNED_WORD,1,"unlearned","未学习","unlearned","intro",30,"unlearned","未学习","测试许可",CryptoUtils.sha256("unlearned"),"approved","00000000000000000000000000000002");}
-    private void markLearned(Session user,String contentId) throws Exception {LegacyWordFixtures.learn(jdbc,historicalContents,user.userId,contentId,"fuzzy");
-        mvc.perform(get("/api/learning/contents/{id}",contentId).header("Authorization","Bearer "+user.token)).andExpect(status().isOk());}
-    private Session register() throws Exception {String invites=mvc.perform(post("/api/admin/invites").header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"count\":1,\"expiresInDays\":7}")).andReturn().getResponse().getContentAsString();String invite=json.readTree(invites).path("codes").get(0).path("code").asText();String login=mvc.perform(post("/api/auth/wechat").contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"f10-user\",\"inviteCode\":\""+invite+"\",\"privacyVersion\":\"PRIVACY_V1\"}")).andReturn().getResponse().getContentAsString();String ticket=json.readTree(login).path("registrationTicket").asText();mvc.perform(post("/api/auth/sms-code").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000010\"}"));JsonNode registered=json.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000010\",\"smsCode\":\"123456\",\"nickname\":\"记忆训练用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}")).andReturn().getResponse().getContentAsString());return new Session(registered.path("accessToken").asText(),registered.path("user").path("id").asText());}
-    private String bearer(String token){return "Bearer "+token;}
-    private static final String WORD="44444444444444444444444444444444",VERSION="55555555555555555555555555555555";
-    private static final String UNLEARNED_WORD="44444444444444444444444444444445",UNLEARNED_VERSION="55555555555555555555555555555556";
-    private static final String HINT="66666666666666666666666666666666",MEANING="77777777777777777777777777777777",SPELLING="88888888888888888888888888888888";
-    private static class Session{final String token,userId;Session(String token,String userId){this.token=token;this.userId=userId;}}
+  }
 }

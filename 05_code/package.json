@@ -1,0 +1,11 @@
+{
+  "name": "letmindwander-source-tools",
+  "private": true,
+  "scripts": {
+    "format:web": "prettier --write admin-web/src admin-web/tests admin-web/vite.config.js admin-web/package.json admin-web/index.html miniprogram --ignore-unknown",
+    "format:check": "prettier --check admin-web/src admin-web/tests admin-web/vite.config.js admin-web/package.json admin-web/index.html miniprogram --ignore-unknown"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
+}

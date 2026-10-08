@@ -1,1 +1,10 @@
-const { mineService }=require('../../../services/index');Page({data:{info:{},loading:true},onShow(){mineService.overview().then(info=>this.setData({info,loading:false})).catch(()=>this.setData({loading:false}));}});
+const { mineService } = require('../../../services/index');
+Page({
+  data: { info: {}, loading: true },
+  onShow() {
+    mineService
+      .overview()
+      .then((info) => this.setData({ info, loading: false }))
+      .catch(() => this.setData({ loading: false }));
+  },
+});

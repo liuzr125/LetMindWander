@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminUserMapper">
+  <resultMap id="account" type="com.zhixing.entity.AdminUserAccountEntity">
+    <id column="id" property="id"/>
+    <result column="seq_no" property="seqNo"/>
+    <result column="short_id" property="shortId"/>
+    <result column="nickname" property="nickname"/>
+    <result column="mobile" property="mobile"/>
+    <result column="status" property="status"/>
+    <result column="ai_consent_version" property="aiConsentVersion"/>
+    <result column="last_login_at" property="lastLoginAt"/>
+    <result column="created_at" property="createdAt"/>
+  </resultMap>
+  <sql id="accountFilter">
+    <where>
+      <if test="status!='all'">status=#{status}</if>
+      <if test="keyword!=''">AND (LOWER(nickname) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR LOWER(COALESCE(short_id,'')) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR COALESCE(mobile,'') LIKE CONCAT('%',#{keyword},'%'))</if>
+    </where>
+  </sql>
+  <select id="countPage" resultType="int">SELECT COUNT(*) FROM app_user <include refid="accountFilter"/></select>
+  <select id="selectPageAccounts" resultMap="account">SELECT id,seq_no,short_id,nickname,mobile,status,ai_consent_version,last_login_at,created_at FROM app_user <include refid="accountFilter"/> ORDER BY created_at DESC,id DESC LIMIT #{limit} OFFSET #{offset}</select>
+  <select id="countLearningPlans" resultType="int">SELECT COUNT(*) FROM learning_plan WHERE owner_id=#{ownerId}</select>
+  <update id="updateAiAuthorization">UPDATE app_user SET ai_consent_version=#{consentVersion},ai_consented_at=#{consentedAt},updated_at=CURRENT_TIMESTAMP WHERE id=#{userId}</update>
+  <select id="selectTodayProgress" resultType="com.zhixing.model.AdminUserLearningView$TodayProgressView">SELECT COUNT(*) total_count,COALESCE(SUM(CASE WHEN dt.status='DONE' THEN 1 ELSE 0 END),0) completed_count,COALESCE(SUM(CASE WHEN dt.status='DOING' THEN 1 ELSE 0 END),0) doing_count FROM daily_task dt JOIN daily_package dp ON dp.id=dt.package_id WHERE dt.owner_id=#{ownerId} AND dp.business_date=#{businessDate}</select>
+</mapper>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminTopicMapper">
+  <resultMap id="topicView" type="map">
+    <id column="id" property="id"/>
+    <result column="name" property="name"/>
+    <result column="state" property="state"/>
+    <result column="topicType" property="topicType"/>
+    <result column="contentCount" property="contentCount"/>
+    <result column="publishedCount" property="publishedCount"/>
+    <result column="planCount" property="planCount"/>
+  </resultMap>
+  <select id="selectSystemTopics" resultMap="topicView">
+    SELECT t.id,t.name,t.state,t.topic_type `topicType`,(SELECT COUNT(DISTINCT lc.id) FROM content_topic ct JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.id=cv.content_id WHERE ct.topic_id=t.id) `contentCount`,(SELECT COUNT(DISTINCT lc.id) FROM content_topic ct JOIN learning_content lc ON lc.published_version_id=ct.content_version_id WHERE ct.topic_id=t.id AND lc.content_type='tech' AND lc.state='published') `publishedCount`,(SELECT COUNT(*) FROM learning_plan_topic pt WHERE pt.topic_id=t.id) `planCount` FROM learning_topic t WHERE t.scope_key='system' AND t.del_is=0 ORDER BY t.name,t.id
+  </select>
+  <select id="selectTopicType" resultType="string">
+    SELECT topic_type FROM learning_topic WHERE id=#{id}
+  </select>
+  <select id="countTechnicalReferences" resultType="int">
+    SELECT COUNT(*) FROM content_topic ct JOIN content_version cv ON cv.id=ct.content_version_id JOIN learning_content lc ON lc.id=cv.content_id WHERE ct.topic_id=#{id} AND lc.content_type&lt;&gt;'word'
+  </select>
+  <select id="countPlanReferences" resultType="int">
+    SELECT COUNT(*) FROM learning_plan_topic WHERE topic_id=#{id}
+  </select>
+  <select id="countDuplicateNames" resultType="int">
+    SELECT COUNT(*) FROM learning_topic WHERE scope_key='system' AND (LOWER(name)=#{name} OR normalized_name=#{normalizedName}) AND id&lt;&gt;#{excludedId}
+  </select>
+  <insert id="insertSystemTopic">
+    INSERT INTO learning_topic(id,scope_key,name,normalized_name,state,topic_type) VALUES(#{id},'system',#{name},#{normalizedName},'active',#{type})
+  </insert>
+  <update id="updateSystemTopic">
+    UPDATE learning_topic SET name=#{name},topic_type=#{type},updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND scope_key='system'
+  </update>
+  <select id="countPublishedTechnicalReferences" resultType="int">
+    SELECT COUNT(*) FROM content_topic ct JOIN learning_content lc ON lc.published_version_id=ct.content_version_id WHERE ct.topic_id=#{id} AND lc.content_type='tech' AND lc.state='published'
+  </select>
+  <select id="countPlanReferencesForDeletion" resultType="int">
+    SELECT COUNT(*) FROM learning_plan_topic WHERE topic_id=#{id}
+  </select>
+  <update id="softDeleteSystemTopic">
+    UPDATE learning_topic SET del_is=1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND scope_key='system' AND del_is=0
+  </update>
+  <select id="selectSystemTopicForUpdate" resultType="map">
+    SELECT id FROM learning_topic WHERE id=#{id} AND scope_key='system' AND del_is=0 FOR UPDATE
+  </select>
+  <insert id="insertTopicAudit">
+    INSERT INTO admin_audit(id,admin_id,action_code,target_type,target_id,result_code,metadata_json,expires_at) VALUES(#{id},#{actor},#{action},'learning_topic',#{topicId},'succeeded','{}',#{expiresAt})
+  </insert>
+</mapper>

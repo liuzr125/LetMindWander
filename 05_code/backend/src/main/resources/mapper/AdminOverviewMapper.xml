@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminOverviewMapper">
+  <select id="countActiveUsers" resultType="int">SELECT COUNT(*) FROM app_user WHERE status='active'</select>
+  <select id="countPublishedContent" resultType="int">SELECT COUNT(*) FROM learning_content WHERE state='published'</select>
+  <select id="countPublishedWords" resultType="int">SELECT COUNT(*) FROM learning_content WHERE state='published' AND content_type='word'</select>
+  <select id="countPublishedArticles" resultType="int">SELECT COUNT(*) FROM learning_content WHERE state='published' AND content_type='english_article'</select>
+  <select id="countTasksForDate" resultType="int">SELECT COUNT(*) FROM daily_task dt JOIN daily_package dp ON dp.id=dt.package_id WHERE dp.business_date=#{date}</select>
+  <select id="countCompletedTasksForDate" resultType="int">SELECT COUNT(*) FROM daily_task dt JOIN daily_package dp ON dp.id=dt.package_id WHERE dp.business_date=#{date} AND dt.status='DONE'</select>
+  <select id="countOpenFeedback" resultType="int">SELECT COUNT(*) FROM user_feedback WHERE state='open'</select>
+  <select id="countAvailableInvites" resultType="int">SELECT COUNT(*) FROM invite_code WHERE status='available'</select>
+  <select id="sumSpendForMonth" resultType="java.math.BigDecimal">SELECT COALESCE(SUM(spent_amount),0) FROM ai_month_budget WHERE month_start=#{date}</select>
+</mapper>

@@ -4,51 +4,102 @@ import com.zhixing.dto.*;
 import com.zhixing.model.*;
 import com.zhixing.service.SessionService;
 import com.zhixing.service.WordMemoryService;
-import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/word-memory")
 public class WordMemoryController {
-    private final SessionService sessions;
-    private final WordMemoryService memory;
-    public WordMemoryController(SessionService sessions,WordMemoryService memory){this.sessions=sessions;this.memory=memory;}
+  private final SessionService sessions;
+  private final WordMemoryService memory;
 
-    @GetMapping("/config")
-    public Map<String,Boolean> config(@RequestHeader(value="Authorization",required=false)String auth){user(auth);return memory.config();}
+  public WordMemoryController(SessionService sessions, WordMemoryService memory) {
+    this.sessions = sessions;
+    this.memory = memory;
+  }
 
-    @GetMapping("/hints")
-    public List<WordMemoryHintView> hints(@RequestHeader(value="Authorization",required=false)String auth,
-                                          @RequestParam String contentId,@RequestParam(required=false)String senseId){user(auth);return memory.hints(contentId,senseId);}
+  /** 读取单词记忆练习开关配置。 */
+  @GetMapping("/config")
+  public Map<String, Boolean> config(
+      @RequestHeader(value = "Authorization", required = false) String auth) {
+    user(auth);
+    return memory.config();
+  }
 
-    @GetMapping("/sources")
-    public WordMemorySourceSummaryView sources(@RequestHeader(value="Authorization",required=false)String auth){return memory.sources(user(auth));}
+  /** 查询当前用户可用的记忆提示。 */
+  @GetMapping("/hints")
+  public List<WordMemoryHintView> hints(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestParam String contentId,
+      @RequestParam(required = false) String senseId) {
+    user(auth);
+    return memory.hints(contentId, senseId);
+  }
 
-    @PostMapping("/sessions")
-    public WordMemorySessionView create(@RequestHeader(value="Authorization",required=false)String auth,
-                                         @RequestHeader(value="Idempotency-Key",required=false)String idempotencyKey,
-                                         @RequestBody CreateWordMemorySessionRequest request){return memory.create(user(auth),idempotencyKey,request);}
+  /** 读取记忆练习来源及可用词条统计。 */
+  @GetMapping("/sources")
+  public WordMemorySourceSummaryView sources(
+      @RequestHeader(value = "Authorization", required = false) String auth) {
+    return memory.sources(user(auth));
+  }
 
-    @GetMapping("/sessions/{id}")
-    public WordMemorySessionView get(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id){return memory.get(user(auth),id);}
+  /** 创建当前用户的单词记忆练习会话。 */
+  @PostMapping("/sessions")
+  public WordMemorySessionView create(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestBody CreateWordMemorySessionRequest request) {
+    return memory.create(user(auth), idempotencyKey, request);
+  }
 
-    @PostMapping("/sessions/{sessionId}/episodes/{episodeId}/hint")
-    public WordMemoryHintRevealView hint(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String sessionId,
-                                         @PathVariable String episodeId,@RequestBody WordMemoryHintRequest request){return memory.revealHint(user(auth),sessionId,episodeId,request);}
+  /** 读取当前用户拥有的记忆练习会话。 */
+  @GetMapping("/sessions/{id}")
+  public WordMemorySessionView get(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id) {
+    return memory.get(user(auth), id);
+  }
 
-    @PostMapping("/sessions/{sessionId}/episodes/{episodeId}/attempts")
-    public WordMemoryAttemptView attempt(@RequestHeader(value="Authorization",required=false)String auth,
-                                          @RequestHeader(value="Idempotency-Key",required=false)String idempotencyKey,
-                                          @PathVariable String sessionId,@PathVariable String episodeId,
-                                          @RequestBody WordMemoryAttemptRequest request){return memory.attempt(user(auth),sessionId,episodeId,idempotencyKey,request);}
+  /** 按会话和题目权限揭示练习提示。 */
+  @PostMapping("/sessions/{sessionId}/episodes/{episodeId}/hint")
+  public WordMemoryHintRevealView hint(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String sessionId,
+      @PathVariable String episodeId,
+      @RequestBody WordMemoryHintRequest request) {
+    return memory.revealHint(user(auth), sessionId, episodeId, request);
+  }
 
-    @PostMapping("/sessions/{id}/finish")
-    public WordMemoryResultView finish(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id,
-                                       @RequestBody FinishWordMemorySessionRequest request){return memory.finish(user(auth),id,request);}
+  /** 提交指定题目的作答并记录练习结果。 */
+  @PostMapping("/sessions/{sessionId}/episodes/{episodeId}/attempts")
+  public WordMemoryAttemptView attempt(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @PathVariable String sessionId,
+      @PathVariable String episodeId,
+      @RequestBody WordMemoryAttemptRequest request) {
+    return memory.attempt(user(auth), sessionId, episodeId, idempotencyKey, request);
+  }
 
-    @GetMapping("/sessions/{id}/result")
-    public WordMemoryResultView result(@RequestHeader(value="Authorization",required=false)String auth,@PathVariable String id){return memory.result(user(auth),id);}
+  /** 结束当前用户的练习会话并生成结果。 */
+  @PostMapping("/sessions/{id}/finish")
+  public WordMemoryResultView finish(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id,
+      @RequestBody FinishWordMemorySessionRequest request) {
+    return memory.finish(user(auth), id, request);
+  }
 
-    private String user(String auth){return sessions.requireUser(auth).getUserId();}
+  /** 读取已完成练习会话的结果。 */
+  @GetMapping("/sessions/{id}/result")
+  public WordMemoryResultView result(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable String id) {
+    return memory.result(user(auth), id);
+  }
+
+  private String user(String auth) {
+    return sessions.requireUser(auth).getUserId();
+  }
 }

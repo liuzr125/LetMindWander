@@ -3,43 +3,114 @@ const { vocabularyBookService } = require('../../../../services/index');
 const TABS = [
   { value: 'all', label: '全部' },
   { value: 'learned', label: '已学' },
-  { value: 'remaining', label: '未学' }
+  { value: 'remaining', label: '未学' },
 ];
 
 Page({
-  data: { loading: true, loadingMore: false, error: '', needsBook: false, progress: null, items: [], status: 'all', tabs: TABS, page: 1, hasMore: false, resetting: false },
-  onLoad() { this.initialized = true; this.load(true); },
-  onShow() { if (this.initialized && this.shownOnce) this.load(true); this.shownOnce = true; },
-  onHide() { this._generation = (this._generation || 0) + 1; this._pending = null; },
-  onPullDownRefresh() { this.load(true, () => wx.stopPullDownRefresh()); },
-  onReachBottom() { if (this.data.hasMore && !this.data.loadingMore) this.load(false); },
-  selectTab(event) { const status = event.currentTarget.dataset.value; if (status === this.data.status) return; this.setData({ status }); this.load(true); },
+  data: {
+    loading: true,
+    loadingMore: false,
+    error: '',
+    needsBook: false,
+    progress: null,
+    items: [],
+    status: 'all',
+    tabs: TABS,
+    page: 1,
+    hasMore: false,
+    resetting: false,
+  },
+  onLoad() {
+    this.initialized = true;
+    this.load(true);
+  },
+  onShow() {
+    if (this.initialized && this.shownOnce) this.load(true);
+    this.shownOnce = true;
+  },
+  // 离开期间可能发生学习或切书，返回时不能复用离开前的请求。
+  onHide() {
+    this._generation = (this._generation || 0) + 1;
+    this._pending = null;
+  },
+  onPullDownRefresh() {
+    this.load(true, () => wx.stopPullDownRefresh());
+  },
+  onReachBottom() {
+    if (this.data.hasMore && !this.data.loadingMore) this.load(false);
+  },
+  selectTab(event) {
+    const status = event.currentTarget.dataset.value;
+    if (status === this.data.status) return;
+    this.setData({ status });
+    this.load(true);
+  },
   load(reset, done) {
     const shouldReset = reset === true;
     const status = this.data.status;
     const key = `${status}:${shouldReset ? 1 : this.data.page + 1}`;
+    // 仅相同页签、页码的在途请求去重；generation 防止旧页签覆盖新页签。
     if (this._pending && this._pending.key === key) {
-      return this._pending.promise.finally(() => { if (done) done(); });
+      return this._pending.promise.finally(() => {
+        if (done) done();
+      });
     }
     const generation = (this._generation || 0) + 1;
     this._generation = generation;
     const page = shouldReset ? 1 : this.data.page + 1;
-    this.setData(shouldReset ? { loading: true, error: '', needsBook: false, page: 1, items: [] } : { loadingMore: true });
-    const promise = vocabularyBookService.progress(status, page, 20).then((progress) => {
-      if (generation !== this._generation) return;
-      const items = shouldReset ? (progress.items || []) : this.data.items.concat(progress.items || []);
-      this.setData({ progress, items, page, hasMore: !!progress.hasMore, loading: false, loadingMore: false, error: '', needsBook: false });
-    }).catch((error) => { if (generation !== this._generation) return; this.setData({ loading: false, loadingMore: false, needsBook: error.code === 'VOCABULARY_BOOK_REQUIRED', error: error.message || '进度加载失败' }); }).finally(() => {
-      if (this._pending && this._pending.generation === generation) this._pending = null;
-      if (done) done();
-    });
+    this.setData(
+      shouldReset
+        ? { loading: true, error: '', needsBook: false, page: 1, items: [] }
+        : { loadingMore: true },
+    );
+    const promise = vocabularyBookService
+      .progress(status, page, 20)
+      .then((progress) => {
+        if (generation !== this._generation) return;
+        const items = shouldReset
+          ? progress.items || []
+          : this.data.items.concat(progress.items || []);
+        this.setData({
+          progress,
+          items,
+          page,
+          hasMore: !!progress.hasMore,
+          loading: false,
+          loadingMore: false,
+          error: '',
+          needsBook: false,
+        });
+      })
+      .catch((error) => {
+        if (generation !== this._generation) return;
+        this.setData({
+          loading: false,
+          loadingMore: false,
+          needsBook: error.code === 'VOCABULARY_BOOK_REQUIRED',
+          error: error.message || '进度加载失败',
+        });
+      })
+      .finally(() => {
+        if (this._pending && this._pending.generation === generation) this._pending = null;
+        if (done) done();
+      });
     this._pending = { key, generation, promise };
     return promise;
   },
-  retry() { this.load(true); },
-  openWord(event) { wx.navigateTo({ url: `/pages/word/detail/index?id=${encodeURIComponent(event.currentTarget.dataset.id)}` }); },
-  openPlan() { wx.navigateTo({ url: '/pages/plan/index' }); },
-  chooseBook() { wx.navigateTo({ url: '/pages/word/books/index' }); },
+  retry() {
+    this.load(true);
+  },
+  openWord(event) {
+    wx.navigateTo({
+      url: `/pages/word/detail/index?id=${encodeURIComponent(event.currentTarget.dataset.id)}`,
+    });
+  },
+  openPlan() {
+    wx.navigateTo({ url: '/pages/plan/index' });
+  },
+  chooseBook() {
+    wx.navigateTo({ url: '/pages/word/books/index' });
+  },
   // 「重新学习」：把这本书已学的单词重新划回未学（学习记录保留，今日已排任务不变）
   resetLearned() {
     if (this.data.resetting) return;
@@ -51,22 +122,27 @@ Page({
       content: `把《${progress.bookName}》已学的 ${count} 个单词重新划为未学？\n学习记录会保留，之后排新词时会重新安排它们。`,
       confirmText: '重新学习',
       confirmColor: '#0869f7',
-      success: (res) => { if (res.confirm) this.doReset(); }
+      success: (res) => {
+        if (res.confirm) this.doReset();
+      },
     });
   },
   doReset() {
     this.setData({ resetting: true });
     wx.showLoading({ title: '正在重置' });
-    vocabularyBookService.resetLearned().then((result) => {
-      wx.hideLoading();
-      this.setData({ resetting: false });
-      const resetCount = result && result.resetCount !== undefined ? result.resetCount : 0;
-      wx.showToast({ title: `已把 ${resetCount} 个单词划回未学`, icon: 'none', duration: 1600 });
-      this.load(true);
-    }).catch((error) => {
-      wx.hideLoading();
-      this.setData({ resetting: false });
-      wx.showToast({ title: error.message || '重置失败', icon: 'none' });
-    });
-  }
+    vocabularyBookService
+      .resetLearned()
+      .then((result) => {
+        wx.hideLoading();
+        this.setData({ resetting: false });
+        const resetCount = result && result.resetCount !== undefined ? result.resetCount : 0;
+        wx.showToast({ title: `已把 ${resetCount} 个单词划回未学`, icon: 'none', duration: 1600 });
+        this.load(true);
+      })
+      .catch((error) => {
+        wx.hideLoading();
+        this.setData({ resetting: false });
+        wx.showToast({ title: error.message || '重置失败', icon: 'none' });
+      });
+  },
 });

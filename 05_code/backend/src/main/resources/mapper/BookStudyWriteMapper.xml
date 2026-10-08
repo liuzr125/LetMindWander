@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.BookStudyWriteMapper">
+  <select id="selectContentBooks" resultType="String">
+ SELECT DISTINCT book_id FROM vocabulary_book_word WHERE content_id=#{content}
+ </select>
+  <select id="selectReviewContent" resultType="String">
+ SELECT ki.source_content_id FROM review_schedule rs JOIN knowledge_item ki ON ki.id=rs.knowledge_id AND ki.owner_id=rs.owner_id WHERE rs.id=#{schedule} AND rs.owner_id=#{owner} AND ki.source_content_id IS NOT NULL
+ </select>
+  <insert id="insertResetLog">
+ INSERT INTO vocabulary_book_reset_log(id,owner_id,book_id,round_id,reset_count,paused_review_count,reset_at) VALUES(#{id},#{owner},#{book},#{round},#{resetCount},#{pausedReviewCount},#{at})
+ </insert>
+  <select id="selectLearningStatus" resultType="String">
+ SELECT learning_status FROM learning_record WHERE owner_id=#{owner} AND content_id=#{content} LIMIT 1
+ </select>
+  <update id="closeOtherRounds">
+ UPDATE vocabulary_book_study_record r SET r.ended_at=#{at},r.final_learned_count=(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id  WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered')),r.updated_at=CURRENT_TIMESTAMP WHERE r.owner_id=#{owner} AND r.book_id&lt;&gt;#{book} AND r.ended_at IS NULL
+ </update>
+  <insert id="insertNextRound">
+ INSERT INTO vocabulary_book_study_record(id,owner_id,book_id,round_no,selected_at,carried_learned_count) SELECT #{id},#{owner},#{book},COALESCE(MAX(round_no),0)+1,#{at}, (SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id   WHERE lr.owner_id=#{learnedOwner} AND w.book_id=#{learnedBook} AND lr.learning_status IN ('understood','mastered')) FROM vocabulary_book_study_record WHERE owner_id=#{roundOwner} AND book_id=#{roundBook}
+ </insert>
+  <select id="selectSameDayRound" resultType="String">
+ SELECT id FROM vocabulary_book_study_record WHERE owner_id=#{owner} AND book_id=#{book} AND selected_at&gt;=#{dayStart} ORDER BY round_no DESC LIMIT 1
+ </select>
+  <select id="selectActiveBook" resultType="String">
+ SELECT book_id FROM user_vocabulary_book WHERE owner_id=#{owner} AND state='active' ORDER BY updated_at DESC LIMIT 1
+ </select>
+  <update id="closeRound">
+ UPDATE vocabulary_book_study_record r SET r.ended_at=GREATEST(COALESCE((SELECT uvb.paused_at FROM user_vocabulary_book uvb WHERE uvb.owner_id=r.owner_id AND uvb.book_id=r.book_id LIMIT 1),#{at}),COALESCE(r.selected_at,#{selectedAt})),r.final_learned_count=(SELECT COUNT(DISTINCT lr.content_id) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id  WHERE lr.owner_id=r.owner_id AND w.book_id=r.book_id AND lr.learning_status IN ('understood','mastered')),r.updated_at=CURRENT_TIMESTAMP WHERE r.id=#{round} AND r.ended_at IS NULL
+ </update>
+  <select id="selectOpenRound" resultType="String">
+ SELECT id FROM vocabulary_book_study_record WHERE owner_id=#{owner} AND book_id=#{book} AND ended_at IS NULL ORDER BY round_no DESC LIMIT 1
+ </select>
+  <insert id="insertDaily">
+ INSERT INTO vocabulary_book_study_daily(id,round_id,owner_id,book_id,business_date,study_count,reviewed_count) SELECT #{id},#{round},owner_id,book_id,#{date},#{study},#{reviewed} FROM vocabulary_book_study_record WHERE id=#{sourceRound}
+ </insert>
+  <update id="incrementSummary">
+ UPDATE vocabulary_book_study_record SET first_studied_at=COALESCE(first_studied_at,#{firstAt}),last_studied_at=#{lastAt},study_count=study_count+#{study},reviewed_count=reviewed_count+#{reviewed},study_day_count=study_day_count+#{day},updated_at=CURRENT_TIMESTAMP WHERE id=#{round}
+ </update>
+  <update id="incrementDaily">
+ UPDATE vocabulary_book_study_daily SET
+ <choose><when test="review">reviewed_count=reviewed_count+1</when><otherwise>study_count=study_count+1</otherwise></choose>,
+ updated_at=CURRENT_TIMESTAMP WHERE round_id=#{round} AND business_date=#{date}
+ </update>
+</mapper>

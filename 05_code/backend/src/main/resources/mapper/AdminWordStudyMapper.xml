@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.AdminWordStudyMapper">
+  <resultMap id="events" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="owner_id" property="owner_id"/>
+    <result column="content_id" property="content_id"/>
+    <result column="attempt_id" property="attempt_id"/>
+    <result column="feedback" property="feedback"/>
+    <result column="source_kind" property="source_kind"/>
+    <result column="word_term" property="word_term"/>
+    <result column="interval_mode" property="interval_mode"/>
+    <result column="before_stage" property="before_stage"/>
+    <result column="after_stage" property="after_stage"/>
+    <result column="before_interval" property="before_interval"/>
+    <result column="after_interval" property="after_interval"/>
+    <result column="next_due" property="next_due"/>
+    <result column="streak" property="streak"/>
+    <result column="completed" property="completed"/>
+    <result column="event_at" property="event_at"/>
+    <result column="nickname" property="nickname"/>
+    <result column="short_id" property="short_id"/>
+  </resultMap>
+  <resultMap id="rounds" type="java.util.LinkedHashMap">
+    <result column="event_id" property="event_id"/>
+    <result column="id" property="id"/>
+    <result column="round_no" property="round_no"/>
+    <result column="book_name" property="book_name"/>
+  </resultMap>
+  <sql id="eventJoin">FROM word_study_event e JOIN app_user u ON u.id=e.owner_id JOIN learning_content lc ON lc.id=e.content_id JOIN content_version cv ON cv.id=lc.published_version_id <if test="roundId != null">WHERE EXISTS(SELECT 1 FROM word_study_event_round er WHERE er.event_id=e.id AND er.round_id=#{roundId})</if></sql>
+  <select id="countEvents" resultType="int">SELECT COUNT(*) <include refid="eventJoin"/></select>
+  <select id="selectEvents" resultMap="events">SELECT e.*,u.nickname,u.short_id <include refid="eventJoin"/> ORDER BY e.event_at DESC,e.id LIMIT #{limit} OFFSET #{offset}</select>
+  <select id="selectEventRounds" resultMap="rounds">SELECT er.event_id,r.id,r.round_no,b.book_name FROM word_study_event_round er JOIN vocabulary_book_study_record r ON r.id=er.round_id JOIN vocabulary_book b ON b.id=r.book_id WHERE er.event_id IN <foreach collection="eventIds" item="id" open="(" separator="," close=")">#{id}</foreach> ORDER BY er.event_id,r.id</select>
+</mapper>

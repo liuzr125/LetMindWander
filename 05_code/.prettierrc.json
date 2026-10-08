@@ -1,0 +1,10 @@
+{
+  "singleQuote": true,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "htmlWhitespaceSensitivity": "strict",
+  "overrides": [
+    { "files": "*.wxml", "options": { "parser": "html" } },
+    { "files": "*.wxss", "options": { "parser": "css" } }
+  ]
+}

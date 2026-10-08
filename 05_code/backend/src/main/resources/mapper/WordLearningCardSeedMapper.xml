@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixing.mapper.WordLearningCardSeedMapper">
+  <resultMap id="row" type="java.util.LinkedHashMap">
+    <result column="id" property="id"/>
+    <result column="version_id" property="version_id"/>
+    <result column="word_term" property="word_term"/>
+    <result column="meaning" property="meaning"/>
+    <result column="level_code" property="level_code"/>
+    <result column="part_of_speech" property="part_of_speech"/>
+    <result column="sense_meaning" property="sense_meaning"/>
+    <result column="example_id" property="example_id"/>
+    <result column="content_version_id" property="content_version_id"/>
+    <result column="card_key" property="card_key"/>
+    <result column="card_type" property="card_type"/>
+    <result column="amount" property="amount"/>
+    <result column="del_is" property="del_is"/>
+    <result column="state" property="state"/>
+    <result column="review_status" property="review_status"/>
+    <result column="reviewed_at" property="reviewed_at"/>
+    <result column="rights_status" property="rights_status"/>
+    <result column="dataset_code" property="dataset_code"/>
+    <result column="relation_type" property="relation_type"/>
+    <result column="related_term" property="related_term"/>
+    <result column="sense_rank" property="sense_rank"/>
+    <result column="relation_rank" property="relation_rank"/>
+    <result column="source_locator" property="source_locator"/>
+    <result column="headword_norm" property="headword_norm"/>
+    <result column="linked_example_id" property="linked_example_id"/>
+    <result column="linked_example_text" property="linked_example_text"/>
+    <result column="linked_example_translation" property="linked_example_translation"/>
+    <result column="sense_label" property="sense_label"/>
+    <result column="title" property="title"/>
+    <result column="body" property="body"/>
+    <result column="example_text" property="example_text"/>
+    <result column="example_translation" property="example_translation"/>
+    <result column="recall_prompt" property="recall_prompt"/>
+    <result column="source_kind" property="source_kind"/>
+    <result column="source_title" property="source_title"/>
+    <result column="rights_note" property="rights_note"/>
+    <result column="source_url" property="source_url"/>
+    <result column="source_verified" property="source_verified"/>
+    <result column="reviewed_by" property="reviewed_by"/>
+    <result column="enabled" property="enabled"/>
+    <result column="sort_no" property="sort_no"/>
+  </resultMap>
+  <select id="selectSeedVersions" resultType="string">
+    SELECT cv.id FROM learning_content lc JOIN content_version cv ON cv.id=lc.published_version_id WHERE cv.content_id=lc.id AND lc.content_type='word' AND lc.state='published' AND lc.withdrawn_at IS NULL AND cv.review_status='approved' AND LOWER(cv.word_term)=#{word} AND (LOCATE(#{meaningContains},cv.meaning)&gt;0 OR EXISTS(SELECT 1 FROM word_sense ws WHERE ws.content_version_id=cv.id AND LOCATE(#{senseMeaningContains},ws.meaning)&gt;0))
+  </select>
+  <select id="countCardKey" resultType="int">
+    SELECT COUNT(*) FROM word_learning_card WHERE content_version_id=#{versionId} AND card_key=#{cardKey}
+  </select>
+  <insert id="insertSeedCard">
+    INSERT INTO word_learning_card(id,content_version_id,card_key,card_type,sense_label,title,related_term,body,example_text,example_translation,recall_prompt,source_kind,source_title,source_url,source_verified,rights_status,rights_note,review_status,reviewed_by,reviewed_at,state,sort_no) VALUES(#{id},#{versionId},#{cardKey},#{cardType},#{senseLabel},#{title},#{relatedTerm},#{body},#{exampleText},#{exampleTranslation},#{recallPrompt},#{sourceKind},#{sourceTitle},#{sourceUrl},#{sourceVerified},'original',#{rightsNote},'approved','ai-assisted-editorial-v1',CURRENT_TIMESTAMP,'published',#{sortNo})
+  </insert>
+</mapper>
