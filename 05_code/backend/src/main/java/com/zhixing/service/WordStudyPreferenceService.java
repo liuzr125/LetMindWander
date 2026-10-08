@@ -15,7 +15,7 @@ public class WordStudyPreferenceService {
 
     public Map<String,Object> preferences(String userId){
         List<Map<String,Object>> rows=jdbc.queryForList("SELECT default_answer_mode,auto_play_enabled,auto_play_accent,auto_play_count,auto_play_interval_ms,row_version FROM user_word_study_preference WHERE owner_id=? AND del_is=0",userId);
-        if(rows.isEmpty())return defaults();
+        if(rows.isEmpty()){Map<String,Object> result=defaults();result.put("intervalMode",intervalMode(userId));return result;}
         Map<String,Object> row=rows.get(0);Map<String,Object> result=new LinkedHashMap<String,Object>();
         result.put("defaultAnswerMode",String.valueOf(row.get("default_answer_mode")));
         result.put("autoPlayEnabled",number(row.get("auto_play_enabled"))!=0);
@@ -23,12 +23,14 @@ public class WordStudyPreferenceService {
         result.put("autoPlayCount",number(row.get("auto_play_count")));
         result.put("autoPlayIntervalMs",number(row.get("auto_play_interval_ms")));
         result.put("rowVersion",number(row.get("row_version")));
+        result.put("intervalMode",intervalMode(userId));
         return result;
     }
 
     @Transactional
     public Map<String,Object> update(String userId,Map<String,Object> request){
         Map<String,Object> current=preferences(userId);
+        if(request!=null&&request.containsKey("intervalMode"))throw new ApiException(HttpStatus.FORBIDDEN,"ADMIN_ONLY_SETTING","复习模式仅由管理员修改");
         String mode=text(request,"defaultAnswerMode",String.valueOf(current.get("defaultAnswerMode")));
         String accent=text(request,"autoPlayAccent",String.valueOf(current.get("autoPlayAccent")));
         boolean enabled=bool(request,"autoPlayEnabled",Boolean.TRUE.equals(current.get("autoPlayEnabled")));
@@ -43,7 +45,8 @@ public class WordStudyPreferenceService {
         return preferences(userId);
     }
 
-    public static Map<String,Object> defaults(){Map<String,Object> result=new LinkedHashMap<String,Object>();result.put("defaultAnswerMode","visible");result.put("autoPlayEnabled",true);result.put("autoPlayAccent","uk");result.put("autoPlayCount",3);result.put("autoPlayIntervalMs",1500);result.put("rowVersion",0);return result;}
+    public static Map<String,Object> defaults(){Map<String,Object> result=new LinkedHashMap<String,Object>();result.put("intervalMode","fixed");result.put("defaultAnswerMode","visible");result.put("autoPlayEnabled",true);result.put("autoPlayAccent","uk");result.put("autoPlayCount",3);result.put("autoPlayIntervalMs",1500);result.put("rowVersion",0);return result;}
+    public String intervalMode(String userId){List<String> modes=jdbc.queryForList("SELECT interval_mode FROM word_study_mode WHERE setting_id=1",String.class);return modes.isEmpty()?"fixed":modes.get(0);}
     private ApiException invalid(String message){return new ApiException(HttpStatus.BAD_REQUEST,"WORD_STUDY_PREFERENCE_INVALID",message);}
     private String text(Map<String,Object> request,String key,String fallback){Object value=request==null?null:request.get(key);return value==null?fallback:String.valueOf(value).trim().toLowerCase(Locale.ROOT);}
     private boolean bool(Map<String,Object> request,String key,boolean fallback){Object value=request==null?null:request.get(key);if(value==null)return fallback;if(value instanceof Boolean)return (Boolean)value;if("true".equalsIgnoreCase(String.valueOf(value)))return true;if("false".equalsIgnoreCase(String.valueOf(value)))return false;throw invalid(key+" 必须为布尔值");}

@@ -29,17 +29,19 @@ public interface MaterialMapper {
             "JOIN content_version cv ON cv.id=lc.published_version_id " +
             "WHERE vbw.book_id=#{bookId} AND lc.content_type='word' AND lc.state='published' " +
             "AND cv.review_status='approved' " +
-            "AND NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status IN ('understood','mastered')) " +
-            "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE') " +
+            "AND NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status<>'unlearned') " +
+            "AND NOT EXISTS (SELECT 1 FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id WHERE rs.owner_id=#{ownerId} AND k.source_content_id=lc.id AND rs.state='active') " +
+            "AND NOT EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1) " +
+            "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE' AND NOT EXISTS (SELECT 1 FROM learning_record reset_lr WHERE reset_lr.owner_id=#{ownerId} AND reset_lr.content_id=lc.id AND reset_lr.learning_status='unlearned')) " +
             "ORDER BY CASE WHEN cv.difficulty=#{difficulty} THEN 0 ELSE 1 END,vbw.sort_no,vbw.importance DESC,lc.published_at,lc.id LIMIT #{limit}")
     List<MaterialCandidate> selectWordContent(@Param("ownerId") String ownerId,@Param("bookId") String bookId,
-                                              @Param("difficulty") String difficulty,@Param("limit") int limit);
+                                              @Param("difficulty") String difficulty,@Param("limit") int limit,@Param("date") LocalDate date);
 
     /** 复习素材：V3.0 复习队列在 review_schedule（state=active 且 due_date 到期），标题取 knowledge_item。 */
     @Select("SELECT k.id, k.title, 30 AS estimated_seconds FROM review_schedule rs " +
             "JOIN knowledge_item k ON k.id = rs.knowledge_id " +
             "WHERE rs.owner_id=#{ownerId} AND rs.state='active' AND rs.due_date<=#{date} " +
-            "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.knowledge_id=k.id AND t.status='DONE') " +
+            "AND NOT EXISTS (SELECT 1 FROM daily_task t JOIN daily_package p ON p.id=t.package_id WHERE t.owner_id=#{ownerId} AND t.knowledge_id=k.id AND t.status='DONE' AND p.business_date=#{date}) " +
             "ORDER BY rs.due_date, k.id LIMIT #{limit}")
     List<MaterialCandidate> selectDueReviews(@Param("ownerId") String ownerId, @Param("date") LocalDate date, @Param("limit") int limit);
 

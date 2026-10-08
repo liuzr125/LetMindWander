@@ -10,17 +10,31 @@ Page({
   data: { loading: true, loadingMore: false, error: '', needsBook: false, progress: null, items: [], status: 'all', tabs: TABS, page: 1, hasMore: false, resetting: false },
   onLoad() { this.initialized = true; this.load(true); },
   onShow() { if (this.initialized && this.shownOnce) this.load(true); this.shownOnce = true; },
+  onHide() { this._generation = (this._generation || 0) + 1; this._pending = null; },
   onPullDownRefresh() { this.load(true, () => wx.stopPullDownRefresh()); },
   onReachBottom() { if (this.data.hasMore && !this.data.loadingMore) this.load(false); },
   selectTab(event) { const status = event.currentTarget.dataset.value; if (status === this.data.status) return; this.setData({ status }); this.load(true); },
   load(reset, done) {
     const shouldReset = reset === true;
+    const status = this.data.status;
+    const key = `${status}:${shouldReset ? 1 : this.data.page + 1}`;
+    if (this._pending && this._pending.key === key) {
+      return this._pending.promise.finally(() => { if (done) done(); });
+    }
+    const generation = (this._generation || 0) + 1;
+    this._generation = generation;
     const page = shouldReset ? 1 : this.data.page + 1;
     this.setData(shouldReset ? { loading: true, error: '', needsBook: false, page: 1, items: [] } : { loadingMore: true });
-    vocabularyBookService.progress(this.data.status, page, 20).then((progress) => {
+    const promise = vocabularyBookService.progress(status, page, 20).then((progress) => {
+      if (generation !== this._generation) return;
       const items = shouldReset ? (progress.items || []) : this.data.items.concat(progress.items || []);
       this.setData({ progress, items, page, hasMore: !!progress.hasMore, loading: false, loadingMore: false, error: '', needsBook: false });
-    }).catch((error) => this.setData({ loading: false, loadingMore: false, needsBook: error.code === 'VOCABULARY_BOOK_REQUIRED', error: error.message || '进度加载失败' })).finally(() => { if (done) done(); });
+    }).catch((error) => { if (generation !== this._generation) return; this.setData({ loading: false, loadingMore: false, needsBook: error.code === 'VOCABULARY_BOOK_REQUIRED', error: error.message || '进度加载失败' }); }).finally(() => {
+      if (this._pending && this._pending.generation === generation) this._pending = null;
+      if (done) done();
+    });
+    this._pending = { key, generation, promise };
+    return promise;
   },
   retry() { this.load(true); },
   openWord(event) { wx.navigateTo({ url: `/pages/word/detail/index?id=${encodeURIComponent(event.currentTarget.dataset.id)}` }); },

@@ -30,6 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:f26;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE","spring.sql.init.mode=always","app.wechat.mock-enabled=true","app.sms.mock-enabled=true","app.sms.fixed-code=123456","app.registration-store=memory"})
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 class F26BookStudyRecordIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired JdbcTemplate jdbc;
 
     @Test void studyingWordsOfEachBookIsRecordedAndVisibleInAdmin() throws Exception {
@@ -47,17 +49,18 @@ class F26BookStudyRecordIntegrationTest {
         assertThat(recordCount(session.userId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT study_count FROM vocabulary_book_study_record WHERE owner_id=? AND book_id=?",Integer.class,session.userId,BOOK_A)).isZero();
 
-        // 学习动作 1：词条页「已认识」
-        mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isOk());
+        // 历史兼容夹具：迁移前的单次词条反馈，不再调用已禁用的接口
+        // 学习动作 1：旧词条页「已认识」
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W1,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W1).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
         assertThat(recordCount(session.userId)).isEqualTo(2);
         assertThat(sum(session.userId,BOOK_A,"study_count")).isEqualTo(1);
         assertThat(sum(session.userId,BOOK_B,"study_count")).isEqualTo(1);
         assertThat(daily(session.userId,BOOK_A,"study_count")).isEqualTo(1);
 
         // 学习动作 2：今日单词卡「认识」（remember）
-        mvc.perform(post("/api/learning/contents/{id}/feedback",W2).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"remember\"}"))
-                .andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W2,"remember");
+        mvc.perform(get("/api/learning/contents/{id}",W2).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
         // 学习动作 3：调整熟悉度
         mvc.perform(put("/api/learning/contents/{id}/familiarity",W1).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"familiarityPercent\":60,\"expectedVersion\":1}"))
                 .andExpect(status().isOk());
@@ -68,8 +71,7 @@ class F26BookStudyRecordIntegrationTest {
 
         // 学习动作 4：到期复习（复习项反查词条，再记到词条所属词书）
         scheduleReview(session.userId,W3,"复习词条");
-        mvc.perform(post("/api/reviews/{id}/feedback",SCHEDULE).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"remember\"}"))
-                .andExpect(status().isOk());
+        LegacyWordFixtures.reviewed(jdbc,session.userId,SCHEDULE);
         assertThat(sum(session.userId,BOOK_A,"reviewed_count")).isEqualTo(1);
         assertThat(daily(session.userId,BOOK_A,"reviewed_count")).isEqualTo(1);
 
@@ -147,8 +149,10 @@ class F26BookStudyRecordIntegrationTest {
         seedSource();
         word(W1,V1,"apple");
         book(BOOK_A,"测试词书甲",new String[]{W1});
-        mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(alice.token)).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
-        mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(bob.token)).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,alice.userId,W1,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W1).header("Authorization","Bearer "+alice.token)).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,bob.userId,W1,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W1).header("Authorization","Bearer "+bob.token)).andExpect(status().isOk());
         List<Map<String,Object>> rows=jdbc.queryForList("SELECT owner_id,study_count FROM vocabulary_book_study_record WHERE book_id=? AND owner_id IN (?,?)",BOOK_A,alice.userId,bob.userId);
         assertThat(rows).hasSize(2);
         for(Map<String,Object> row:rows) assertThat(((Number)row.get("study_count")).intValue()).isEqualTo(1);

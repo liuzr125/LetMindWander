@@ -1,5 +1,5 @@
 const { dailyTaskService, vocabularyBookService, growthService, wordMemoryService } = require('../../services/index');
-const { formatDate, formatChineseDate } = require('../../utils/date');
+const { formatBusinessDate: formatDate, formatBusinessChineseDate: formatChineseDate } = require('../../utils/date');
 
 const GROUPS = {
   tech: { title: '技术学习', icon: '⌁', color: 'green' },
@@ -23,13 +23,14 @@ Page({
   load() {
     const now = new Date(); const today = formatDate(now);
     this.setData({ loading: true, today, dateText: formatChineseDate(now), error: '' });
-    dailyTaskService.day(today).then((pack) => {
+    return dailyTaskService.day(today).then((pack) => {
       const tasks = (pack.tasks || []).filter((task) => task.status !== 'CANCELLED');
       const groups = Object.keys(GROUPS).map((type) => {
         const items = tasks.filter((task) => task.taskType === type);
         if (!items.length) return null;
         const done = items.filter((task) => task.status === 'DONE').length;
-        return Object.assign({ type, items, done, total: items.length, statusText: done === items.length ? '已完成' : `已完成 ${done}/${items.length}` }, GROUPS[type]);
+        const statusText = done === items.length ? '已完成' : `${done === 0 ? '未开始' : '进行中'} ${done}/${items.length}`;
+        return Object.assign({ type, items, done, total: items.length, statusText }, GROUPS[type]);
       }).filter(Boolean);
       const remainingMinutes = Math.ceil(tasks.filter((task) => task.status !== 'DONE' && task.status !== 'SKIPPED').reduce((sum, task) => sum + (task.estimatedSeconds || 0), 0) / 60);
       const gaps = (pack.gaps || []).map((gap) => Object.assign({}, gap, { label: GAP_LABELS[gap.taskType] || '计划任务' }));
@@ -41,16 +42,20 @@ Page({
     }).catch(error => this.setData({ error: error.message || '加载今日任务失败', loading: false }));
   },
   loadGrowth() {
-    growthService.overview().then((growth) => this.setData({ growth, growthError: '' }))
-      .catch((error) => this.setData({ growth: null, growthError: error.message || '成长数据暂时不可用' }));
+    if (this._growthRequest) return this._growthRequest;
+    this._growthRequest = growthService.overview().then((growth) => this.setData({ growth, growthError: '' }))
+      .catch((error) => this.setData({ growth: null, growthError: error.message || '成长数据暂时不可用' })).finally(() => { this._growthRequest = null; });
+    return this._growthRequest;
   },
   loadMemoryEntry() {
-    wordMemoryService.config().then((config) => {
+    if (this._memoryRequest) return this._memoryRequest;
+    this._memoryRequest = wordMemoryService.config().then((config) => {
       const enabled = !!(config && config.enabled);
       this.setData({ memoryEnabled: enabled });
       if (!enabled) return null;
       return wordMemoryService.sources().then((summary) => this.setData({ memorySummary: summary || null }));
-    }).catch(() => this.setData({ memorySummary: null }));
+    }).catch(() => this.setData({ memorySummary: null })).finally(() => { this._memoryRequest = null; });
+    return this._memoryRequest;
   },
   activate() { wx.showLoading({ title: '正在激活' }); dailyTaskService.activate(this.data.today).then(() => { wx.showToast({ title: '今日任务已激活', icon: 'success' }); return this.load(); }).catch(error => wx.showToast({ title: error.message || '激活失败', icon: 'none' })).finally(() => wx.hideLoading()); },
   openGroup(event) {

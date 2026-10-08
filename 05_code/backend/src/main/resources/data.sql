@@ -83,3 +83,10 @@ WHERE NOT EXISTS (SELECT 1 FROM app_parameter WHERE param_key='tts.aliyun.voice'
 INSERT INTO app_parameter(id,param_key,param_value,is_secret,description,state,version_no)
 SELECT '00000000000000000000000000000064','tts.aliyun.sample_rate','16000',0,'Aliyun NLS sample rate','active',1
 WHERE NOT EXISTS (SELECT 1 FROM app_parameter WHERE param_key='tts.aliyun.sample_rate');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,parent_id,description,enabled)
+SELECT '00000000000000000000000000da','announcements','公告管理','/announcements','✉',55,(SELECT id FROM admin_menu WHERE code='group_content'),'公告草稿、发布与撤回',1
+WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='announcements');
+INSERT INTO admin_role_menu(role_id,menu_id)
+SELECT r.id,m.id FROM admin_role r CROSS JOIN admin_menu m
+WHERE r.code='SUPER_ADMIN' AND m.code='announcements'
+AND NOT EXISTS (SELECT 1 FROM admin_role_menu rm WHERE rm.role_id=r.id AND rm.menu_id=m.id);

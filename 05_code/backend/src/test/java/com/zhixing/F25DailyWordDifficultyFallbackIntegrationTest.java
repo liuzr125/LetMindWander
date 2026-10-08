@@ -73,10 +73,16 @@ class F25DailyWordDifficultyFallbackIntegrationTest {
         java.util.Map<String,Object> firstTask=jdbc.queryForMap("SELECT t.id,t.version_no FROM daily_task t JOIN daily_package p ON p.id=t.package_id " +
                 "WHERE t.owner_id=? AND p.business_date=? AND t.task_type='word' AND t.status<>'CANCELLED' ORDER BY t.sort_no LIMIT 1",session.userId,LocalDate.parse(today));
         String taskId=String.valueOf(firstTask.get("id"));
-        mvc.perform(post("/api/tasks/{id}/events",taskId).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"eventType\":\"start\",\"expectedVersion\":1}")).andExpect(status().isOk());
-        mvc.perform(post("/api/tasks/{id}/events",taskId).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"eventType\":\"complete\",\"expectedVersion\":2}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DONE"));
+        // One remember completes the word; direct task completion cannot bypass learning.
+        String content=tasks.get(0);
+        mvc.perform(post("/api/word-study/queue").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"contentId\":\""+content+"\"}" )).andExpect(status().isOk());
+        for(int confirmation=0;confirmation<1;confirmation++){
+            int version=jdbc.queryForObject("SELECT version_no FROM word_study_state WHERE owner_id=? AND content_id=?",Integer.class,session.userId,content);
+            if(confirmation==1)jdbc.update("UPDATE word_study_state SET eligible_at=? WHERE owner_id=? AND content_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),session.userId,content);
+            mvc.perform(post("/api/word-study/{id}/feedback",content).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attemptId\":\"f25-"+confirmation+"\",\"feedback\":\"remember\",\"businessDate\":\""+today+"\",\"expectedVersion\":"+version+"}" )).andExpect(status().isOk());
+        }
+
 
         mvc.perform(put("/api/vocabulary-books/current").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"bookId\":\""+BOOK+"\",\"dailyNewLimit\":"+wanted+"}"))

@@ -29,6 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:f28;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE","spring.sql.init.mode=always","app.wechat.mock-enabled=true","app.sms.mock-enabled=true","app.sms.fixed-code=123456","app.registration-store=memory"})
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 class F28BookStudyRoundIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired JdbcTemplate jdbc;
 
     @Test void switchingBackOpensNewRoundAndKeepsOldOneFrozen() throws Exception {
@@ -118,8 +120,8 @@ class F28BookStudyRoundIntegrationTest {
     }
 
     private void study(Session session,String contentId) throws Exception {
-        mvc.perform(post("/api/learning/contents/{id}/understood",contentId).header("Authorization","Bearer "+session.token)
-                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,contentId,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",contentId).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
     }
     private void select(Session session,String bookId,int dailyNewLimit) throws Exception {
         mvc.perform(put("/api/vocabulary-books/current").header("Authorization","Bearer "+session.token).contentType(MediaType.APPLICATION_JSON)

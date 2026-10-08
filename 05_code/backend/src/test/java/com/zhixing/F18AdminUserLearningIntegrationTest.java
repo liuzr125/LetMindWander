@@ -19,6 +19,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class F18AdminUserLearningIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
@@ -33,8 +35,8 @@ class F18AdminUserLearningIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.selected").value(true));
         mvc.perform(post("/api/learning/contents/{id}/word-book",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"active\":true}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.inWordBook").value(true));
-        mvc.perform(post("/api/learning/contents/{id}/understood",WORD).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true));
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,WORD,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",WORD).header("Authorization","Bearer "+session.token)).andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true));
 
         mvc.perform(get("/api/admin/users/{userId}/learning",session.userId)).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/admin/users/{userId}/learning",session.userId).header("X-Admin-Token","dev-admin-token"))

@@ -94,6 +94,7 @@ public class ContentService {
     @Transactional
     public ContentDetailView understood(String ownerId, String contentId, ContentActionRequest request) {
         ContentDetailView view = required(ownerId, contentId);
+        if("word".equals(view.getContentType()))throw new ApiException(HttpStatus.CONFLICT,"WORD_STUDY_REQUIRED","请从单词学习与巩固队列完成两次回忆");
         Instant now = Instant.now();
         contents.markUnderstood(CryptoUtils.randomId(), ownerId, contentId, learningKey(view, contentId), view.getVersionId(), now);
         appendLearningEvent(ownerId, contentId, request == null ? null : request.getTaskId(), "understood", now);
@@ -109,16 +110,7 @@ public class ContentService {
     public ContentDetailView wordFeedback(String ownerId,String contentId,ContentActionRequest request) {
         ContentDetailView view=required(ownerId,contentId);
         if(!"word".equals(view.getContentType()))throw new ApiException(HttpStatus.BAD_REQUEST,"NOT_WORD","仅英语词条支持记忆反馈");
-        String feedback=request==null?null:request.getFeedback();
-        FeedbackRule rule=feedbackRule(feedback);
-        Instant now=Instant.now();
-        contents.upsertWordFeedback(CryptoUtils.randomId(),ownerId,contentId,learningKey(view,contentId),view.getVersionId(),
-                rule.learningStatus,rule.familiarity,now);
-        appendLearningEvent(ownerId,contentId,request.getTaskId(),feedback,now);
-        bookStudy.record(ownerId,contentId,BookStudyService.KIND_STUDY,now);
-        scheduleFeedback(ownerId,contentId,view,rule);
-        if(request.getTaskId()!=null)dailyTasks.completeContentTask(ownerId,request.getTaskId(),contentId,request.getExpectedVersion());
-        return get(ownerId,contentId);
+        throw new ApiException(HttpStatus.CONFLICT,"WORD_STUDY_REQUIRED","请使用单词学习与巩固队列提交反馈");
     }
 
     @Transactional
@@ -146,6 +138,7 @@ public class ContentService {
             try { contents.insertReview(CryptoUtils.randomId(), ownerId, knowledgeId, due); }
             catch (DuplicateKeyException ignored) { contents.updateReview(ownerId, knowledgeId, state, due); }
         }
+        if("word".equals(view.getContentType()))dailyTasks.refreshToday(ownerId);
         return get(ownerId, contentId);
     }
 
@@ -191,22 +184,6 @@ public class ContentService {
                 : "english_article".equals(view.getContentType()) ? "article:" + contentId : "tech:" + contentId;
     }
 
-    private FeedbackRule feedbackRule(String feedback) {
-        if("unclear".equals(feedback))return new FeedbackRule("learning",0,0,1);
-        if("fuzzy".equals(feedback))return new FeedbackRule("learning",50,0,1);
-        if("remember".equals(feedback))return new FeedbackRule("understood",85,1,3);
-        throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_WORD_FEEDBACK","词条反馈仅支持 unclear、fuzzy 或 remember");
-    }
-
-    private void scheduleFeedback(String ownerId,String contentId,ContentDetailView view,FeedbackRule rule) {
-        String knowledgeId=contents.selectContentKnowledgeId(ownerId,contentId);
-        if(knowledgeId==null){knowledgeId=CryptoUtils.randomId();try{contents.insertContentKnowledge(knowledgeId,ownerId,contentId,view.getVersionId(),view.getTitle());}
-            catch(DuplicateKeyException ignored){knowledgeId=contents.selectContentKnowledgeId(ownerId,contentId);}}
-        LocalDate due=LocalDate.now(BUSINESS_ZONE).plusDays(rule.afterDays);
-        if(contents.updateFeedbackSchedule(ownerId,knowledgeId,rule.stage,due)==0){try{contents.insertFeedbackSchedule(CryptoUtils.randomId(),ownerId,knowledgeId,rule.stage,due);}
-            catch(DuplicateKeyException ignored){contents.updateFeedbackSchedule(ownerId,knowledgeId,rule.stage,due);}}
-    }
-
     private void appendLearningEvent(String ownerId, String contentId, String taskId, String feedback, Instant now) {
         String recordId = contents.selectLearningRecordId(ownerId, contentId);
         Integer recordVersion = contents.selectLearningRecordVersion(ownerId, contentId);
@@ -215,8 +192,4 @@ public class ContentService {
                 feedback, LocalDate.now(BUSINESS_ZONE), now);
     }
 
-    private static class FeedbackRule {
-        final String learningStatus; final int familiarity,stage,afterDays;
-        FeedbackRule(String learningStatus,int familiarity,int stage,int afterDays){this.learningStatus=learningStatus;this.familiarity=familiarity;this.stage=stage;this.afterDays=afterDays;}
-    }
 }

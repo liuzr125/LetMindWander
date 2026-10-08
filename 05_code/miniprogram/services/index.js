@@ -85,6 +85,10 @@ const planService = {
   createTopic(name) { return request({ url: '/plans/topics', method: 'POST', data: { name } }); }
 };
 
+const wordStudyService = {
+  queue(mode = 'all', contentId) { return request({ url: '/word-study/queue', method: 'POST', data: { mode, contentId } }); },
+  feedback(id, payload) { return request({ url: `/word-study/${encodeURIComponent(id)}/feedback`, method: 'POST', data: payload }); }
+};
 const dailyTaskService = {
   day(date) { return request({ url: `/days/${encodeURIComponent(date)}` }); },
   activate(date) { return request({ url: `/days/${encodeURIComponent(date)}/activate`, method: 'POST' }); },
@@ -244,4 +248,4 @@ const resourceScheduleService = {
   state(id, state, expectedVersion) { return request({ url: `/resource-schedules/${encodeURIComponent(id)}/state`, method: 'POST', data: { state, expectedVersion } }); }
 };
 
-module.exports = { systemService, authService, profileService, planService, dailyTaskService, contentService, learningService, vocabularyBookService, journalService, reviewService, wordMemoryService, actionService, growthService, aiService, weeklySummaryService, knowledgeService, mineService, friendService, resourceScheduleService };
+module.exports = { wordStudyService, systemService, authService, profileService, planService, dailyTaskService, contentService, learningService, vocabularyBookService, journalService, reviewService, wordMemoryService, actionService, growthService, aiService, weeklySummaryService, knowledgeService, mineService, friendService, resourceScheduleService };

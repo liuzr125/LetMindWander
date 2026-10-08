@@ -1,4 +1,5 @@
 <script setup>
+import WordStudyPanel from '../../components/WordStudyPanel.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { request } from '../../services/request.js'
@@ -48,6 +49,7 @@ onMounted(() => { loadBooks(); load(1) })
 
 <template>
   <section>
+    <WordStudyPanel show-mode />
     <div class="page-heading"><div><h1>词书学习记录</h1><p>每个用户每本英语词书的学习记录，按「轮次」分开记：一轮 = 一次选定这本词书，换书即冻结当轮，切回同一本书会新开一轮并带入上一轮的已学/未学。</p></div><button class="refresh" :disabled="loading" @click="load(page)">刷新数据</button></div>
     <div v-if="loading && !result.items.length" class="panel state">正在读取学习记录…</div>
     <template v-else>

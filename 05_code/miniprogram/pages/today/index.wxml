@@ -1,4 +1,5 @@
 <view class="today-page">
+  <navigator url="/pages/announcements/list/index" class="history-card"><text>公告</text><text>›</text></navigator>
   <view class="hero">
     <text class="date">{{dateText}}</text>
     <text class="title">{{packActive ? '今天，向前一点点' : '今天，按自己的节奏来'}}</text>

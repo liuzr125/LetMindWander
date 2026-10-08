@@ -16,6 +16,7 @@ const fallbackMenuItems = [
   { code:'overview', path:'/overview', icon:'⌂', name:'概览', description:'平台总体数据与待处理事项' },
   { code:'group_content', path:'', icon:'◇', name:'内容与来源', description:'词书、词条、批次与短文内容的来源与发布状态' },
   { code:'content', path:'/content', icon:'◇', name:'内容与来源', parentCode:'group_content', description:'内容来源、词条与文章明细' },
+  { code:'announcements', path:'/announcements', icon:'✉', name:'公告管理', parentCode:'group_content', description:'公告草稿、发布与撤回' },
   { code:'topics', path:'/topics', icon:'▤', name:'主题管理', parentCode:'group_content', description:'技术知识主题与关联内容统计' },
   { code:'words', path:'/words', icon:'Aa', name:'英语单词', parentCode:'group_content', description:'词书词条、学段与发音' },
   { code:'imports', path:'/vocabulary-imports', icon:'⇄', name:'词库批次', parentCode:'group_content', description:'词库批次导入与发布' },

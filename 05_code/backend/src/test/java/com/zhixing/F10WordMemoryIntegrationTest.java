@@ -21,6 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 @DirtiesContext(classMode=DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class F10WordMemoryIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
 
     @Test void reviewedQuestionsHintsFirstAnswerRetriesIdempotencyAndResultsFormAClosedLoop() throws Exception {
@@ -135,8 +137,8 @@ class F10WordMemoryIntegrationTest {
         jdbc.update("INSERT INTO vocabulary_book_word(id,book_id,content_id,sort_no,importance) VALUES(?,?,?,2,1)","99999999999999999999999999999993",book,UNLEARNED_WORD);
         mvc.perform(put("/api/vocabulary-books/current").header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"bookId\":\""+book+"\",\"dailyNewLimit\":5}" )).andExpect(status().isOk());
-        mvc.perform(post("/api/learning/contents/{id}/feedback",WORD).header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"feedback\":\"fuzzy\"}" )).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,user.userId,WORD,"fuzzy");
+        mvc.perform(get("/api/learning/contents/{id}",WORD).header("Authorization","Bearer "+user.token)).andExpect(status().isOk());
 
         mvc.perform(get("/api/word-memory/sources").header("Authorization",bearer(user.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.todayLearnedCount").value(1))
@@ -164,8 +166,8 @@ class F10WordMemoryIntegrationTest {
     private void seedUnlearnedWord(){String source="11111111111111111111111111111111";
         jdbc.update("INSERT INTO learning_content (id,content_type,source_id,dedup_hash,word_key_hash,stage,state,current_version_id,published_version_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",UNLEARNED_WORD,"word",source,CryptoUtils.sha256(UNLEARNED_WORD),CryptoUtils.sha256("unlearned"),"junior","published",UNLEARNED_VERSION,UNLEARNED_VERSION);
         jdbc.update("INSERT INTO content_version (id,content_id,version_no,title,summary,body,difficulty,estimated_seconds,word_term,meaning,license_snapshot,body_hash,review_status,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",UNLEARNED_VERSION,UNLEARNED_WORD,1,"unlearned","未学习","unlearned","intro",30,"unlearned","未学习","测试许可",CryptoUtils.sha256("unlearned"),"approved","00000000000000000000000000000002");}
-    private void markLearned(Session user,String contentId) throws Exception {mvc.perform(post("/api/learning/contents/{id}/feedback",contentId).header("Authorization",bearer(user.token)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"feedback\":\"fuzzy\"}")).andExpect(status().isOk());}
+    private void markLearned(Session user,String contentId) throws Exception {LegacyWordFixtures.learn(jdbc,historicalContents,user.userId,contentId,"fuzzy");
+        mvc.perform(get("/api/learning/contents/{id}",contentId).header("Authorization","Bearer "+user.token)).andExpect(status().isOk());}
     private Session register() throws Exception {String invites=mvc.perform(post("/api/admin/invites").header("X-Admin-Token","dev-admin-token").contentType(MediaType.APPLICATION_JSON).content("{\"count\":1,\"expiresInDays\":7}")).andReturn().getResponse().getContentAsString();String invite=json.readTree(invites).path("codes").get(0).path("code").asText();String login=mvc.perform(post("/api/auth/wechat").contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"f10-user\",\"inviteCode\":\""+invite+"\",\"privacyVersion\":\"PRIVACY_V1\"}")).andReturn().getResponse().getContentAsString();String ticket=json.readTree(login).path("registrationTicket").asText();mvc.perform(post("/api/auth/sms-code").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000010\"}"));JsonNode registered=json.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"registrationTicket\":\""+ticket+"\",\"mobile\":\"13800000010\",\"smsCode\":\"123456\",\"nickname\":\"记忆训练用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}")).andReturn().getResponse().getContentAsString());return new Session(registered.path("accessToken").asText(),registered.path("user").path("id").asText());}
     private String bearer(String token){return "Bearer "+token;}
     private static final String WORD="44444444444444444444444444444444",VERSION="55555555555555555555555555555555";

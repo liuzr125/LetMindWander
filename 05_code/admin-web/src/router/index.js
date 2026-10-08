@@ -1,22 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import OverviewPage from '../pages/overview/index.vue'
-import UsersPage from '../pages/users/index.vue'
-import InvitesPage from '../pages/invites/index.vue'
-import TopicsPage from '../pages/topics/index.vue'
-import ContentPage from '../pages/content/index.vue'
-import JobsPage from '../pages/jobs/index.vue'
-import AiPage from '../pages/ai/index.vue'
-import AiAuditPage from '../pages/ai-audit/index.vue'
-import AiUsagePage from '../pages/ai-usage/index.vue'
-import WordsPage from '../pages/words/index.vue'
-import ArticlesPage from '../pages/articles/index.vue'
-import UserLearningPage from '../pages/users/learning/index.vue'
-import VocabularyImportsPage from '../pages/imports/index.vue'
-import ParametersPage from '../pages/parameters/index.vue'
-import FeedbackPage from '../pages/feedback/index.vue'
-import StudyRecordsPage from '../pages/study-records/index.vue'
-import StudyRecordDetailPage from '../pages/study-records/detail.vue'
-import RolesPage from '../pages/roles/index.vue'
+const OverviewPage = () => import('../pages/overview/index.vue')
+const UsersPage = () => import('../pages/users/index.vue')
+const InvitesPage = () => import('../pages/invites/index.vue')
+const TopicsPage = () => import('../pages/topics/index.vue')
+const ContentPage = () => import('../pages/content/index.vue')
+const JobsPage = () => import('../pages/jobs/index.vue')
+const AiPage = () => import('../pages/ai/index.vue')
+const AiAuditPage = () => import('../pages/ai-audit/index.vue')
+const AiUsagePage = () => import('../pages/ai-usage/index.vue')
+const WordsPage = () => import('../pages/words/index.vue')
+const ArticlesPage = () => import('../pages/articles/index.vue')
+const UserLearningPage = () => import('../pages/users/learning/index.vue')
+const VocabularyImportsPage = () => import('../pages/imports/index.vue')
+const ParametersPage = () => import('../pages/parameters/index.vue')
+const FeedbackPage = () => import('../pages/feedback/index.vue')
+const StudyRecordsPage = () => import('../pages/study-records/index.vue')
+const StudyRecordDetailPage = () => import('../pages/study-records/detail.vue')
+const AnnouncementsPage = () => import('../pages/announcements/index.vue')
+const RolesPage = () => import('../pages/roles/index.vue')
 
 export default createRouter({
   history: createWebHistory(),
@@ -24,6 +25,7 @@ export default createRouter({
     { path: '/', redirect: '/users' },
     { path: '/overview', component: OverviewPage, meta: { title: '概览' } },
     { path: '/content', component: ContentPage, meta: { title: '内容与来源' } },
+    { path: '/announcements', component: AnnouncementsPage, meta: { title: '公告管理' } },
     { path: '/topics', component: TopicsPage, meta: { title: '主题管理' } },
     { path: '/words', component: WordsPage, meta: { title: '英语单词' } },
     { path: '/vocabulary-imports', component: VocabularyImportsPage, meta: { title: '词库批次自动化' } },

@@ -31,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:f27;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE","spring.sql.init.mode=always","app.wechat.mock-enabled=true","app.sms.mock-enabled=true","app.sms.fixed-code=123456","app.registration-store=memory"})
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 class F27BookResetLearnedIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired JdbcTemplate jdbc;
 
     @Test void resetLearnedMovesLearnedWordsBackToUnlearned() throws Exception {
@@ -45,9 +47,12 @@ class F27BookResetLearnedIntegrationTest {
                 .content("{\"bookId\":\""+BOOK_A+"\",\"dailyNewLimit\":2}")).andExpect(status().isOk());
 
         // 学 w1、w2（词书甲），再学 w4（只在词书乙）
-        mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
-        mvc.perform(post("/api/learning/contents/{id}/feedback",W2).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"remember\"}")).andExpect(status().isOk());
-        mvc.perform(post("/api/learning/contents/{id}/understood",W4).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W1,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W1).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W2,"remember");
+        mvc.perform(get("/api/learning/contents/{id}",W2).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W4,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W4).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
 
         mvc.perform(get("/api/vocabulary-books/current/progress").header("Authorization",bearer(session.token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.learnedCount").value(2))
@@ -126,7 +131,8 @@ class F27BookResetLearnedIntegrationTest {
         book(BOOK_A,"测试词书甲",new String[]{W1,W2});
         mvc.perform(put("/api/vocabulary-books/current").header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"bookId\":\""+BOOK_A+"\",\"dailyNewLimit\":2}")).andExpect(status().isOk());
-        mvc.perform(post("/api/learning/contents/{id}/understood",W1).header("Authorization",bearer(session.token)).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,W1,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",W1).header("Authorization","Bearer "+session.token)).andExpect(status().isOk());
         mvc.perform(post("/api/vocabulary-books/current/reset-learned").header("Authorization",bearer(session.token))).andExpect(status().isOk());
         long stillLearned=jdbc.queryForObject("SELECT COUNT(*) FROM learning_record lr JOIN vocabulary_book_word w ON w.content_id=lr.content_id " +
                 "WHERE lr.owner_id=? AND w.book_id=? AND lr.learning_status IN ('understood','mastered')",Long.class,session.userId,BOOK_A);

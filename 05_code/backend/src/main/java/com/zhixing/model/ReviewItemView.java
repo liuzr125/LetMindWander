@@ -1,8 +1,9 @@
 package com.zhixing.model;
 
 public class ReviewItemView {
-    private String scheduleId,knowledgeId,taskId,itemType,title,body,wordTerm,meaning,exampleText;
+    private String contentId,scheduleId,knowledgeId,taskId,itemType,title,body,wordTerm,meaning,exampleText;
     private Integer stage,taskVersion;
+    public String getContentId(){return contentId;} public void setContentId(String v){contentId=v;}
     public String getScheduleId(){return scheduleId;} public void setScheduleId(String v){scheduleId=v;}
     public String getKnowledgeId(){return knowledgeId;} public void setKnowledgeId(String v){knowledgeId=v;}
     public String getTaskId(){return taskId;} public void setTaskId(String v){taskId=v;}

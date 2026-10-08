@@ -78,7 +78,7 @@
     </block>
     <view class="bottom-actions">
       <text class="feedback-note">{{recallActive ? '先显示答案核对，再按真实记忆选择' : '这是自评，不代表已掌握；保存后进入下一词'}}</text>
-      <view class="feedback-buttons"><button class="unclear" data-value="unclear" bindtap="rateWord" loading="{{acting}}" disabled="{{acting || recallActive}}">不认识</button><button class="remember" data-value="remember" bindtap="rateWord" disabled="{{acting || recallActive}}">认识</button></view>
+      <view class="feedback-buttons"><button class="unclear" data-value="unclear" bindtap="rateWord" loading="{{acting}}" disabled="{{acting || recallActive}}">不认识</button><button class="fuzzy" data-value="fuzzy" bindtap="rateWord" loading="{{acting}}" disabled="{{acting || recallActive}}">模糊</button><button class="remember" data-value="remember" bindtap="rateWord" disabled="{{acting || recallActive}}">认识</button></view>
     </view>
   </block>
 </view>

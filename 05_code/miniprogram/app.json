@@ -41,7 +41,9 @@
     "pages/review/index",
     "pages/summary/detail/index",
     "pages/action/plan/index",
-    "pages/action/detail/index"
+    "pages/action/detail/index",
+    "pages/announcements/list/index",
+    "pages/announcements/detail/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F9FF",

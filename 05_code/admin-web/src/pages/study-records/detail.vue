@@ -1,4 +1,5 @@
 <script setup>
+import WordStudyPanel from '../../components/WordStudyPanel.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request } from '../../services/request.js'
@@ -43,6 +44,7 @@ onMounted(() => { load(); loadWords(1) })
 
 <template>
   <section>
+    <WordStudyPanel :round-id="recordId" />
     <div class="page-heading">
       <div>
         <button class="back" type="button" @click="router.push('/study-records')">‹ 返回学习记录</button>

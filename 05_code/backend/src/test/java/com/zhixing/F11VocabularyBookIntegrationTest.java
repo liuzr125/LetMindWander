@@ -20,6 +20,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:f11;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE","spring.sql.init.mode=always","app.wechat.mock-enabled=true","app.sms.mock-enabled=true","app.sms.fixed-code=123456","app.registration-store=memory"})
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 class F11VocabularyBookIntegrationTest {
+    // Historical compatibility fixture: old stored feedback, not a current one-click learning API.
+    @Autowired com.zhixing.mapper.ContentMapper historicalContents;
     @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
 
     @Test void requiresABookAndRefreshesUnstartedTodayWordsWhenSelectionChanges() throws Exception {
@@ -51,9 +53,8 @@ class F11VocabularyBookIntegrationTest {
                 .andExpect(jsonPath("$.dailyNewCount").value(3)).andExpect(jsonPath("$.estimatedRemainingDays").value(1))
                 .andExpect(jsonPath("$.completionRate").value(0.0)).andExpect(jsonPath("$.items[0].contentId").value(WORD_ONE))
                 .andExpect(jsonPath("$.items[0].learned").value(false));
-        mvc.perform(post("/api/learning/contents/{id}/understood",WORD_ONE).header("Authorization",bearer(session.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true));
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,WORD_ONE,"understood");
+        mvc.perform(get("/api/learning/contents/{id}",WORD_ONE).header("Authorization","Bearer "+session.token)).andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM learning_event WHERE owner_id=? AND feedback='understood'",Integer.class,session.userId)).isEqualTo(1);
         mvc.perform(get("/api/vocabulary-books/current/progress").header("Authorization",bearer(session.token)).param("status","learned"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.learnedCount").value(1))
@@ -77,20 +78,17 @@ class F11VocabularyBookIntegrationTest {
                 .andExpect(jsonPath("$.understood").value(true));
         assertThat(jdbc.queryForObject("SELECT learning_status FROM learning_record WHERE owner_id=? AND content_id=?",String.class,session.userId,WORD_ONE)).isEqualTo("understood");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM learning_event WHERE owner_id=?",Integer.class,session.userId)).isEqualTo(1);
-        mvc.perform(post("/api/learning/contents/{id}/feedback",WORD_ONE).header("Authorization",bearer(session.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"unclear\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(false))
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,WORD_ONE,"unclear");
+        mvc.perform(get("/api/learning/contents/{id}",WORD_ONE).header("Authorization","Bearer "+session.token)).andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(false))
                 .andExpect(jsonPath("$.familiarityPercent").value(0)).andExpect(jsonPath("$.inReview").value(true));
-        mvc.perform(post("/api/learning/contents/{id}/feedback",WORD_ONE).header("Authorization",bearer(session.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"fuzzy\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(false))
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,WORD_ONE,"fuzzy");
+        mvc.perform(get("/api/learning/contents/{id}",WORD_ONE).header("Authorization","Bearer "+session.token)).andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(false))
                 .andExpect(jsonPath("$.familiarityPercent").value(50)).andExpect(jsonPath("$.inReview").value(true));
         assertThat(jdbc.queryForObject("SELECT learning_status FROM learning_record WHERE owner_id=? AND content_id=?",String.class,session.userId,WORD_ONE)).isEqualTo("learning");
         assertThat(jdbc.queryForObject("SELECT stage FROM review_schedule rs JOIN knowledge_item ki ON ki.id=rs.knowledge_id WHERE rs.owner_id=? AND ki.bookmark_content_id=?",Integer.class,session.userId,WORD_ONE)).isEqualTo(0);
         assertThat(jdbc.queryForObject("SELECT due_date FROM review_schedule rs JOIN knowledge_item ki ON ki.id=rs.knowledge_id WHERE rs.owner_id=? AND ki.bookmark_content_id=?",LocalDate.class,session.userId,WORD_ONE)).isEqualTo(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1));
-        mvc.perform(post("/api/learning/contents/{id}/feedback",WORD_ONE).header("Authorization",bearer(session.token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"feedback\":\"remember\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true))
+        LegacyWordFixtures.learn(jdbc,historicalContents,session.userId,WORD_ONE,"remember");
+        mvc.perform(get("/api/learning/contents/{id}",WORD_ONE).header("Authorization","Bearer "+session.token)).andExpect(status().isOk()).andExpect(jsonPath("$.understood").value(true))
                 .andExpect(jsonPath("$.familiarityPercent").value(85));
         assertThat(jdbc.queryForObject("SELECT stage FROM review_schedule rs JOIN knowledge_item ki ON ki.id=rs.knowledge_id WHERE rs.owner_id=? AND ki.bookmark_content_id=?",Integer.class,session.userId,WORD_ONE)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT due_date FROM review_schedule rs JOIN knowledge_item ki ON ki.id=rs.knowledge_id WHERE rs.owner_id=? AND ki.bookmark_content_id=?",LocalDate.class,session.userId,WORD_ONE)).isEqualTo(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(3));

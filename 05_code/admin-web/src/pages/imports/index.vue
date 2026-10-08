@@ -54,9 +54,9 @@ function viewDataSources() { dataSourcesSection.value?.scrollIntoView({ behavior
 async function loadAll() {
   loading.value = true; error.value = ''
   try {
-    const [nextDatasets, nextBooks, nextBatches, nextVoices] = await Promise.all([request('/admin/vocabulary/datasets'), request('/admin/vocabulary-books'), request('/admin/vocabulary/import-batches'), request('/admin/vocabulary/tts/voices')])
+    const [nextDatasets, nextBooks, nextBatches, nextVoices, nextOnlineBooks] = await Promise.all([request('/admin/vocabulary/datasets'), request('/admin/vocabulary-books'), request('/admin/vocabulary/import-batches'), request('/admin/vocabulary/tts/voices'), request('/admin/vocabulary/online-books')])
     datasets.value = nextDatasets; books.value = nextBooks; batches.value = nextBatches; voiceOptions.value = nextVoices
-    onlineBooks.value = await request('/admin/vocabulary/online-books')
+    onlineBooks.value = nextOnlineBooks
     goOnlinePage(onlinePage.value)
   } catch (e) { failure(e) } finally { loading.value = false }
 }

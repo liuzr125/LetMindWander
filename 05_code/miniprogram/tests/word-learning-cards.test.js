@@ -67,7 +67,9 @@ test('all translations, hints and cards are inside recall-hidden block', () => {
   for(const token of ['{{detail.meaning}}','{{displayExample}}','{{learningCardGroups}}','{{memoryHints}}']) {
     assert.ok(markup.indexOf(token)>start && markup.indexOf(token)<end,token);
   }
-  assert.match(markup,/disabled="\{\{acting \|\| recallActive\}\}"/);
+  assert.match(markup,/data-value="remember" bindtap="rateWord"/);
+  assert.match(markup,/bindtap="rateWord"/);
+  assert.doesNotMatch(markup,/进入回忆与巩固/);
 });
 test('new-word preferences default to visible British audio three times with a 1.5 second gap', () => {
   const value=studyPreferences.normalize();

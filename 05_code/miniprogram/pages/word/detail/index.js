@@ -1,5 +1,5 @@
-const { contentService, dailyTaskService, wordMemoryService } = require('../../../services/index');
-const { formatDate } = require('../../../utils/date');
+const { wordStudyService, contentService, dailyTaskService, wordMemoryService } = require('../../../services/index');
+const { formatBusinessDate: formatDate } = require('../../../utils/date');
 const { groups: cardGroups, preferenceTypes: defaultCardPreferenceTypes } = require('../../../utils/word-learning-cards');
 const studyPreferenceUtils = require('../../../utils/word-study-preferences');
 const EXAMPLE_ACCENT_KEY = 'word_example_accent_v1';
@@ -9,7 +9,7 @@ Page({
   // Independent supplementary UI state; never used as evidence of mastery.
   supplementDefaults: { recallActive: false, learningCardGroups: [], cardsLoading: false, cardsError: '' },
   data: { loading: true, error: '', detail: null, contentId: '', taskId: '', taskVersion: 1, acting: false, displayExample: '', displayExampleTranslation: '', wordSizeClass: '', headerPronunciations: [], hasSenseExamples: false, memoryEnabled: false, memoryHints: [], memoryHintOpen: true, exampleAccent: 'uk', exampleAccentIndex: 0, exampleAccentOptions: ['英式', '美式'], wordStudyPreferences: studyPreferenceUtils.defaults() },
-  onLoad(options) { const savedAccent = wx.getStorageSync(EXAMPLE_ACCENT_KEY) === 'us' ? 'us' : 'uk'; this.setData(Object.assign({}, this.supplementDefaults, { contentId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.version) || 1, exampleAccent: savedAccent, exampleAccentIndex: savedAccent === 'us' ? 1 : 0, memoryHintOpen: false })); this.load(); this.loadWordQueue(); },
+  onLoad(options) { const savedAccent = wx.getStorageSync(EXAMPLE_ACCENT_KEY) === 'us' ? 'us' : 'uk'; this.setData(Object.assign({}, this.supplementDefaults, { contentId: options.id || '', taskId: options.taskId || '', taskVersion: Number(options.version) || 1, exampleAccent: savedAccent, exampleAccentIndex: savedAccent === 'us' ? 1 : 0, memoryHintOpen: false })); this.prepareStudyQueue(); this.load(); this.loadWordQueue(); },
   onShow() {
     if (!this.refreshSettingsOnShow) return;
     this.refreshSettingsOnShow = false;
@@ -18,9 +18,9 @@ Page({
   },
   onUnload() { this.stopAudio(); },
   onHide() { this.stopAudio(); },
-  load() {
-    const preferenceRequest = contentService.wordStudyPreferences().catch(() => studyPreferenceUtils.defaults());
-    Promise.all([contentService.get(this.data.contentId), preferenceRequest]).then(([detail, preference]) => {
+  load(reusePreferences) {
+    const preferenceRequest = reusePreferences ? Promise.resolve(this.data.wordStudyPreferences) : contentService.wordStudyPreferences().catch(() => studyPreferenceUtils.defaults());
+    return Promise.all([contentService.get(this.data.contentId), preferenceRequest]).then(([detail, preference]) => {
       this.applyStudyPreferences(preference, true);
       this.setDetail(detail);
       this.loadMemory(); this.loadLearningCards(); this.startAutoPronunciation();
@@ -38,14 +38,16 @@ Page({
     this.setData(state);
   },
   loadLearningCards() {
+    const contentId = this.data.contentId;
     this.setData({ cardsLoading: true, cardsError: '' });
     const preferenceRequest = contentService.cardPreferences().catch(() => ({ types: defaultCardPreferenceTypes() }));
-    Promise.all([preferenceRequest, contentService.learningCards(this.data.contentId)]).then(([preference, cards]) => {
+    Promise.all([preferenceRequest, contentService.learningCards(contentId)]).then(([preference, cards]) => {
+      if (this.data.contentId !== contentId) return;
       const types = Array.isArray(preference.types) ? preference.types : defaultCardPreferenceTypes();
       const enabledTypes = types.filter(item => item.enabled).map(item => item.type);
       this.setData({ learningCardGroups: cardGroups(cards, enabledTypes), cardsLoading: false });
     })
-      .catch(() => this.setData({ cardsLoading: false, cardsError: '辅助卡片暂未加载，不影响基础学习' }));
+      .catch(() => { if (this.data.contentId === contentId) this.setData({ cardsLoading: false, cardsError: '辅助卡片暂未加载，不影响基础学习' }); });
   },
   toggleCardGroup(event) {
     const type = event.currentTarget.dataset.type;
@@ -69,7 +71,7 @@ Page({
     this.setData({ recallActive: !this.data.recallActive });
     wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
-  loadMemory() { wordMemoryService.config().then((config) => { this.setData({ memoryEnabled: !!config.enabled }); if (config.enabled) return wordMemoryService.hints(this.data.contentId).then((memoryHints) => this.setData({ memoryHints: memoryHints || [] })); }).catch(() => this.setData({ memoryEnabled: false, memoryHints: [] })); },
+  loadMemory() { const contentId = this.data.contentId; wordMemoryService.config().then((config) => { if (this.data.contentId !== contentId) return; this.setData({ memoryEnabled: !!config.enabled }); if (config.enabled) return wordMemoryService.hints(contentId).then((memoryHints) => { if (this.data.contentId === contentId) this.setData({ memoryHints: memoryHints || [] }); }); }).catch(() => { if (this.data.contentId === contentId) this.setData({ memoryEnabled: false, memoryHints: [] }); }); },
   toggleMemoryHint() { this.setData({ memoryHintOpen: !this.data.memoryHintOpen }); },
   loadWordQueue() {
     const cached = wx.getStorageSync(WORD_BROWSE_QUEUE_KEY) || {};
@@ -130,13 +132,37 @@ Page({
   stopAudio(){this.audioSequenceToken=(this.audioSequenceToken||0)+1;if(this.autoPlayStartTimer){clearTimeout(this.autoPlayStartTimer);this.autoPlayStartTimer=null;}if(this.audioRepeatTimer){clearTimeout(this.audioRepeatTimer);this.audioRepeatTimer=null;}if(this.audioContext){try{this.audioContext.stop();this.audioContext.destroy();}catch(error){}this.audioContext=null;}},
   toggleWordBook() { this.act(() => contentService.wordBook(this.data.contentId, !this.data.detail.inWordBook), '生词本已更新', false); },
   toggleReview() { this.act(() => contentService.review(this.data.contentId, !this.data.detail.inReview), '复习计划已更新', false); },
-  understood() { this.act(() => contentService.understood(this.data.contentId, { taskId: this.data.taskId || null, expectedVersion: this.data.taskVersion }), '', true); },
+  understood() { this.rateWord({ currentTarget: { dataset: { value: 'remember' } } }); },
+  prepareStudyQueue() {
+    if (!this.studyQueueRequest) this.studyQueueRequest = wordStudyService.queue('all', this.data.contentId).then(queue => { this.studyQueue = queue; return queue; }).catch(() => null).finally(() => { this.studyQueueRequest = null; });
+    return this.studyQueueRequest;
+  },
   rateWord(event) {
     if (this.data.acting || this.data.recallActive) return;
-    const feedback = event.currentTarget.dataset.value;
-    const task = this.currentWordTask();
-    const payload = { feedback, taskId: this.data.taskId || (task && task.id) || null, expectedVersion: this.data.taskId ? this.data.taskVersion : (task && task.versionNo) };
-    this.act(() => contentService.feedback(this.data.contentId, payload), '', true);
+    this.setData({ acting: true });
+    const cached = this.studyQueue;
+    const usable = cached && cached.businessDate === formatDate(new Date()) && cached.current && cached.current.contentId === this.data.contentId;
+    const prepare = this.pendingWordAttempt || usable ? Promise.resolve(cached) : (this.studyQueueRequest || this.prepareStudyQueue()).then(queue => queue || wordStudyService.queue('all', this.data.contentId));
+    prepare.then(queue => {
+      this.studyQueue = queue;
+      if (!queue.current || queue.current.contentId !== this.data.contentId) throw new Error(queue.remaining ? '本词需要间隔后再练，请稍后重试' : '本词今日学习已完成');
+      if (!this.pendingWordAttempt) this.pendingWordAttempt = { attemptId: `${Date.now()}-${Math.random().toString(36).slice(2)}`, feedback: event.currentTarget.dataset.value, expectedVersion: queue.current.version, businessDate: queue.businessDate, mode: 'all' };
+      return wordStudyService.feedback(this.data.contentId, this.pendingWordAttempt);
+    }).then(queue => {
+      this.pendingWordAttempt = null;
+      this.studyQueue = queue;
+      if (queue.current) {
+        this.stopAudio();
+        this.setData(Object.assign({}, this.supplementDefaults, { contentId: queue.current.contentId, taskId: '', taskVersion: 1, memoryHintOpen: false, memoryHints: [], memoryEnabled: false }));
+        wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+        return this.load(true);
+      }
+      wx.showToast({ title: queue.remaining ? '本轮已保存，间隔后继续巩固' : '今日单词学习完成', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 600);
+    }).catch(error => {
+      if ([400, 403, 404, 409].includes(error.statusCode)) { this.pendingWordAttempt = null; this.studyQueue = null; }
+      wx.showToast({ title: error.message || '反馈失败，请重试', icon: 'none' });
+    }).finally(() => this.setData({ acting: false }));
   },
   currentWordTask() { return (this.wordQueue || []).find((task) => task.id === this.data.taskId || task.contentId === this.data.contentId); },
   familiarityChanged(event) { const value=Number(event.detail.value);this.act(()=>contentService.familiarity(this.data.contentId,value,this.data.detail.recordVersion||0),'熟悉度已保存',false); },

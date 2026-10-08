@@ -33,7 +33,7 @@ class DailyTaskServiceAllocationTest {
         MaterialMapper materials = mock(MaterialMapper.class);
         when(materials.selectContent(anyString(), anyString(), anyString(), anyString(), anyInt()))
                 .thenReturn(candidates("tech", 2, 180));
-        when(materials.selectWordContent(anyString(), anyString(), anyString(), anyInt()))
+        when(materials.selectWordContent(anyString(), anyString(), anyString(), anyInt(), any()))
                 .thenReturn(candidates("word", 10, 30));
         when(materials.selectDueReviews(anyString(), any(LocalDate.class), anyInt()))
                 .thenReturn(candidates("review", 5, 30));

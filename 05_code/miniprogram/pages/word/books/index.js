@@ -1,5 +1,5 @@
 const { vocabularyBookService, dailyTaskService } = require('../../../services/index');
-const { formatDate } = require('../../../utils/date');
+const { formatBusinessDate: formatDate } = require('../../../utils/date');
 
 const TYPE_LABELS = {
   k12: '中小学',

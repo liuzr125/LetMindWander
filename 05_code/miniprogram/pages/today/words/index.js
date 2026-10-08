@@ -1,5 +1,5 @@
 const { contentService, dailyTaskService } = require('../../../services/index');
-const { formatDate } = require('../../../utils/date');
+const { formatBusinessDate: formatDate } = require('../../../utils/date');
 
 Page({
   data: { loading: true, error: '', date: '', title: '', words: [] },
@@ -10,13 +10,19 @@ Page({
     this.setData({ date, title });
     this.load();
   },
+  onShow() {
+    if (this._shown) this.load();
+    this._shown = true;
+  },
   load() {
+    const generation = (this._generation || 0) + 1;
+    this._generation = generation;
     this.setData({ loading: true, error: '' });
-    dailyTaskService.day(this.data.date).then((pack) => {
+    return dailyTaskService.day(this.data.date).then((pack) => {
       const words = (pack.tasks || []).filter((t) => t.taskType === 'word' && t.status !== 'CANCELLED');
       return this.attachMeanings(words);
-    }).then((words) => this.setData({ words, loading: false }))
-      .catch((error) => this.setData({ loading: false, error: error.message || '单词列表加载失败' }));
+    }).then((words) => { if (generation === this._generation) this.setData({ words, loading: false }); })
+      .catch((error) => { if (generation === this._generation) this.setData({ loading: false, error: error.message || '单词列表加载失败' }); });
   },
   attachMeanings(words) {
     return Promise.all(words.map((word) => contentService.get(word.contentId)

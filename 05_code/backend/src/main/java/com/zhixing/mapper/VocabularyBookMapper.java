@@ -34,7 +34,7 @@ public interface VocabularyBookMapper {
     String selectActiveBookId(@Param("ownerId") String ownerId);
 
     @Select("SELECT vb.id AS book_id,vb.book_name,vb.book_code,COUNT(DISTINCT cv.id) AS total_count," +
-            "COUNT(DISTINCT CASE WHEN lr.learning_status IN ('understood','mastered') THEN lc.id END) AS learned_count " +
+            "COUNT(DISTINCT CASE WHEN cv.id IS NOT NULL AND lr.learning_status IN ('understood','mastered') THEN lc.id END) AS learned_count " +
             "FROM user_vocabulary_book uvb JOIN vocabulary_book vb ON vb.id=uvb.book_id " +
             "LEFT JOIN vocabulary_book_word vbw ON vbw.book_id=vb.id " +
             "LEFT JOIN learning_content lc ON lc.id=vbw.content_id AND lc.content_type='word' AND lc.state='published' " +
@@ -81,7 +81,7 @@ public interface VocabularyBookMapper {
     int countLearnedInBook(@Param("ownerId") String ownerId,@Param("bookId") String bookId);
 
     @Update("UPDATE learning_record SET learning_status='unlearned',familiarity_percent=NULL,version_no=version_no+1,updated_at=#{now} " +
-            "WHERE owner_id=#{ownerId} AND learning_status IN ('understood','mastered') " +
+            "WHERE owner_id=#{ownerId} AND learning_status IN ('learning','understood','mastered') " +
             "AND content_id IN (SELECT vbw.content_id FROM vocabulary_book_word vbw WHERE vbw.book_id=#{bookId})")
     int resetLearnedInBook(@Param("ownerId") String ownerId,@Param("bookId") String bookId,@Param("now") Instant now);
 

@@ -10,7 +10,7 @@ import java.util.List;
 
 @Mapper
 public interface ReviewMapper {
-    @Select("SELECT rs.id AS schedule_id,k.id AS knowledge_id,t.id AS task_id,t.version_no AS task_version,k.item_type,k.title," +
+    @Select("SELECT rs.id AS schedule_id,k.id AS knowledge_id,k.source_content_id AS content_id,t.id AS task_id,t.version_no AS task_version,k.item_type,k.title," +
             "COALESCE(NULLIF(k.body,''),cv.summary,cv.body,'') AS body,cv.word_term,cv.meaning,cv.example_text,rs.stage " +
             "FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id " +
             "LEFT JOIN daily_package p ON p.owner_id=rs.owner_id AND p.business_date=#{date} " +

@@ -22,6 +22,7 @@ import java.util.Locale;
 
 @Service
 public class VocabularyBookService {
+    @org.springframework.beans.factory.annotation.Autowired private org.springframework.jdbc.core.JdbcTemplate studyJdbc;
     private final VocabularyBookMapper books;
     private final LearningPlanMapper plans;
     private final BookStudyService bookStudy;
@@ -85,6 +86,7 @@ public class VocabularyBookService {
         int learned=books.countLearnedInBook(ownerId,bookId);
         int paused=books.pauseReviewsInBook(ownerId,bookId,now);
         books.resetLearnedInBook(ownerId,bookId,now);
+        studyJdbc.update("DELETE FROM word_study_state WHERE owner_id=? AND content_id IN (SELECT content_id FROM vocabulary_book_word WHERE book_id=?)",ownerId,bookId);
         // 有实际重置才留一条「重新学习」记录（管理端详情可见），空点不产生噪音
         if(learned>0)bookStudy.recordReset(ownerId,bookId,learned,paused,now);
         VocabularyBookResetView out=new VocabularyBookResetView();
