@@ -13732,11 +13732,12 @@
             <tr><td>state</td><td>VARCHAR(16)，running</td><td>运行状态，由服务层维护 running、success、partial、failed 等受控值。</td></tr>
             <tr><td>book_count</td><td>INT UNSIGNED，0</td><td>本轮纳入处理的正式词书数量。</td></tr>
             <tr><td>generated_count / skipped_count / failed_count</td><td>INT UNSIGNED，0</td><td>成功生成、幂等跳过与失败数量。</td></tr>
-            <tr><td>error_message</td><td>VARCHAR(1000)，可空</td><td>本轮失败摘要；不写入模型密钥、临时 Token 或完整第三方响应。</td></tr>
+            <tr><td>error_message</td><td>VARCHAR(1000)，可空</td><td>本轮失败摘要，包含词书、槽位、失败字段及实际／要求长度或词数；不写入模型密钥、临时 Token 或完整第三方响应。</td></tr>
             <tr><td>started_at / finished_at</td><td>DATETIME(3)，非空 / 可空</td><td>运行开始和结束时间，统一使用 UTC。</td></tr>
             <tr><td>created_at</td><td>DATETIME(3)，CURRENT_TIMESTAMP(3)</td><td>审计记录创建时间。</td></tr>
           </tbody></table>
           <p class="indexes"><b>索引：</b>PRIMARY(id); uk_article_generation_trigger(trigger_key); idx_article_generation_date(run_date, created_at)</p>
+          <p>生成与校验采用同一组要求：英文标题 3–100 字符、中文标题 2–200 字符、中文摘要 2–500 字符、英文正文 120–1800 字符、完整中文译文 10–3000 字符；小学／初中／高中正文 45–80 个英文单词，其他词书 75–120 个，分别覆盖至少 3／4 个不同目标词。同批逐篇校验，合格篇保留；只对不合格槽位补生成一次，仍失败则记入运行摘要，等待后续手动补齐。补齐查询实际缺失槽位，不以已有篇数推算槽位，避免局部成功后重复插入。本次复用既有字段，无数据库结构变更。</p>
           <h3>参数、停用与运行历史</h3>
           <table><thead><tr><th>能力</th><th>持久化位置</th><th>说明</th></tr></thead><tbody>
             <tr><td>每日篇数</td><td><code>app_parameter</code>（<code>param_key=article_generation.per_book_count</code>）</td><td>默认 5、范围 1–20；修改后，下一次定时运行与“补齐今日短文”均按新数量补足缺少槽位，不重复插入已有槽位。</td></tr>
