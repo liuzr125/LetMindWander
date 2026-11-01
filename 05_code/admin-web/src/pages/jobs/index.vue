@@ -85,7 +85,7 @@ const tasks = computed(() => {
       nextRunAt: schedule.value.nextRunAt,
       lastRun: runs.value[0],
       description:
-        '从 Kubernetes、Docker、OpenAI、Spring 等官方 RSS/Atom 白名单收集候选技术资料；新内容默认待审核。',
+        '每天合计新增 10 条：优先采集官方 RSS/Atom，不足时 AI 补生成原创技术解读；全部待审核。',
     });
   if (articleTask.value)
     items.push({
@@ -121,7 +121,7 @@ function historyFor(code) {
       handled: item.fetchedCount,
       succeeded: item.insertedCount,
       skipped: item.skippedCount,
-      failed: '—',
+      failed: item.remainingCount ?? '—',
     }));
   if (code === 'article')
     return articleRuns.value.map((item) => ({
@@ -172,6 +172,7 @@ async function load(background = false) {
 }
 async function runTask(task) {
   if (!task.enabled || runningTasks.value[task.code] || savingStateTasks.value[task.code]) return;
+  if (task.code === 'collection' && !window.confirm('按北京时间当天合计 10 条补齐：先采集官方未入库资料，不足时调用 AI 原创生成，可能产生模型费用。当天已达标则不再生成。是否继续？')) return;
   if (
     task.code === 'article' &&
     !window.confirm(
@@ -541,14 +542,18 @@ onMounted(() => load());
             >{{ articleCountSaving ? '保存中…' : '保存' }}</button
           ></div
         ></section
-      ><section class="detail-section"
+      ><section v-if="taskDetail.code === 'collection'" class="detail-section">
+        <h3>每日新增目标</h3>
+        <p>北京时间当天合计 {{ schedule?.dailyTarget || 10 }} 条，已新增 {{ schedule?.dailyInsertedCount || 0 }} 条，仍缺 {{ schedule?.remainingCount || 0 }} 条。</p>
+        <p>官方未入库资料优先，不足时 AI 补生成原创技术解读。已有内容不重复计数；全部保持待审核。未达标时延后 15 分钟重试，每天最多三次自动尝试，仍受 AI 额度及预算约束。</p>
+      </section><section class="detail-section"
         ><h3>历史执行记录</h3
         ><div v-if="!historyFor(taskDetail.code).length" class="empty">暂无运行记录</div
         ><div v-else class="history-wrap"
           ><table
             ><thead
               ><tr
-                ><th>触发方式</th><th>状态</th><th>处理量</th><th>成功</th><th>跳过</th><th>失败</th
+                ><th>触发方式</th><th>状态</th><th>{{ taskDetail.code === 'collection' ? 'RSS 候选' : '处理量' }}</th><th>{{ taskDetail.code === 'collection' ? '新增入库' : '成功' }}</th><th>{{ taskDetail.code === 'collection' ? '去重跳过' : '跳过' }}</th><th>{{ taskDetail.code === 'collection' ? '今日缺口' : '失败' }}</th
                 ><th>完成时间</th><th>操作</th></tr
               ></thead
             ><tbody
@@ -640,6 +645,12 @@ onMounted(() => load());
           ><span>任务代码</span><code>{{ runDetail.taskCode }}</code></div
         >
       </div>
+      <section v-if="runDetail.run.targetCount != null" class="collection-quota" aria-label="本次完成时的每日新增进度">
+        <div><span>每日目标</span><strong>{{ runDetail.run.targetCount }} 条</strong></div>
+        <div><span>今日实际新增</span><strong>{{ runDetail.run.dailyInsertedCount }} 条</strong></div>
+        <div><span>本次 AI 新增</span><strong>{{ runDetail.run.generatedCount }} 条</strong></div>
+        <div><span>仍需补齐</span><strong>{{ runDetail.run.remainingCount }} 条</strong></div>
+      </section>
       <section v-if="runFailure" class="run-failure" aria-labelledby="run-failure-title">
         <h3 id="run-failure-title">{{ runFailure.title }}</h3>
         <p>{{ runFailure.message }}</p>
@@ -655,6 +666,9 @@ onMounted(() => load());
         ></section
       >
       <template v-else>
+        <section v-if="runDetail.models?.length" class="detail-section">
+          <h3>本次使用的 AI 模型</h3><ul><li v-for="model in runDetail.models" :key="`${model.providerCode || model.provider_code}:${model.modelCode || model.model_code}`">{{ model.providerCode || model.provider_code }} · {{ model.modelCode || model.model_code }} · {{ model.callCount || model.call_count }} 次调用</li></ul>
+        </section>
         <section class="detail-section"
           ><h3>调度与 SQL 脚本</h3
           ><p
@@ -689,6 +703,10 @@ onMounted(() => load());
 </template>
 
 <style scoped>
+.collection-quota{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.collection-quota>div{display:grid;gap:8px;padding:14px;border:1px solid #dce7f4;border-radius:9px;background:#f7faff}
+.collection-quota span{font-size:12px;color:#718199}.collection-quota strong{font-size:18px;color:#263959}
+@media(max-width:700px){.collection-quota{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .run-failure {
   margin: 0 0 18px;
   padding: 16px 18px;

@@ -69,7 +69,8 @@ class AdminAuthMapperIntegrationTest {
     // 真会话经认证过滤器退出后，原 token 再访问认证接口必须失效。
     org.springframework.test.web.servlet.MockMvc mvc =
         org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
-                new com.zhixing.controller.AdminAuthController(service))
+                new com.zhixing.controller.AdminAuthController(
+                    service, new com.zhixing.service.AdminLoginGuard(properties)))
             .addFilters(new com.zhixing.config.AdminSessionFilter(service, properties))
             .build();
     String adminToken = String.valueOf(logged.get("token"));

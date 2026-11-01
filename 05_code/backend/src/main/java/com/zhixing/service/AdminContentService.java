@@ -49,13 +49,17 @@ public class AdminContentService {
     view.setSourceCount(contents.countSources());
     view.setTechnicalTopics(contents.selectTechnicalTopics());
     view.setWordStages(contents.selectWordStages());
+    view.setArticleDifficulties(articleCoverage());
+    return view;
+  }
+
+  public List<ContentCoverageView.CoverageItem> articleCoverage() {
     List<ContentCoverageView.CoverageItem> articles = contents.selectArticleDifficulties();
     for (ContentCoverageView.CoverageItem item : articles) {
       if ("intro".equals(item.getName())) item.setName("入门");
       else if ("advanced".equals(item.getName())) item.setName("进阶");
     }
-    view.setArticleDifficulties(articles);
-    return view;
+    return articles;
   }
 
   public AdminTechnicalContentPageView technical(

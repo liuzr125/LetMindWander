@@ -83,6 +83,8 @@ public class AdminSessionFilter extends OncePerRequestFilter {
     if (path.startsWith("/api/admin/roles") || path.startsWith("/api/admin/accounts"))
       return "roles";
     if (path.startsWith("/api/admin/overview")) return "overview";
+    if (path.equals("/api/admin/content/articles")
+        || path.startsWith("/api/admin/content/articles/")) return "articles";
     if (path.startsWith("/api/admin/content")) return "content";
     if (path.startsWith("/api/admin/announcements")) return "announcements";
     if (path.startsWith("/api/admin/topics")) return "topics";

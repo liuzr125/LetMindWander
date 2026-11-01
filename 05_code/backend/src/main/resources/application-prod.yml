@@ -18,10 +18,19 @@ spring:
     ssl: ${REDIS_SSL:false}
 
 app:
+  health:
+    probe-timeout-ms: ${HEALTH_PROBE_TIMEOUT_MS:2000}
+    cache-ms: ${HEALTH_PROBE_CACHE_MS:1000}
   admin-token: ${ADMIN_TOKEN}
   admin-bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:superadmin}
   admin-bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   admin-session-ttl: ${ADMIN_SESSION_TTL:PT8H}
+  admin-login-security:
+    account-max-failures: ${ADMIN_LOGIN_ACCOUNT_MAX_FAILURES:5}
+    source-max-failures: ${ADMIN_LOGIN_SOURCE_MAX_FAILURES:20}
+    failure-window: ${ADMIN_LOGIN_FAILURE_WINDOW:PT15M}
+    lock-duration: ${ADMIN_LOGIN_LOCK_DURATION:PT15M}
+    max-tracked-keys: ${ADMIN_LOGIN_MAX_TRACKED_KEYS:10000}
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
   registration-store: redis
   wechat:

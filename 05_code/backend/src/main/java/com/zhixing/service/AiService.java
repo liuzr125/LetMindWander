@@ -206,7 +206,7 @@ public class AiService {
   }
 
   @Transactional
-  public Map<String, Object> saveModel(String id, AiModelSaveRequest request) {
+  public Map<String, Object> saveModel(String id, AiModelSaveRequest request, String actorId) {
     validateModel(request);
     boolean create = id == null || id.trim().isEmpty();
     String modelId = create ? CryptoUtils.randomId() : id;
@@ -271,6 +271,7 @@ public class AiService {
           "{\"source\":\"admin\",\"verified\":true}");
     }
     audit(
+        actorId,
         "config",
         "ai_model_config",
         modelId,
@@ -324,7 +325,10 @@ public class AiService {
     return result;
   }
 
-  public Map<String, Object> adminQuestionAuditDetail(String jobId) {
+  @Transactional
+  public Map<String, Object> adminQuestionAuditDetail(String jobId, String actorId) {
+    if (actorId == null || actorId.trim().isEmpty())
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "ADMIN_SESSION_INVALID", "需要管理员登录");
     List<Map<String, Object>> rows = persistence.selectQuestionAuditDetail(jobId);
     if (rows.isEmpty())
       throw new ApiException(HttpStatus.NOT_FOUND, "AI_AUDIT_RECORD_NOT_FOUND", "未找到 AI 调用记录");
@@ -343,6 +347,23 @@ public class AiService {
         item.put("answer", json.readTree(output).path("answer").asText());
       } catch (Exception ignored) {
       }
+    // 审计成功才允许控制器返回正文；不复制正文、昵称或凭据到审计元数据。
+    try {
+      int written =
+          persistence.insertAdminAudit(
+              CryptoUtils.randomId(),
+              actorId,
+              "ai_conversation_view",
+              "ai_job",
+              jobId,
+              "{}",
+              Timestamp.from(Instant.now().plus(Duration.ofDays(180))));
+      if (written != 1) throw new IllegalStateException("Audit was not persisted");
+    } catch (RuntimeException error) {
+      LOGGER.warn("Sensitive AI view audit failed: category={}", error.getClass().getSimpleName());
+      throw new ApiException(
+          HttpStatus.SERVICE_UNAVAILABLE, "ADMIN_AUDIT_UNAVAILABLE", "查看记录暂时无法留痕，请稍后重试");
+    }
     return item;
   }
 
@@ -366,7 +387,7 @@ public class AiService {
   }
 
   @Transactional
-  public Map<String, Object> saveBudget(BigDecimal limit, String currency) {
+  public Map<String, Object> saveBudget(BigDecimal limit, String currency, String actorId) {
     if (limit == null || limit.signum() <= 0) throw bad("INVALID_AI_BUDGET", "月预算必须大于 0");
     if (currency == null || !currency.matches("[A-Za-z]{3}"))
       throw bad("INVALID_CURRENCY", "货币代码必须是 3 位字母");
@@ -381,12 +402,13 @@ public class AiService {
         throw conflict("AI_BUDGET_BELOW_COMMITTED", "预算不能低于已消费与已预留金额");
       persistence.updateMonthBudgetLimit(currency.toUpperCase(), limit, month);
     }
-    audit("budget", "ai_month_budget", null, "{\"month\":\"" + month + "\"}");
+    audit(actorId, "budget", "ai_month_budget", null, "{\"month\":\"" + month + "\"}");
     return adminUsage(50);
   }
 
   @Transactional
-  public Map<String, Object> reconcileAttempt(String attemptId, BigDecimal settledAmount) {
+  public Map<String, Object> reconcileAttempt(
+      String attemptId, BigDecimal settledAmount, String actorId) {
     if (settledAmount == null || settledAmount.signum() < 0)
       throw bad("INVALID_AI_SETTLEMENT", "核定费用不能为负数");
     List<Map<String, Object>> rows = persistence.lockAttemptForReconciliation(attemptId);
@@ -398,7 +420,7 @@ public class AiService {
     BigDecimal reserved = decimal(attempt, "reserved_amount");
     persistence.settleBudgetReservation(reserved, settledAmount, string(attempt, "budget_id"));
     persistence.reconcileAttempt(settledAmount, attemptId);
-    audit("budget", "ai_attempt", attemptId, "{\"reconciled\":true}");
+    audit(actorId, "budget", "ai_attempt", attemptId, "{\"reconciled\":true}");
     return adminUsage(100);
   }
 
@@ -811,10 +833,10 @@ public class AiService {
     }
   }
 
-  private void audit(String action, String type, String id, String metadata) {
+  private void audit(String actorId, String action, String type, String id, String metadata) {
     persistence.insertAdminAudit(
         CryptoUtils.randomId(),
-        properties.getAdminPrincipalId(),
+        actorId,
         action,
         type,
         id,

@@ -160,13 +160,32 @@ CREATE TABLE IF NOT EXISTS learning_content (
 );
 CREATE INDEX IF NOT EXISTS idx_learning_content_pick ON learning_content (content_type, state, published_at);
 CREATE INDEX IF NOT EXISTS idx_learning_content_stage ON learning_content (content_type, stage, state, published_at);
+CREATE INDEX IF NOT EXISTS idx_learning_content_source_created ON learning_content(source_id,created_at);
+
+CREATE TABLE IF NOT EXISTS content_collection_schedule (
+ id CHAR(32) PRIMARY KEY,name VARCHAR(100) NOT NULL,cron_expression VARCHAR(80) NOT NULL,
+ timezone VARCHAR(40) NOT NULL,per_run_limit SMALLINT NOT NULL DEFAULT 10,state VARCHAR(32) NOT NULL DEFAULT 'active',
+ last_run_at TIMESTAMP(3),next_run_at TIMESTAMP(3),created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS content_collection_run (
+ id CHAR(32) PRIMARY KEY,schedule_id CHAR(32) NOT NULL,trigger_key VARCHAR(80) NOT NULL,state VARCHAR(32) NOT NULL DEFAULT 'running',
+ fetched_count INT NOT NULL DEFAULT 0,inserted_count INT NOT NULL DEFAULT 0,skipped_count INT NOT NULL DEFAULT 0,
+ error_code VARCHAR(64),error_message VARCHAR(500),started_at TIMESTAMP(3),finished_at TIMESTAMP(3),created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+ business_date DATE,target_count INT,daily_inserted_count INT,generated_count INT,remaining_count INT,
+ CONSTRAINT uk_collection_run_trigger UNIQUE(schedule_id,trigger_key)
+);
+CREATE TABLE IF NOT EXISTS content_collection_day (
+ schedule_id CHAR(32) NOT NULL,business_date DATE NOT NULL,target_count INT NOT NULL DEFAULT 10,
+ lease_owner CHAR(32),lease_until TIMESTAMP(3),auto_attempts INT NOT NULL DEFAULT 0,next_retry_at TIMESTAMP(3),created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(schedule_id,business_date)
+);
 
 CREATE TABLE IF NOT EXISTS content_version (
   id CHAR(32) NOT NULL PRIMARY KEY,
   content_id CHAR(32) NOT NULL,
   version_no INT NOT NULL,
   title VARCHAR(100) NOT NULL,
-  summary VARCHAR(500), title_translation VARCHAR(200), body CLOB,
+  summary VARCHAR(500), title_translation VARCHAR(200), body CLOB,tags_json CLOB,
   difficulty VARCHAR(32) NOT NULL DEFAULT 'intro',
   estimated_seconds INT NOT NULL DEFAULT 180,
   word_term VARCHAR(80), phonetic VARCHAR(200), meaning VARCHAR(500),

@@ -14,6 +14,11 @@ const audioTarget = ref(null),
   nlsToken = ref(''),
   audioError = ref(''),
   audioSuccess = ref('');
+const articleVoice = ref('luca'), savedArticleVoice = ref('luca'), articleVoices = ref([]);
+const voiceSaving = ref(false), voiceMessage = ref(''), voiceError = ref('');
+const savedVoiceLabel = computed(() =>
+  articleVoices.value.find((voice) => voice.code === savedArticleVoice.value)?.label || savedArticleVoice.value,
+);
 const articles = ref({ total: 0, page: 1, pageSize: 20, totalPages: 0, items: [] });
 const page = ref(1),
   pageSize = ref(20),
@@ -40,7 +45,7 @@ const selectedIds = ref([]),
 const batchProgress = ref(null),
   batchStopRequested = ref(false);
 const audioBusy = computed(
-  () => !!generatingArticleId.value || batchRunning.value || batchPreparing.value,
+  () => !!generatingArticleId.value || batchRunning.value || batchPreparing.value || voiceSaving.value,
 );
 const selectableItems = computed(() =>
   articles.value.items.filter((item) => !item.articleAudioUrl),
@@ -91,7 +96,8 @@ function updateSavedAudio(id, result) {
   selectedIds.value = selectedIds.value.filter((value) => value !== id);
 }
 async function ensureAudioAppKeyReady() {
-  const config = await request('/admin/ai/tts', { silentError: true });
+  const config = await request('/admin/content/articles/tts-status', { silentError: true });
+  applyAudioSettings(config);
   if (!config.appKeyConfigured)
     throw Object.assign(
       new Error(
@@ -99,6 +105,27 @@ async function ensureAudioAppKeyReady() {
       ),
       { code: 'TTS_NOT_CONFIGURED' },
     );
+}
+function applyAudioSettings(config) {
+  if (config?.voice) articleVoice.value = savedArticleVoice.value = config.voice;
+  if (Array.isArray(config?.voices)) articleVoices.value = config.voices;
+}
+async function saveArticleVoice() {
+  if (audioBusy.value || articleVoice.value === savedArticleVoice.value) return;
+  voiceSaving.value = true;
+  voiceMessage.value = '';
+  voiceError.value = '';
+  try {
+    const config = await request('/admin/content/articles/tts-settings', {
+      method: 'PUT', body: JSON.stringify({ voice: articleVoice.value }), silentError: true,
+    });
+    applyAudioSettings(config);
+    voiceMessage.value = `已保存：${savedVoiceLabel.value}。后续新生成的短文音频使用此音色，已有音频不变。`;
+  } catch (e) {
+    voiceError.value = e.message || '音色保存失败，请重试';
+  } finally {
+    voiceSaving.value = false;
+  }
 }
 async function openBatchGeneration(scope) {
   if (audioBusy.value) return;
@@ -277,14 +304,14 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const [coverageData, articleData, bookData] = await Promise.all([
-      request('/admin/content/coverage'),
+    const [coverageData, articleData] = await Promise.all([
+      request('/admin/content/articles/options'),
       request(`/admin/content/articles?${params()}`),
-      request('/admin/vocabulary-books'),
     ]);
     coverage.value = coverageData;
+    applyAudioSettings(coverageData.audioSettings);
     articles.value = articleData;
-    books.value = bookData || [];
+    books.value = coverageData.books || [];
     page.value = articleData.page;
   } catch (e) {
     error.value = e.message || '英语短文加载失败';
@@ -525,6 +552,18 @@ onBeforeUnmount(() => {
     <div v-if="fillMessage" class="tts-mode temporary" role="status" aria-live="polite">{{
       fillMessage
     }}</div>
+    <section class="panel article-voice-settings" aria-labelledby="article-voice-title">
+      <div><h2 id="article-voice-title">短文音色</h2><p>默认 Luca；保存后仅用于后续缺少音频的短文，不替换已有音频，也不影响单词发音。</p></div>
+      <form @submit.prevent="saveArticleVoice">
+        <label for="article-voice">音色类型</label>
+        <select id="article-voice" v-model="articleVoice" :disabled="loading || audioBusy || !articleVoices.length">
+          <option v-for="voice in articleVoices" :key="voice.code" :value="voice.code">{{ voice.label }}</option>
+        </select>
+        <button class="refresh" :disabled="loading || audioBusy || !articleVoices.length || articleVoice === savedArticleVoice" type="submit">{{ voiceSaving ? '保存中…' : '保存音色' }}</button>
+      </form>
+      <p v-if="voiceMessage" class="voice-message" role="status">{{ voiceMessage }}</p>
+      <p v-if="voiceError" class="voice-error" role="alert">{{ voiceError }}</p>
+    </section>
     <div class="tts-mode temporary"
       >支持单篇或批量生成：批量只需输入一次临时 NLS Token，逐篇上传 OSS
       并保存。已有音频自动跳过。</div
@@ -844,7 +883,7 @@ onBeforeUnmount(() => {
         Token。</p
       >
       <p
-        >使用当前配置的 AppKey、音色和采样率。超过 300
+        >音色：{{ savedVoiceLabel }}。使用当前配置的 AppKey 和采样率。超过 300
         字符的短文会自动分段合成、合并为一段音频；分段越多，NLS 调用与费用越多。仅本次生成过程使用
         Token，不保存 Token，也不调用 AccessKey 获取 Token。会产生 NLS 合成及 OSS 存储用量。</p
       >
@@ -932,6 +971,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.article-voice-settings{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:20px 22px}
+.article-voice-settings h2{margin:0;color:#233956;font-size:16px}
+.article-voice-settings p{margin:7px 0 0;color:#718199;font-size:13px;line-height:1.65}
+.article-voice-settings form{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.article-voice-settings label{color:#526781;font-size:13px}
+.article-voice-settings select{box-sizing:border-box;height:40px;max-width:100%;padding:0 12px;border:1px solid #c9daf3;border-radius:9px;color:#233956;background:#fff;font:inherit;font-size:13px}
+.article-voice-settings select:focus-visible{outline:2px solid #126ff4;outline-offset:2px}
+.article-voice-settings .voice-message,.article-voice-settings .voice-error{flex-basis:100%;margin:0}
+.article-voice-settings .voice-message{color:#087951}.article-voice-settings .voice-error{color:#bd3d48}
 .batch-toolbar {
   display: flex;
   align-items: center;

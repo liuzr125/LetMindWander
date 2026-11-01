@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import brandLogo from './assets/brand-logo.png';
 import { getAdminToken, request, setAdminToken } from './services/request.js';
 import { closeNotification, notification } from './services/notification.js';
+import { withEnglishCorner, visibleNavigationMenus } from './services/englishCornerMenu.js';
 
 const route = useRoute();
 const now = ref(new Date());
@@ -25,7 +26,7 @@ const fallbackMenuItems = [
     path: '',
     icon: '◇',
     name: '内容与来源',
-    description: '词书、词条、批次与短文内容的来源与发布状态',
+    description: '技术内容、主题、公告与来源管理',
   },
   {
     code: 'content',
@@ -56,7 +57,7 @@ const fallbackMenuItems = [
     path: '/words',
     icon: 'Aa',
     name: '英语单词',
-    parentCode: 'group_content',
+    parentCode: 'group_english',
     description: '词书词条、学段与发音',
   },
   {
@@ -64,7 +65,7 @@ const fallbackMenuItems = [
     path: '/vocabulary-imports',
     icon: '⇄',
     name: '词库批次',
-    parentCode: 'group_content',
+    parentCode: 'group_english',
     description: '词库批次导入与发布',
   },
   {
@@ -72,7 +73,7 @@ const fallbackMenuItems = [
     path: '/articles',
     icon: 'En',
     name: '英语短文',
-    parentCode: 'group_content',
+    parentCode: 'group_english',
     description: '每日英语短文与讲解',
   },
   {
@@ -111,7 +112,7 @@ const fallbackMenuItems = [
     path: '/study-records',
     icon: '▤',
     name: '词书学习记录',
-    parentCode: 'group_users',
+    parentCode: 'group_english',
     description: '每个用户每本英语词书的学习记录、每日明细与已学词条',
   },
   {
@@ -183,9 +184,9 @@ function readItem(item, key) {
 }
 const menuSource = computed(() => {
   const server = profile.value?.menuItems;
-  if (!Array.isArray(server) || !server.length) return fallbackMenuItems;
+  if (!Array.isArray(server) || !server.length) return withEnglishCorner(fallbackMenuItems);
   const codeById = new Map(server.map((item) => [readItem(item, 'id'), readItem(item, 'code')]));
-  return server.map((item) => ({
+  return withEnglishCorner(server.map((item) => ({
     code: readItem(item, 'code'),
     name: readItem(item, 'name'),
     path: readItem(item, 'path') || '',
@@ -194,10 +195,10 @@ const menuSource = computed(() => {
     parentCode: readItem(item, 'parentId')
       ? codeById.get(readItem(item, 'parentId')) || null
       : null,
-  }));
+  })));
 });
 const visibleMenus = computed(() =>
-  menuSource.value.filter((item) => profile.value?.menus?.includes(item.code)),
+  visibleNavigationMenus(menuSource.value, profile.value?.menus || []),
 );
 /** 一级菜单=分类，二级菜单=具体页面；父级不可见的子菜单仍单独展示，避免菜单丢失。 */
 const navItems = computed(() => {

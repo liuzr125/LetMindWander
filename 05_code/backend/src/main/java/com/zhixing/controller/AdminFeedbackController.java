@@ -2,11 +2,13 @@ package com.zhixing.controller;
 
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.model.AdminFeedbackPageView;
 import com.zhixing.model.AdminFeedbackView;
 import com.zhixing.service.AdminFeedbackService;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,12 +54,13 @@ public class AdminFeedbackController {
   public AdminFeedbackView state(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String id,
-      @RequestBody Map<String, Object> body) {
+      @RequestBody Map<String, Object> body,
+      HttpServletRequest servletRequest) {
     admin(token);
     LOGGER.debug("admin_request controller=Feedback operation=state");
     Object state = body == null ? null : body.get("state");
     return feedback.setState(
-        id, state == null ? null : String.valueOf(state), properties.getAdminPrincipalId());
+        id, state == null ? null : String.valueOf(state), AdminActors.requireId(servletRequest));
   }
 
   private void admin(String token) {

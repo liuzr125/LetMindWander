@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Database-backed plans; all task dates and cron calculations use Beijing time. */
 @Service
@@ -69,6 +70,7 @@ public class TaskScheduleSettings {
     return cron;
   }
 
+  @Transactional
   public String save(String code, String value) {
     String cron = validate(value);
     switch (code) {
@@ -93,7 +95,7 @@ public class TaskScheduleSettings {
     return nextFromCron(cron(code), from);
   }
 
-  private Instant nextFromCron(String cron, Instant from) {
+  public Instant nextFromCron(String cron, Instant from) {
     ZonedDateTime next = CronExpression.parse(cron).next(from.atZone(ZONE));
     return next == null ? null : next.toInstant();
   }

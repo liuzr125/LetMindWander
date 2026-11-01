@@ -1,9 +1,11 @@
 package com.zhixing.controller;
 
 import com.zhixing.common.*;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.service.OnlineVocabularyCatalogService;
 import java.util.*;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,9 +45,10 @@ public class AdminOnlineVocabularyController {
   @PostMapping("/{code}/sync")
   public Map<String, Object> sync(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String code) {
+      @PathVariable String code,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return service.sync(code, properties.getAdminPrincipalId());
+    return service.sync(code, AdminActors.requireId(servletRequest));
   }
 
   private void admin(String t) {

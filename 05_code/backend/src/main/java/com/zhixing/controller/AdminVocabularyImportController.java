@@ -2,10 +2,12 @@ package com.zhixing.controller;
 
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.service.AliyunTtsService;
 import com.zhixing.service.VocabularyImportService;
 import java.util.*;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,9 +52,10 @@ public class AdminVocabularyImportController {
   @DeleteMapping("/datasets/{id}")
   public Map<String, Object> deleteDataset(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.deleteDataset(id, properties.getAdminPrincipalId());
+    return imports.deleteDataset(id, AdminActors.requireId(servletRequest));
   }
 
   /** 列出最近的导入批次及处理状态。 */
@@ -67,13 +70,14 @@ public class AdminVocabularyImportController {
   @PostMapping("/import-batches")
   public Map<String, Object> create(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @RequestBody Map<String, Object> body) {
+      @RequestBody Map<String, Object> body,
+      HttpServletRequest servletRequest) {
     admin(token);
     return imports.createBatch(
         string(body, "datasetId"),
         string(body, "targetBookId"),
         map(body.get("options")),
-        properties.getAdminPrincipalId());
+        AdminActors.requireId(servletRequest));
   }
 
   /** 读取批次统计、暂存词条及语音任务概况。 */
@@ -89,58 +93,64 @@ public class AdminVocabularyImportController {
   @DeleteMapping("/import-batches/{id}")
   public Map<String, Object> deleteBatch(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.deleteBatch(id, properties.getAdminPrincipalId());
+    return imports.deleteBatch(id, AdminActors.requireId(servletRequest));
   }
 
   /** 解析批次词条，识别复用项并规划人工审核和语音生成。 */
   @PostMapping("/import-batches/{id}/start")
   public Map<String, Object> start(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.start(id, properties.getAdminPrincipalId());
+    return imports.start(id, AdminActors.requireId(servletRequest));
   }
 
   /** 暂停正在处理或待审核的批次。 */
   @PostMapping("/import-batches/{id}/pause")
   public Map<String, Object> pause(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.pause(id, properties.getAdminPrincipalId());
+    return imports.pause(id, AdminActors.requireId(servletRequest));
   }
 
   /** 重试批次待处理或失败的语音任务。 */
   @PostMapping("/import-batches/{id}/retry")
   public Map<String, Object> retry(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.retryTts(id, properties.getAdminPrincipalId());
+    return imports.retryTts(id, AdminActors.requireId(servletRequest));
   }
 
   /** 通过授权、审核和语音门禁后事务性发布词条到词书。 */
   @PostMapping("/import-batches/{id}/publish")
   public Map<String, Object> publish(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String id) {
+      @PathVariable String id,
+      HttpServletRequest servletRequest) {
     admin(token);
-    return imports.publish(id, properties.getAdminPrincipalId());
+    return imports.publish(id, AdminActors.requireId(servletRequest));
   }
 
   /** 批准或拒绝批次中的指定待审核词条。 */
   @PostMapping("/import-items/review")
   public Map<String, Object> review(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @RequestBody Map<String, Object> body) {
+      @RequestBody Map<String, Object> body,
+      HttpServletRequest servletRequest) {
     admin(token);
     return imports.review(
         string(body, "batchId"),
         strings(body.get("itemIds")),
         string(body, "decision"),
-        properties.getAdminPrincipalId());
+        AdminActors.requireId(servletRequest));
   }
 
   /** 列出词库语音生成可用音色。 */

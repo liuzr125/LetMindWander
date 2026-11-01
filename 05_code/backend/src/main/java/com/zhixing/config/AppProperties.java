@@ -14,6 +14,60 @@ public class AppProperties {
   private String adminBootstrapPassword = "dev-admin-123456";
   private Duration adminSessionTtl = Duration.ofHours(8);
   private boolean adminLegacyTokenEnabled;
+  private final AdminLoginSecurity adminLoginSecurity = new AdminLoginSecurity();
+
+  public AdminLoginSecurity getAdminLoginSecurity() {
+    return adminLoginSecurity;
+  }
+
+  public static class AdminLoginSecurity {
+    private int accountMaxFailures = 5;
+    private int sourceMaxFailures = 20;
+    private int maxTrackedKeys = 10000;
+    private Duration failureWindow = Duration.ofMinutes(15);
+    private Duration lockDuration = Duration.ofMinutes(15);
+
+    public int getAccountMaxFailures() {
+      return accountMaxFailures;
+    }
+
+    public void setAccountMaxFailures(int value) {
+      accountMaxFailures = value;
+    }
+
+    public int getSourceMaxFailures() {
+      return sourceMaxFailures;
+    }
+
+    public void setSourceMaxFailures(int value) {
+      sourceMaxFailures = value;
+    }
+
+    public int getMaxTrackedKeys() {
+      return maxTrackedKeys;
+    }
+
+    public void setMaxTrackedKeys(int value) {
+      maxTrackedKeys = value;
+    }
+
+    public Duration getFailureWindow() {
+      return failureWindow;
+    }
+
+    public void setFailureWindow(Duration value) {
+      failureWindow = value;
+    }
+
+    public Duration getLockDuration() {
+      return lockDuration;
+    }
+
+    public void setLockDuration(Duration value) {
+      lockDuration = value;
+    }
+  }
+
   private Duration sessionTtl = Duration.ofDays(30);
   private Duration registrationTtl = Duration.ofMinutes(10);
   private String registrationStore = "memory";

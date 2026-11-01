@@ -17,6 +17,18 @@ INSERT INTO admin_role (id,code,name,description,is_system,enabled,sort_order)
 SELECT '00000000000000000000000000a2','ADMIN','管理员','默认业务管理权限，不含账号与角色权限',0,1,20
 WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE code='ADMIN');
 
+INSERT INTO content_collection_schedule(id,name,cron_expression,timezone,per_run_limit,state)
+SELECT '00000000000000000000000000000090','每日官方技术资料采集','0 0 22 * * *','Asia/Shanghai',10,'active'
+WHERE NOT EXISTS (SELECT 1 FROM content_collection_schedule WHERE id='00000000000000000000000000000090');
+INSERT INTO content_source(id,name,source_type,url,license_note,enabled)
+SELECT '00000000000000000000000000000081','Kubernetes 官方 RSS','rss','https://kubernetes.io/feed.xml','仅保存 RSS 标题与摘要，待审核',1 WHERE NOT EXISTS(SELECT 1 FROM content_source WHERE id='00000000000000000000000000000081');
+INSERT INTO content_source(id,name,source_type,url,license_note,enabled)
+SELECT '00000000000000000000000000000082','Docker 官方 RSS','rss','https://www.docker.com/feed/','仅保存 RSS 标题与摘要，待审核',1 WHERE NOT EXISTS(SELECT 1 FROM content_source WHERE id='00000000000000000000000000000082');
+INSERT INTO content_source(id,name,source_type,url,license_note,enabled)
+SELECT '00000000000000000000000000000083','OpenAI 官方 RSS','rss','https://openai.com/news/rss.xml','仅保存 RSS 标题与摘要，待审核',1 WHERE NOT EXISTS(SELECT 1 FROM content_source WHERE id='00000000000000000000000000000083');
+INSERT INTO content_source(id,name,source_type,url,license_note,enabled)
+SELECT '00000000000000000000000000000084','Spring 官方 Atom','rss','https://spring.io/blog.atom','仅保存 RSS 标题与摘要，待审核',1 WHERE NOT EXISTS(SELECT 1 FROM content_source WHERE id='00000000000000000000000000000084');
+
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b1','overview','概览','/overview','⌂',10,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='overview');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b2','content','内容与来源','/content','◇',20,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='content');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000b3','words','英语单词','/words','Aa',30,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='words');
@@ -30,7 +42,8 @@ INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled) SELECT '00000000000000000000000000ba','roles','角色与权限','/roles','♙',110,1 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='roles');
 
 -- 一级菜单（分组）：侧栏按类型折叠展示，一级菜单上带该组的概述
-INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c1','group_content','内容与来源','','◇',20,1,NULL,'词书、词条、批次与短文内容的来源与发布状态' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_content');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c1','group_content','内容与来源','','◇',20,1,NULL,'技术内容、主题、公告与来源管理' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_content');
+INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c6','group_english','英语角','','En',25,1,NULL,'英语单词、词库批次、英语短文与词书学习记录' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_english');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c2','group_users','用户与学习','','●',60,1,NULL,'用户账号状态与个人学习进度' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_users');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c3','group_ai','AI 与费用','','AI',80,1,NULL,'模型配置、月预算、用量日志与调用追溯' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_ai');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000c4','group_system','系统运维','','⚙',100,1,NULL,'任务运行、系统参数与角色权限' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='group_system');
@@ -38,7 +51,10 @@ INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,desc
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000bd','feedback','用户反馈','/feedback','✉',61,1,'00000000000000000000000000c2','用户提交的问题反馈正文、详情与处理状态' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='feedback');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description) SELECT '00000000000000000000000000be','study_records','词书学习记录','/study-records','▤',62,1,'00000000000000000000000000c2','每个用户每本英语词书每一轮的学习记录：选择时间、每日明细与词条' WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='study_records');
 
-UPDATE admin_menu SET parent_id='00000000000000000000000000c1' WHERE code IN ('content','words','imports','articles');
+UPDATE admin_menu SET description='技术内容、主题、公告与来源管理' WHERE code='group_content';
+UPDATE admin_menu SET parent_id='00000000000000000000000000c1' WHERE code='content';
+SET @english_corner_id = (SELECT id FROM admin_menu WHERE code='group_english');
+UPDATE admin_menu SET parent_id=@english_corner_id WHERE code IN ('words','imports','articles','study_records');
 INSERT INTO admin_menu (id,code,name,path,icon,sort_order,enabled,parent_id,description)
 SELECT '00000000000000000000000000c5','topics','主题管理','/topics','▤',21,1,'00000000000000000000000000c1','技术知识主题与关联内容统计'
 WHERE NOT EXISTS (SELECT 1 FROM admin_menu WHERE code='topics');
@@ -55,7 +71,7 @@ SELECT '00000000000000000000000000a1',id FROM admin_menu
 WHERE NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a1' AND menu_id=admin_menu.id);
 INSERT INTO admin_role_menu (role_id,menu_id)
 SELECT '00000000000000000000000000a2',id FROM admin_menu
-WHERE code IN ('overview','content','topics','words','imports','articles','users','invites','feedback','study_records','jobs','ai','ai_audit','ai_usage','parameters','group_content','group_users','group_ai','group_system')
+WHERE code IN ('overview','content','topics','words','imports','articles','users','invites','feedback','study_records','jobs','ai','ai_audit','ai_usage','parameters','group_content','group_english','group_users','group_ai','group_system')
 AND NOT EXISTS (SELECT 1 FROM admin_role_menu WHERE role_id='00000000000000000000000000a2' AND menu_id=admin_menu.id);
 
 INSERT INTO ai_model_config (id,provider_code,model_code,display_name,specification,base_url,api_key_param_key,enabled,is_default,max_output_tokens,timeout_seconds)

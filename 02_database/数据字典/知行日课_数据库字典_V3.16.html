@@ -124,11 +124,13 @@
         <a href="#admin-session">admin_session<small>管理端会话</small></a>
         <a href="#content-collection-schedule">content_collection_schedule<small>每日官方技术资料采集计划</small></a>
         <a href="#content-collection-run">content_collection_run<small>每日官方技术资料采集运行账本</small></a>
+        <a href="#content-collection-day">content_collection_day<small>每日 10 条目标、执行租约与重试</small></a>
         <a href="#ai-pricing-sync-run">ai_pricing_sync_run<small>AI 官网价格同步运行账本</small></a>
       </nav>
       <article>
         <section id="article-temporary-token">
           <h2>短文临时 NLS Token 生成与持久化</h2>
+          <p><strong>短文音色设置（2026-10-31）：</strong>复用 <code>app_parameter</code>，新增约定键 <code>tts.aliyun.article_voice</code>（非密钥，<code>is_secret=0</code>），未保存时默认 <code>luca</code>（Luca）。管理员在“英语短文 → 短文音色”通过 PUT /api/admin/content/articles/tts-settings 保存英语预设音色，立即用于后续缺少音频的短文合成；同属 articles 菜单权限。该参数独立于单词音色 <code>tts.aliyun.voice</code>，不写入 YAML。已有 ready 短文音频继续复用，不因音色设置变化重新调用或覆盖；返回旧音频实际的 article_audio_voice。新生成结果仍保存到 content_version.article_audio_voice / article_audio_asset_id 和 tts_usage_log。无新增表、列或数据库迁移。</p>
           <p><strong>小程序按需合成（2026-09-20）：</strong>系统参数新增约定键 <code>ALIYUN_NLS_TEMPORARY_TOKEN</code>，复用 app_parameter 表，不增加列。由管理员在“系统参数 → 保存 / 更新临时 Token”或“AI 模型与费用 → 语音合成 → 保存 Token 到系统参数”录入；服务端强制 is_secret=1、AES-GCM 加密保存 param_value，列表不返回原文，参数写请求不记入访问日志。</p>
           <p>小程序仅调用 POST /api/learning/contents/{id}/speech，不接收或提交 NLS Token。已有 ready 音频优先复用；没有时后端实时读取 state=active 且 del_is=0 的参数，解密后调用 NLS，再上传 OSS、保存媒体地址与内容关联。无有效参数或 Token 被拒绝时明确报错，不回退 AccessKey；更新参数即时生效，重启无需再次录入，但不会延长供应商有效期。删除保持 del_is=1 的软删除规则。</p>
           <p>音频保存字段：短文为 content_version.article_audio_asset_id；短文点词词汇（如 glossary:working）为 article_word_glossary.audio_asset_id、audio_voice、audio_generated_at；词条为 pronunciation.asset_id。均关联 media_asset.object_key，tts_usage_log 记录逐次生成结果。保存的是音频资源与关联，不将 Token 放入媒体地址或日志。</p>
@@ -142,7 +144,7 @@
             <tr><td>content_version.article_audio_asset_id</td><td>关联 media_asset.id；同时更新 article_audio_voice、article_audio_generated_at，绑定生成时读取的已发布版本。</td></tr>
             <tr><td>tts_usage_log</td><td>记录目标、内容版本、音色、字符数、成功资产 ID 或失败错误码，不含临时 Token。</td></tr>
           </tbody></table></div>
-          <p>接口返回 assetId、audioUrl、voice、cached。audioUrl 是媒体服务稳定访问地址，播放时解析 OSS 地址；数据库保存 object_key 而非会过期的签名 URL。刷新列表后由版本关联恢复播放入口；已有同音色 ready 资产则复用。合成或 OSS 上传失败不写入新的短文音频关联。</p>
+          <p>接口返回 assetId、audioUrl、voice、cached。audioUrl 是媒体服务稳定访问地址，播放时解析 OSS 地址；数据库保存 object_key 而非会过期的签名 URL。刷新列表后由版本关联恢复播放入口；已有 ready 短文资产则复用，即使后来修改了默认音色也不重新合成。合成或 OSS 上传失败不写入新的短文音频关联。</p>
         </section>
         <section id="v316-changelog">
           <h2>V3.16 <span>&#x82F1;&#x8BED;&#x8BCD;&#x5E93;&#x4E0E; TTS &#x8FFD;&#x8E2A;&#x589E;&#x5F3A;</span></h2>
@@ -13892,6 +13894,7 @@
             <tr><td>id</td><td>CHAR(32)，主键</td><td>管理账号 ID。</td></tr><tr><td>username</td><td>VARCHAR(40)，唯一</td><td>登录账号名。</td></tr><tr><td>password_hash</td><td>VARCHAR(255)</td><td>PBKDF2 密码哈希；禁止保存明文或可逆密码。</td></tr><tr><td>role_id</td><td>CHAR(32)</td><td>逻辑关联 admin_role.id。</td></tr><tr><td>enabled / last_login_at / password_updated_at</td><td>TINYINT(1) / DATETIME(3) / DATETIME(3)</td><td>启用状态、最近登录和密码更新时间。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
           </tbody></table><p>索引：PRIMARY(id)、uk_admin_account_username(username)、idx_admin_account_role(role_id)。</p>
           <h3 id="admin_menu">admin_menu / <span id="admin_role_menu">admin_role_menu</span> — 菜单与角色授权</h3>
+          <p><strong>V3.28 英语角（2026-10-31）：</strong>新增空路径一级分组 <code>group_english</code>（英语角，图标 En，排序 25），将 <code>words</code>（英语单词）、<code>imports</code>（词库批次）、<code>articles</code>（英语短文）、<code>study_records</code>（词书学习记录）的 <code>parent_id</code> 指向该分组。保留原菜单 ID、权限码和页面地址，不复制业务菜单。<code>admin_role_menu</code> 仅为已有任一启用英语页面权限的角色及超级管理员补授分组容器，不补授或移除任何子页面权限；无英语页面授权则不显示英语角，单独授予容器也不能访问页面。“内容与来源”保留技术内容、主题和公告；通用 AI 与任务运维不迁移。迁移脚本 <code>05_code/backend/sql/V3.28_english_corner_menu.sql</code> 幂等，依赖 V3.18 分组列；开发种子已同步。复用既有表，仅变更菜单数据，无新增表或列。</p>
           <table><thead><tr><th>表</th><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>admin_menu</td><td>id</td><td>CHAR(32)，主键</td><td>菜单 ID。</td></tr><tr><td>admin_menu</td><td>code</td><td>VARCHAR(32)，唯一</td><td>稳定菜单代码；<code>ai_audit</code> 对应“AI 使用追溯”。</td></tr><tr><td>admin_menu</td><td>name / path / icon</td><td>VARCHAR(80) / VARCHAR(120) / VARCHAR(12)</td><td>菜单名称、管理端路由和图标。</td></tr><tr><td>admin_menu</td><td>sort_order / enabled / created_at / updated_at</td><td>SMALLINT / TINYINT(1) / DATETIME(3)</td><td>展示排序、启用状态及 UTC 审计时间。</td></tr>
             <tr><td>admin_menu</td><td>parent_id</td><td>CHAR(32)，可空</td><td><strong>V3.18 新增</strong>。所属一级菜单（分组）的 admin_menu.id；为空表示本身即一级菜单（<code>overview</code> 或 <code>group_content</code> / <code>group_users</code> / <code>group_ai</code> / <code>group_system</code> 分组）。Web 管理端据此把侧栏渲染为一级（浅蓝底分组）＋二级（缩进白底页面）两级，一级菜单默认展开包含当前页的分组。</td></tr>
@@ -13915,6 +13918,15 @@
         </section>
         <section id="content-collection-run">
           <h2 id="content_collection_run">content_collection_run — 每日官方技术资料采集运行账本</h2>
+          <p><strong>V3.29（2026-11-01）：每天北京时间合计新增 10 条。</strong>优先采集四个固定官方来源的未入库资料，不足时 AI 生成不同的中文原创技术解读；来源 <code>00000000000000000000000000000085</code>、<code>source_type=ai_original</code>，正文保留官方参考链接但不宣称是原文或新公告，内容与版本始终待审核。统计 <code>learning_content</code> 在北京时间日界转换成 UTC 后的 created_at 区间内、指定来源且具有有效当前版本的真实新增行，历史当天已入库资料也计入；重复资料不计数。新建索引 <code>idx_learning_content_source_created(source_id,created_at)</code>。迁移 <code>05_code/backend/sql/V3.29_daily_technical_content_target.sql</code> 幂等且依赖 V3.3，不删除原内容或重置计划开关；先迁移再重启服务。</p>
+          <table><thead><tr><th>V3.29 新字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>business_date</td><td>DATE，可空</td><td>本次补齐对应的北京时间日期。</td></tr>
+            <tr><td>target_count</td><td>INT，可空</td><td>当日目标快照，当前为 10；历史记录保持 NULL。</td></tr>
+            <tr><td>daily_inserted_count</td><td>INT，可空</td><td>本次结束时当天真实新增总量，含其他已完成运行，不是单次 inserted_count。</td></tr>
+            <tr><td>generated_count</td><td>INT，可空</td><td>本次新增中由 AI 原创并校验入库的条数；其余为官方资料元数据。</td></tr>
+            <tr><td>remaining_count</td><td>INT，可空</td><td>本次完成时的目标缺口，max(0,10-daily_inserted_count)。有缺口不标成功；预算、模型或网络失败不会以复制旧内容充数。</td></tr>
+          </tbody></table>
+          <p>V3.29 的触发键为 <code>daily:业务日期:随机ID</code> / <code>manual:业务日期:随机ID</code>，用于区分当天多次补缺口；按日幂等转由下述数据库租约、入库前日行锁及真实新增计数共同保证。AI 追溯继续使用 <code>ai_job / ai_attempt</code>，action_code=<code>generate_tech_materials</code>、source_type=<code>content_collection</code>、source_id=运行 ID；不进入用户“问一问”历史。</p>
           <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.3_content_collection_schedule.sql</code>。运行历史以此表为唯一事实来源；管理端通过 schedule_id 关联任务名称，因此每条历史可准确展示“执行任务”。</p>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>id / schedule_id</td><td>CHAR(32) / CHAR(32)</td><td>运行 ID；逻辑关联 content_collection_schedule.id。</td></tr><tr><td>trigger_key</td><td>VARCHAR(80)</td><td><code>daily:业务日期</code> 或 <code>manual:随机 ID</code>；同一任务和触发键唯一，保证幂等。</td></tr><tr><td>state</td><td>VARCHAR(32)，running</td><td>running、success、partial、failed。</td></tr><tr><td>fetched_count / inserted_count / skipped_count</td><td>INT UNSIGNED，0</td><td>抓取、实际新入库、去重跳过数量。</td></tr><tr><td>error_code / error_message</td><td>VARCHAR(64) / VARCHAR(500)，可空</td><td>稳定错误码和受限错误描述。</td></tr><tr><td>started_at / finished_at</td><td>DATETIME(3)，可空</td><td>执行开始与结束时间（UTC）。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>

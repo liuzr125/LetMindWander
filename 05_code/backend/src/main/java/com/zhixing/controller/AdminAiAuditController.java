@@ -2,9 +2,12 @@ package com.zhixing.controller;
 
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.service.AiService;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +34,9 @@ public class AdminAiAuditController {
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize,
-      @RequestParam(required = false) String keyword) {
+      @RequestParam(required = false) String keyword,
+      HttpServletResponse response) {
+    noStore(response);
     require(token);
     return ai.adminQuestionAudit(page, pageSize, keyword);
   }
@@ -40,9 +45,17 @@ public class AdminAiAuditController {
   @GetMapping("/questions/{jobId}/detail")
   public Map<String, Object> questionDetail(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @PathVariable String jobId) {
+      @PathVariable String jobId,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    noStore(response);
     require(token);
-    return ai.adminQuestionAuditDetail(jobId);
+    return ai.adminQuestionAuditDetail(jobId, AdminActors.requireId(request));
+  }
+
+  private void noStore(HttpServletResponse response) {
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("Pragma", "no-cache");
   }
 
   private void require(String token) {

@@ -103,6 +103,30 @@ public class AliyunTtsService {
             || (parameters.configured(AK_ID) && parameters.configured(AK_SECRET)));
   }
 
+  public boolean articleAppKeyConfigured() {
+    return parameters.configured(APP_KEY);
+  }
+
+  private String articleVoice() {
+    return requiredVocabularyVoice(parameters.optionalStored("tts.aliyun.article_voice", "luca"))
+        .code;
+  }
+
+  /** 短文专用音色，不读取或返回凭据，也不修改单词音色。 */
+  public Map<String, Object> articleVoiceSettings() {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("voice", articleVoice());
+    result.put("voices", vocabularyVoices());
+    return result;
+  }
+
+  @Transactional
+  public Map<String, Object> saveArticleVoice(String code) {
+    String voice = requiredVocabularyVoice(code).code;
+    parameters.saveValue("tts.aliyun.article_voice", voice, "英语短文音色；默认 Luca，仅影响后续缺失音频的生成");
+    return articleVoiceSettings();
+  }
+
   /** 只获取 NLS Token，不合成、不写 OSS、不产生 TTS 用量，用于管理员定位凭据与 RAM 授权问题。 */
   public Map<String, Object> connectionTest() {
     Map<String, Object> result = new LinkedHashMap<String, Object>();
@@ -380,19 +404,26 @@ public class AliyunTtsService {
     String versionId = string(row, "version_id"),
         targetId = glossary ? string(row, "glossary_id") : contentId;
     String logType = article ? "english_article" : "word",
-        voice = parameters.optional("tts.aliyun.voice", "aixia");
+        voice = article ? articleVoice() : parameters.optional("tts.aliyun.voice", "aixia");
     String cached = cached(row, type, versionId, voice);
     if (cached != null)
       return speechResult(
-          cached, voice, true, article ? string(row, "article_audio_asset_id") : null);
-    Object lock = locks.computeIfAbsent(type + ":" + versionId + ":" + voice, key -> new Object());
+          cached,
+          article ? string(row, "article_audio_voice") : voice,
+          true,
+          article ? string(row, "article_audio_asset_id") : null);
+    String lockKey = type + ":" + versionId + (article ? "" : ":" + voice);
+    Object lock = locks.computeIfAbsent(lockKey, key -> new Object());
     synchronized (lock) {
       try {
         row = content(contentId);
         cached = cached(row, type, versionId, voice);
         if (cached != null)
           return speechResult(
-              cached, voice, true, article ? string(row, "article_audio_asset_id") : null);
+              cached,
+              article ? string(row, "article_audio_voice") : voice,
+              true,
+              article ? string(row, "article_audio_asset_id") : null);
         String text = article ? string(row, "body") : string(row, "word_term");
         if (text == null || text.trim().isEmpty()) throw bad("TTS_TEXT_EMPTY", "朗读文本为空");
         int chars = text.codePointCount(0, text.length());
@@ -448,7 +479,7 @@ public class AliyunTtsService {
             "TTS_PROVIDER_ERROR");
         throw new ApiException(HttpStatus.BAD_GATEWAY, "TTS_PROVIDER_ERROR", "语音合成失败，请稍后重试");
       } finally {
-        locks.remove(type + ":" + versionId + ":" + voice, lock);
+        locks.remove(lockKey, lock);
       }
     }
   }
@@ -858,8 +889,8 @@ public class AliyunTtsService {
 
   private String cached(Map<String, Object> row, String type, String versionId, String voice) {
     String assetId = null;
-    if ("english_article".equals(type) && voice.equals(string(row, "article_audio_voice")))
-      assetId = string(row, "article_audio_asset_id");
+    // Changing the default applies only to future missing audio, not paid-for existing assets.
+    if ("english_article".equals(type)) assetId = string(row, "article_audio_asset_id");
     if ("glossary_word".equals(type) && voice.equals(string(row, "glossary_audio_voice")))
       assetId = string(row, "glossary_audio_asset_id");
     if ("word".equals(type)) {

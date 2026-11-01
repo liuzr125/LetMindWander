@@ -26,8 +26,9 @@ class AdminTaskScheduleControllerTest {
             Collections.singletonMap("cronExpression", "0 0 19 * * *"));
     assertThat(result)
         .containsEntry("cronExpression", "0 0 19 * * *")
+        .containsEntry("scheduleApplied", true)
         .containsEntry("timezone", "Asia/Shanghai");
-    verify(settings).next(eq("article"), any());
+    verify(settings).nextFromCron(eq("0 0 19 * * *"), any());
   }
 
   @Test

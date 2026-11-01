@@ -15,6 +15,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
   private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+  @ExceptionHandler(AdminLoginThrottledException.class)
+  public ResponseEntity<Map<String, Object>> handleLoginThrottle(
+      AdminLoginThrottledException exception) {
+    Map<String, Object> body = error(exception.getCode(), exception.getMessage());
+    body.put("retryAfterSeconds", exception.getRetryAfterSeconds());
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .header("Retry-After", String.valueOf(exception.getRetryAfterSeconds()))
+        .body(body);
+  }
+
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<Map<String, Object>> handleApi(ApiException exception) {
     // 业务拒绝属于预期分支；不输出请求值、异常消息或重复堆栈。

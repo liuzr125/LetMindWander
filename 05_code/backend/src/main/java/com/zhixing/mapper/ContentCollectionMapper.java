@@ -13,13 +13,13 @@ public interface ContentCollectionMapper {
   CollectionScheduleView selectSchedule();
 
   @Select(
-      "SELECT r.id,s.name AS task_name,r.trigger_key,r.state,r.error_code,r.error_message,r.fetched_count,r.inserted_count,r.skipped_count,r.started_at,r.finished_at,r.created_at "
+      "SELECT r.*,s.name AS task_name "
           + "FROM content_collection_run r JOIN content_collection_schedule s ON s.id=r.schedule_id WHERE r.schedule_id=#{scheduleId} ORDER BY r.created_at DESC,r.id DESC LIMIT #{limit}")
   List<CollectionRunView> selectRuns(
       @Param("scheduleId") String scheduleId, @Param("limit") int limit);
 
   @Select(
-      "SELECT r.id,s.name AS task_name,r.trigger_key,r.state,r.error_code,r.error_message,r.fetched_count,r.inserted_count,r.skipped_count,r.started_at,r.finished_at,r.created_at "
+      "SELECT r.*,s.name AS task_name "
           + "FROM content_collection_run r JOIN content_collection_schedule s ON s.id=r.schedule_id WHERE r.id=#{id} AND r.schedule_id=#{scheduleId}")
   CollectionRunView selectRun(@Param("id") String id, @Param("scheduleId") String scheduleId);
 
@@ -42,6 +42,9 @@ public interface ContentCollectionMapper {
       @Param("errorCode") String errorCode,
       @Param("errorMessage") String errorMessage,
       @Param("finishedAt") Instant finishedAt);
+
+  @Update("UPDATE content_collection_run SET business_date=#{date},target_count=10,daily_inserted_count=#{total},generated_count=#{generated},remaining_count=#{remaining} WHERE id=#{id}")
+  int finishQuota(@Param("id") String id, @Param("date") java.time.LocalDate date, @Param("total") int total, @Param("generated") int generated, @Param("remaining") int remaining);
 
   @Update(
       "UPDATE content_collection_schedule SET last_run_at=#{lastRunAt},next_run_at=#{nextRunAt} WHERE id=#{id}")

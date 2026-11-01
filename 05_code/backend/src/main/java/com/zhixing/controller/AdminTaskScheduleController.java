@@ -38,12 +38,14 @@ public class AdminTaskScheduleController {
     if (!(cron instanceof String))
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_TASK_CRON", "执行计划必须是文本");
     Map<String, Object> result = new LinkedHashMap<>();
-    result.put("cronExpression", scheduler.update(code, (String) cron));
+    String saved = scheduler.update(code, (String) cron);
+    result.put("cronExpression", saved);
+    result.put("scheduleApplied", true);
     // Update the live scheduler before reporting the new plan; invalid expressions must not appear
     // saved.
     LOGGER.info("Admin task schedule updated");
     result.put("timezone", TaskScheduleSettings.ZONE.getId());
-    result.put("nextRunAt", settings.next(code, Instant.now()));
+    result.put("nextRunAt", settings.nextFromCron(saved, Instant.now()));
     return result;
   }
 }

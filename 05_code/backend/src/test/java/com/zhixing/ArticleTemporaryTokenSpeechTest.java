@@ -88,6 +88,8 @@ class ArticleTemporaryTokenSpeechTest {
         CryptoUtils.sha256(VERSION));
     parameters = mock(AppParameterService.class);
     when(parameters.optional(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
+    when(parameters.optionalStored(anyString(), anyString()))
+        .thenAnswer(call -> call.getArgument(1));
     when(parameters.configured("ALIYUN_NLS_APP_KEY")).thenReturn(true);
     when(parameters.required("ALIYUN_NLS_APP_KEY")).thenReturn("test-project-app-key");
     oss = mock(OSS.class);
@@ -136,6 +138,14 @@ class ArticleTemporaryTokenSpeechTest {
   private ResultActions generate(String body) throws Exception {
     return mvc.perform(
         post(PATH)
+            .requestAttr(
+                com.zhixing.config.AdminSessionFilter.PRINCIPAL_ATTRIBUTE,
+                new com.zhixing.service.AdminPrincipal(
+                    properties.getAdminPrincipalId(),
+                    "tester",
+                    "ADMIN",
+                    "测试管理员",
+                    java.util.Collections.singleton("articles")))
             .header("X-Admin-Token", "test-admin")
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
@@ -146,6 +156,10 @@ class ArticleTemporaryTokenSpeechTest {
   }
 
   private void expectSynthesis() {
+    expectSynthesis("luca");
+  }
+
+  private void expectSynthesis(String voice) {
     nls.expect(requestTo(ENDPOINT))
         .andExpect(method(HttpMethod.POST))
         .andExpect(
@@ -153,7 +167,9 @@ class ArticleTemporaryTokenSpeechTest {
                 .json(
                     "{\"token\":\""
                         + TOKEN
-                        + "\",\"appkey\":\"test-project-app-key\",\"text\":\"Hello, this is a test.\",\"format\":\"mp3\"}"))
+                        + "\",\"appkey\":\"test-project-app-key\",\"text\":\"Hello, this is a test.\",\"format\":\"mp3\",\"voice\":\""
+                        + voice
+                        + "\"}"))
         .andRespond(withSuccess(AUDIO, MediaType.valueOf("audio/mpeg")));
   }
 
@@ -193,6 +209,7 @@ class ArticleTemporaryTokenSpeechTest {
         generate(body())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.cached").value(false))
+            .andExpect(jsonPath("$.voice").value("luca"))
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -220,15 +237,40 @@ class ArticleTemporaryTokenSpeechTest {
                 "SELECT asset_id FROM tts_usage_log WHERE state='succeeded'", String.class))
         .isEqualTo(assetId);
     // Fresh service simulates losing all temporary session memory: persisted audio still works.
+    when(parameters.optionalStored("tts.aliyun.article_voice", "luca")).thenReturn("luna");
     createMvc();
     generate(body())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.cached").value(true))
+        .andExpect(jsonPath("$.voice").value("luca"))
         .andExpect(jsonPath("$.assetId").value(assetId));
     verify(oss, times(1))
         .putObject(
             eq("test-bucket"), anyString(), any(InputStream.class), any(ObjectMetadata.class));
     verify(oss).shutdown();
+    assertNoAccessKeyFallback();
+    nls.verify();
+  }
+
+  @Test
+  void newArticleAudioUsesSavedArticleVoiceInsteadOfGlobalWordVoice() throws Exception {
+    when(parameters.optionalStored("tts.aliyun.article_voice", "luca")).thenReturn("luna");
+    when(parameters.optional("tts.aliyun.voice", "aixia")).thenReturn("eva");
+    expectSynthesis("luna");
+    generate(body())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.voice").value("luna"))
+        .andExpect(jsonPath("$.cached").value(false));
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT article_audio_voice FROM content_version WHERE id=?",
+                String.class,
+                VERSION))
+        .isEqualTo("luna");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT voice FROM tts_usage_log WHERE state='succeeded'", String.class))
+        .isEqualTo("luna");
     assertNoAccessKeyFallback();
     nls.verify();
   }

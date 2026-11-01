@@ -21,6 +21,50 @@ import org.springframework.jdbc.datasource.embedded.*;
 
 class TaskScheduleSettingsTest {
   @Test
+  void failedParameterWriteRollsBackPersistedPlan() {
+    EmbeddedDatabase db =
+        new EmbeddedDatabaseBuilder()
+            .setType(EmbeddedDatabaseType.H2)
+            .generateUniqueName(true)
+            .build();
+    try {
+      JdbcTemplate jdbc = new JdbcTemplate(db);
+      jdbc.execute("CREATE TABLE test_schedule (cron VARCHAR(80))");
+      jdbc.update("INSERT INTO test_schedule VALUES ('0 30 22 * * *')");
+      AppParameterService parameters = mock(AppParameterService.class);
+      doAnswer(
+              call -> {
+                jdbc.update("UPDATE test_schedule SET cron=?", (String) call.getArgument(1));
+                throw new IllegalStateException("simulated failure after write");
+              })
+          .when(parameters)
+          .saveValue(anyString(), anyString(), anyString());
+      TaskScheduleSettings target =
+          new TaskScheduleSettings(
+              parameters,
+              new AppProperties(),
+              mock(ContentCollectionMapper.class),
+              mock(CollectionScheduleSettingsMapper.class),
+              "0 0 22 * * *");
+      org.springframework.aop.framework.ProxyFactory factory =
+          new org.springframework.aop.framework.ProxyFactory(target);
+      factory.setProxyTargetClass(true);
+      factory.addAdvice(
+          new org.springframework.transaction.interceptor.TransactionInterceptor(
+              new org.springframework.jdbc.datasource.DataSourceTransactionManager(db),
+              new org.springframework.transaction.annotation
+                  .AnnotationTransactionAttributeSource()));
+      TaskScheduleSettings transactional = (TaskScheduleSettings) factory.getProxy();
+      assertThatThrownBy(() -> transactional.save("article", "0 0 19 * * *"))
+          .isInstanceOf(IllegalStateException.class);
+      assertThat(jdbc.queryForObject("SELECT cron FROM test_schedule", String.class))
+          .isEqualTo("0 30 22 * * *");
+    } finally {
+      db.shutdown();
+    }
+  }
+
+  @Test
   void parameterPlansPersistAndCalculateInBeijingTime() {
     AppParameterService parameters = mock(AppParameterService.class);
     Map<String, String> saved = new HashMap<>();

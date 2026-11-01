@@ -2,12 +2,14 @@ package com.zhixing.controller;
 
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.model.AdminTechnicalContentPageView;
 import com.zhixing.model.AdminTechnicalContentView;
 import com.zhixing.model.ContentCoverageView;
 import com.zhixing.service.AdminContentService;
 import com.zhixing.service.AliyunTtsService;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -106,11 +108,14 @@ public class AdminContentController {
   public AdminTechnicalContentView updateArticleCategory(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String contentId,
-      @RequestBody(required = false) ArticleCategoryRequest request) {
+      @RequestBody(required = false) ArticleCategoryRequest request,
+      HttpServletRequest servletRequest) {
     admin(token);
     LOGGER.debug("admin_request controller=Content operation=updateArticleCategory");
     return contents.updateArticleCategory(
-        properties.getAdminPrincipalId(), contentId, request == null ? null : request.getBookId());
+        AdminActors.requireId(servletRequest),
+        contentId,
+        request == null ? null : request.getBookId());
   }
 
   /** 在事务内更新短文分类、难度及预计阅读时长。 */
@@ -118,14 +123,15 @@ public class AdminContentController {
   public AdminTechnicalContentView updateArticleMetadata(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String contentId,
-      @RequestBody(required = false) ArticleMetadataRequest request) {
+      @RequestBody(required = false) ArticleMetadataRequest request,
+      HttpServletRequest servletRequest) {
     admin(token);
     LOGGER.debug("admin_request controller=Content operation=updateArticleMetadata");
     if (request == null)
       throw new ApiException(
           HttpStatus.BAD_REQUEST, "ARTICLE_METADATA_REQUIRED", "请提交短文分类、难度和阅读时长");
     return contents.updateArticleMetadata(
-        properties.getAdminPrincipalId(),
+        AdminActors.requireId(servletRequest),
         contentId,
         request.getBookId(),
         request.getDifficulty(),
@@ -146,13 +152,14 @@ public class AdminContentController {
   public java.util.Map<String, Object> articleSpeech(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String contentId,
-      @RequestBody(required = false) ArticleSpeechRequest request) {
+      @RequestBody(required = false) ArticleSpeechRequest request,
+      HttpServletRequest servletRequest) {
     admin(token);
     LOGGER.debug("admin_request controller=Content operation=articleSpeech");
     // Resolve a published article before invoking the external speech provider.
     contents.articleDetail(contentId);
     return tts.speechWithTemporaryToken(
-        properties.getAdminPrincipalId(),
+        AdminActors.requireId(servletRequest),
         contentId,
         request == null ? null : request.getNlsToken());
   }

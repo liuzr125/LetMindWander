@@ -2,6 +2,7 @@ package com.zhixing.controller;
 
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
+import com.zhixing.config.AdminActors;
 import com.zhixing.config.AppProperties;
 import com.zhixing.dto.AiModelSaveRequest;
 import com.zhixing.dto.TtsConfigRequest;
@@ -11,6 +12,7 @@ import com.zhixing.service.AiService;
 import com.zhixing.service.AliyunTtsService;
 import java.math.BigDecimal;
 import java.util.*;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -61,9 +63,10 @@ public class AdminAiController {
   @PostMapping("/models")
   public Map<String, Object> create(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @Valid @RequestBody AiModelSaveRequest request) {
+      @Valid @RequestBody AiModelSaveRequest request,
+      HttpServletRequest servletRequest) {
     requireAdmin(token);
-    return ai.saveModel(null, request);
+    return ai.saveModel(null, request, AdminActors.requireId(servletRequest));
   }
 
   /** 按预期版本更新模型，避免覆盖并发配置。 */
@@ -71,9 +74,10 @@ public class AdminAiController {
   public Map<String, Object> update(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String id,
-      @Valid @RequestBody AiModelSaveRequest request) {
+      @Valid @RequestBody AiModelSaveRequest request,
+      HttpServletRequest servletRequest) {
     requireAdmin(token);
-    return ai.saveModel(id, request);
+    return ai.saveModel(id, request, AdminActors.requireId(servletRequest));
   }
 
   /** 读取近期调用费用和本月预算。 */
@@ -97,7 +101,8 @@ public class AdminAiController {
   @PutMapping("/budget")
   public Map<String, Object> budget(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
-      @RequestBody Map<String, Object> request) {
+      @RequestBody Map<String, Object> request,
+      HttpServletRequest servletRequest) {
     requireAdmin(token);
     Object raw = request.get("limitAmount");
     BigDecimal limit;
@@ -106,7 +111,10 @@ public class AdminAiController {
     } catch (Exception e) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AI_BUDGET", "请输入正确的月预算");
     }
-    return ai.saveBudget(limit, String.valueOf(request.getOrDefault("currency", "CNY")));
+    return ai.saveBudget(
+        limit,
+        String.valueOf(request.getOrDefault("currency", "CNY")),
+        AdminActors.requireId(servletRequest));
   }
 
   /** 人工核定费用未知的调用，并更新预算账本。 */
@@ -114,7 +122,8 @@ public class AdminAiController {
   public Map<String, Object> reconcile(
       @RequestHeader(value = "X-Admin-Token", required = false) String token,
       @PathVariable String id,
-      @RequestBody Map<String, Object> request) {
+      @RequestBody Map<String, Object> request,
+      HttpServletRequest servletRequest) {
     requireAdmin(token);
     BigDecimal amount;
     try {
@@ -122,7 +131,7 @@ public class AdminAiController {
     } catch (Exception e) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AI_SETTLEMENT", "请输入正确的核定费用");
     }
-    return ai.reconcileAttempt(id, amount);
+    return ai.reconcileAttempt(id, amount, AdminActors.requireId(servletRequest));
   }
 
   /** 读取语音配置摘要及最近使用日志，不返回密钥。 */
