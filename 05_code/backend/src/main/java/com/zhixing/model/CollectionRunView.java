@@ -8,16 +8,46 @@ public class CollectionRunView {
   private Instant startedAt, finishedAt, createdAt;
   private java.time.LocalDate businessDate;
   private Integer targetCount, dailyInsertedCount, generatedCount, remainingCount;
-  public java.time.LocalDate getBusinessDate() { return businessDate; }
-  public void setBusinessDate(java.time.LocalDate v) { businessDate=v; }
-  public Integer getTargetCount() { return targetCount; }
-  public void setTargetCount(Integer v) { targetCount=v; }
-  public Integer getDailyInsertedCount() { return dailyInsertedCount; }
-  public void setDailyInsertedCount(Integer v) { dailyInsertedCount=v; }
-  public Integer getGeneratedCount() { return generatedCount; }
-  public void setGeneratedCount(Integer v) { generatedCount=v; }
-  public Integer getRemainingCount() { return remainingCount; }
-  public void setRemainingCount(Integer v) { remainingCount=v; }
+
+  public java.time.LocalDate getBusinessDate() {
+    return businessDate;
+  }
+
+  public void setBusinessDate(java.time.LocalDate v) {
+    businessDate = v;
+  }
+
+  public Integer getTargetCount() {
+    return targetCount;
+  }
+
+  public void setTargetCount(Integer v) {
+    targetCount = v;
+  }
+
+  public Integer getDailyInsertedCount() {
+    return dailyInsertedCount;
+  }
+
+  public void setDailyInsertedCount(Integer v) {
+    dailyInsertedCount = v;
+  }
+
+  public Integer getGeneratedCount() {
+    return generatedCount;
+  }
+
+  public void setGeneratedCount(Integer v) {
+    generatedCount = v;
+  }
+
+  public Integer getRemainingCount() {
+    return remainingCount;
+  }
+
+  public void setRemainingCount(Integer v) {
+    remainingCount = v;
+  }
 
   public String getId() {
     return id;

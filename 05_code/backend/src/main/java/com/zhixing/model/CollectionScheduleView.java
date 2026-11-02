@@ -7,10 +7,23 @@ public class CollectionScheduleView {
   private int perRunLimit;
   private Instant lastRunAt, nextRunAt;
   private int dailyTarget = 10, dailyInsertedCount, remainingCount;
-  public int getDailyTarget() { return dailyTarget; }
-  public int getDailyInsertedCount() { return dailyInsertedCount; }
-  public void setDailyInsertedCount(int value) { dailyInsertedCount=value; remainingCount=Math.max(0,dailyTarget-value); }
-  public int getRemainingCount() { return remainingCount; }
+
+  public int getDailyTarget() {
+    return dailyTarget;
+  }
+
+  public int getDailyInsertedCount() {
+    return dailyInsertedCount;
+  }
+
+  public void setDailyInsertedCount(int value) {
+    dailyInsertedCount = value;
+    remainingCount = Math.max(0, dailyTarget - value);
+  }
+
+  public int getRemainingCount() {
+    return remainingCount;
+  }
 
   public String getId() {
     return id;

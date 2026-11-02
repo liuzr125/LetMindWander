@@ -43,8 +43,14 @@ public interface ContentCollectionMapper {
       @Param("errorMessage") String errorMessage,
       @Param("finishedAt") Instant finishedAt);
 
-  @Update("UPDATE content_collection_run SET business_date=#{date},target_count=10,daily_inserted_count=#{total},generated_count=#{generated},remaining_count=#{remaining} WHERE id=#{id}")
-  int finishQuota(@Param("id") String id, @Param("date") java.time.LocalDate date, @Param("total") int total, @Param("generated") int generated, @Param("remaining") int remaining);
+  @Update(
+      "UPDATE content_collection_run SET business_date=#{date},target_count=10,daily_inserted_count=#{total},generated_count=#{generated},remaining_count=#{remaining} WHERE id=#{id}")
+  int finishQuota(
+      @Param("id") String id,
+      @Param("date") java.time.LocalDate date,
+      @Param("total") int total,
+      @Param("generated") int generated,
+      @Param("remaining") int remaining);
 
   @Update(
       "UPDATE content_collection_schedule SET last_run_at=#{lastRunAt},next_run_at=#{nextRunAt} WHERE id=#{id}")

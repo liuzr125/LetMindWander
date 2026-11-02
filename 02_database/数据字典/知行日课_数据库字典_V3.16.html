@@ -13932,6 +13932,19 @@
             <tr><td>id / schedule_id</td><td>CHAR(32) / CHAR(32)</td><td>运行 ID；逻辑关联 content_collection_schedule.id。</td></tr><tr><td>trigger_key</td><td>VARCHAR(80)</td><td><code>daily:业务日期</code> 或 <code>manual:随机 ID</code>；同一任务和触发键唯一，保证幂等。</td></tr><tr><td>state</td><td>VARCHAR(32)，running</td><td>running、success、partial、failed。</td></tr><tr><td>fetched_count / inserted_count / skipped_count</td><td>INT UNSIGNED，0</td><td>抓取、实际新入库、去重跳过数量。</td></tr><tr><td>error_code / error_message</td><td>VARCHAR(64) / VARCHAR(500)，可空</td><td>稳定错误码和受限错误描述。</td></tr><tr><td>started_at / finished_at</td><td>DATETIME(3)，可空</td><td>执行开始与结束时间（UTC）。</td></tr><tr><td>created_at / updated_at</td><td>DATETIME(3)</td><td>UTC 创建及更新时间。</td></tr>
           </tbody></table><p>索引：PRIMARY(id)、uk_collection_run_trigger(schedule_id,trigger_key)、idx_collection_run_history(schedule_id,created_at,id)。采集结果写入既有 learning_content、content_version 等表，均以 pending 状态等待人工审核；AI 使用追溯复用既有 ai_job、ai_attempt，不新增审计副本表。</p>
         </section>
+        <section id="content-collection-day">
+          <h2>content_collection_day — 每日技术内容目标与执行租约（V3.29）</h2>
+          <p>同一天手动、计划和补偿执行共用这一行。领取五分钟租约时原子检查旧租约到期和自动次数；每个来源/模型请求前及成功入库时续租。写内容前用 FOR UPDATE 锁定当天行，核对租约持有者和真实新增总量，内容、版本和主题关联一次事务提交；任何一步失败整体回滚，跨日不写入上一日任务。租约到期允许其他实例恢复，过期实例不能继续入库。</p>
+          <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>schedule_id / business_date</td><td>CHAR(32) / DATE，联合主键</td><td>逻辑关联采集计划；北京时间日期。</td></tr>
+            <tr><td>target_count</td><td>INT，10</td><td>每日真实新增目标；当前合计 10 条，不是每来源 10 条。</td></tr>
+            <tr><td>lease_owner / lease_until</td><td>CHAR(32) / DATETIME(3)，可空</td><td>当前运行 ID 与租约到期 UTC 时间；结束时仅持有者可释放。</td></tr>
+            <tr><td>auto_attempts</td><td>INT，0</td><td>当天自动尝试次数，最多 3（含计划触发）；手动补齐不增加此计数，但每次均受 AI 全局额度和月预算限制。</td></tr>
+            <tr><td>next_retry_at</td><td>DATETIME(3)，可空</td><td>未达标时延后 15 分钟，后台每分钟检查；已达标、达自动上限则 NULL。暂停计划不会重试，次日不补写上一日缺口。</td></tr>
+            <tr><td>created_at</td><td>DATETIME(3)</td><td>UTC 创建时间。</td></tr>
+          </tbody></table>
+          <p>索引：PRIMARY(schedule_id,business_date)、idx_collection_day_retry(business_date,next_retry_at)。AI 每轮最多尝试缺口的两倍、上限 20 次；重复标题、正文指纹、仅改日期或编号的高相似正文不计新增。模型或服务异常时准确显示缺口，成功内容保留；不为凑数伪造资料，也不在故障时无限调用。无密钥或第三方正文保存在本表中。</p>
+        </section>
         <section id="ai-pricing-sync-run">
           <h2 id="ai_pricing_sync_run">ai_pricing_sync_run — AI 官网价格同步运行账本（V3.19）</h2>
           <p class="meta">迁移脚本：<code>05_code/backend/sql/V3.19_pricing_sync_run_history.sql</code>。记录 DeepSeek 官网价格同步的定时与手动执行结果，供管理端“任务与运行”按任务查看历史。现有 MySQL 数据库必须执行此迁移；开发环境 SQL 自动初始化关闭，更新 <code>schema.sql</code> 或 HTML 字典不会自动创建此表。缺表会导致启动后补偿任务及运行历史接口报错。该表不保存官网页面正文、模型凭据或用户提问内容。</p>
