@@ -41,14 +41,14 @@ class EnglishCornerMenuMigrationTest {
   }
 
   @Test
-  void freshDatabaseSeedsEnglishGroupAndItsFourExistingPages() {
+  void freshDatabaseSeedsEnglishGroupIncludingReadingBooks() {
     EmbeddedDatabase db = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2)
         .setName("english-seed-" + UUID.randomUUID() + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE")
         .addScript("schema.sql").addScript("data.sql").build();
     try {
       JdbcTemplate jdbc = new JdbcTemplate(db);
       assertThat(jdbc.queryForList("SELECT child.code FROM admin_menu child JOIN admin_menu parent ON child.parent_id=parent.id WHERE parent.code='group_english' ORDER BY child.sort_order", String.class))
-          .containsExactly("words", "imports", "articles", "study_records");
+          .containsExactly("words", "imports", "articles", "english_books", "study_records");
       assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM admin_role_menu rm JOIN admin_menu m ON m.id=rm.menu_id WHERE m.code='group_english'", Integer.class)).isEqualTo(2);
     } finally { db.shutdown(); }
   }

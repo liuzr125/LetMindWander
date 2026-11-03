@@ -4,11 +4,14 @@ import { useRoute } from 'vue-router';
 import brandLogo from './assets/brand-logo.png';
 import { getAdminToken, request, setAdminToken } from './services/request.js';
 import { closeNotification, notification } from './services/notification.js';
+import { restoreAdminProfile } from './services/sessionRestore.js';
 import { withEnglishCorner, visibleNavigationMenus } from './services/englishCornerMenu.js';
 
 const route = useRoute();
 const now = ref(new Date());
 const showAccess = ref(true);
+const sessionRestoreError = ref(''),
+  restoringSession = ref(false);
 const loginForm = ref({ username: 'superadmin', password: '' });
 const loginError = ref('');
 const loggingIn = ref(false);
@@ -67,6 +70,14 @@ const fallbackMenuItems = [
     name: '词库批次',
     parentCode: 'group_english',
     description: '词库批次导入与发布',
+  },
+  {
+    code: 'english_books',
+    path: '/english-books',
+    icon: '▤',
+    name: '英语书籍',
+    parentCode: 'group_english',
+    description: '完整图文书与章节听读',
   },
   {
     code: 'articles',
@@ -186,16 +197,18 @@ const menuSource = computed(() => {
   const server = profile.value?.menuItems;
   if (!Array.isArray(server) || !server.length) return withEnglishCorner(fallbackMenuItems);
   const codeById = new Map(server.map((item) => [readItem(item, 'id'), readItem(item, 'code')]));
-  return withEnglishCorner(server.map((item) => ({
-    code: readItem(item, 'code'),
-    name: readItem(item, 'name'),
-    path: readItem(item, 'path') || '',
-    icon: readItem(item, 'icon'),
-    description: readItem(item, 'description'),
-    parentCode: readItem(item, 'parentId')
-      ? codeById.get(readItem(item, 'parentId')) || null
-      : null,
-  })));
+  return withEnglishCorner(
+    server.map((item) => ({
+      code: readItem(item, 'code'),
+      name: readItem(item, 'name'),
+      path: readItem(item, 'path') || '',
+      icon: readItem(item, 'icon'),
+      description: readItem(item, 'description'),
+      parentCode: readItem(item, 'parentId')
+        ? codeById.get(readItem(item, 'parentId')) || null
+        : null,
+    })),
+  );
 });
 const visibleMenus = computed(() =>
   visibleNavigationMenus(menuSource.value, profile.value?.menus || []),
@@ -268,6 +281,7 @@ async function saveAccess() {
 }
 
 function openAccess() {
+  sessionRestoreError.value = '';
   setAdminToken('');
   profile.value = null;
   loginForm.value.password = '';
@@ -275,16 +289,24 @@ function openAccess() {
   showAccess.value = true;
 }
 async function restoreSession() {
-  if (!getAdminToken()) {
-    showAccess.value = true;
-    return;
-  }
+  restoringSession.value = true;
+  sessionRestoreError.value = '';
   try {
-    profile.value = await request('/admin/auth/me', { silentError: true });
-    showAccess.value = false;
-  } catch (_) {
-    setAdminToken('');
+    const result = await restoreAdminProfile({
+      request,
+      getToken: getAdminToken,
+      clearToken: () => setAdminToken(''),
+    });
+    if (result.state === 'ready') {
+      profile.value = result.profile;
+      showAccess.value = false;
+      return;
+    }
     showAccess.value = true;
+    if (result.state === 'unavailable')
+      sessionRestoreError.value = '暂时无法连接后端，登录状态已保留。服务恢复后可重试连接。';
+  } finally {
+    restoringSession.value = false;
   }
 }
 async function logout() {
@@ -369,7 +391,13 @@ onBeforeUnmount(() => {
   </div>
 
   <div v-if="showAccess" class="modal-mask">
-    <form class="access-modal" @submit.prevent="saveAccess">
+    <div v-if="sessionRestoreError" class="access-modal"
+      ><div class="modal-icon">↻</div><h2>正在恢复管理端连接</h2><p>{{ sessionRestoreError }}</p
+      ><button class="primary-button" :disabled="restoringSession" @click="restoreSession">{{
+        restoringSession ? '连接中…' : '重试连接'
+      }}</button></div
+    >
+    <form v-else class="access-modal" @submit.prevent="saveAccess">
       <div class="modal-icon">🔐</div>
       <h2>管理端登录</h2>
       <p>输入管理员账号和密码。登录会话仅保存于当前浏览器，并在 8 小时后自动失效。</p>

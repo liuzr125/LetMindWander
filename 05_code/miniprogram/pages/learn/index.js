@@ -74,6 +74,9 @@ Page({
     this.remember({ primaryTab: value });
     this.reload();
   },
+  openEnglishBooks() {
+    wx.navigateTo({ url: '/pages/english-books/library/index' });
+  },
   switchEnglish(event) {
     const value = event.currentTarget.dataset.value;
     if (value === this.data.englishTab) return;

@@ -319,6 +319,13 @@ public class AliyunTtsService {
     return media.storeVocabularyAudio(purpose, objectKey, audio.bytes, originUrl, licenseNote);
   }
 
+  /** Segments are checkpointed by the book worker before OSS upload. */
+  public byte[] synthesizeBookSegment(String text, String voice) {
+    if (text == null || text.isEmpty() || text.codePointCount(0, text.length()) > 280)
+      throw bad("BOOK_TTS_TEXT_INVALID", "书籍朗读片段为空或过长");
+    return synthesize(text, requiredVocabularyVoice(voice).code, 16000).bytes;
+  }
+
   public Map<String, Object> speech(String ownerId, String contentId) {
     return speech(ownerId, contentId, null);
   }

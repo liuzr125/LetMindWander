@@ -37,7 +37,9 @@
     "pages/action/plan/index",
     "pages/action/detail/index",
     "pages/announcements/list/index",
-    "pages/announcements/detail/index"
+    "pages/announcements/detail/index",
+    "pages/english-books/library/index",
+    "pages/english-books/reader/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F9FF",

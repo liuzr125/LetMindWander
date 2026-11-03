@@ -33,6 +33,11 @@ export default createRouter({
       component: VocabularyImportsPage,
       meta: { title: '词库批次自动化' },
     },
+    {
+      path: '/english-books',
+      component: () => import('../pages/english-books/index.vue'),
+      meta: { title: '英语书籍' },
+    },
     { path: '/articles', component: ArticlesPage, meta: { title: '英语短文' } },
     { path: '/users', component: UsersPage, meta: { title: '账号列表' } },
     { path: '/invites', component: InvitesPage, meta: { title: '邀请码' } },

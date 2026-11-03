@@ -225,6 +225,61 @@ public class MediaService {
     return id;
   }
 
+  /** Book assets never use the public-media route; callers must authorize a book snapshot. */
+  @Transactional
+  public String storeBookAsset(
+      String bookId, String key, byte[] bytes, boolean image, String license) {
+    if (!bookId.matches("[a-f0-9]{32}") || !key.matches("[a-f0-9]{64}"))
+      throw new ApiException(HttpStatus.BAD_REQUEST, "BOOK_ASSET_KEY", "书籍资源标识错误");
+    String mime = image && bytes != null ? detectMime(bytes) : image ? null : "audio/mpeg";
+    if (bytes == null
+        || bytes.length == 0
+        || bytes.length > MAX_AVATAR_BYTES
+        || mime == null
+        || (!image && !isMp3(bytes)))
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "BOOK_ASSET_INVALID", "书籍资源格式错误或超过 5MB");
+    String objectKey = "book-assets/" + bookId + "/" + key + (image ? extensionOf(mime) : ".mp3");
+    List<String> existing = persistence.selectReadyAssetIdsByObjectKey(objectKey);
+    if (!existing.isEmpty()) return existing.get(0);
+    putToOss(objectKey, mime, bytes);
+    String id = CryptoUtils.randomId();
+    Timestamp at = Timestamp.from(Instant.now());
+    persistence.insertPublicAsset(
+        id,
+        image ? "book_image" : "book_audio",
+        objectKey,
+        mime,
+        bytes.length,
+        new com.zhixing.mapper.type.BinaryHash(sha256(bytes)),
+        null,
+        license,
+        at,
+        at);
+    return id;
+  }
+
+  public boolean isBookAsset(String bookId, String id) {
+    List<Map<String, Object>> rows = persistence.selectAssetAccessDetails(id);
+    if (rows.isEmpty()) return false;
+    Map<String, Object> row = rows.get(0);
+    return "ready".equals(String.valueOf(raw(row, "state")))
+        && String.valueOf(raw(row, "object_key")).startsWith("book-assets/" + bookId + "/")
+        && java.util.Arrays.asList("book_image", "book_audio")
+            .contains(String.valueOf(raw(row, "purpose")));
+  }
+
+  public boolean isBookAsset(String bookId, String id, boolean image) {
+    if (!isBookAsset(bookId, id)) return false;
+    return (image ? "book_image" : "book_audio")
+        .equals(String.valueOf(raw(persistence.selectAssetAccessDetails(id).get(0), "purpose")));
+  }
+
+  public String bookAssetUrl(String bookId, String id) {
+    if (!isBookAsset(bookId, id)) return null;
+    return presign(
+        String.valueOf(raw(persistence.selectAssetAccessDetails(id).get(0), "object_key")), 300);
+  }
+
   public void requireOwnedAvatar(String ownerId, String url) {
     String base = publicBaseUrl.replaceAll("/+$", "") + "/";
     String id = url.startsWith(base) ? url.substring(base.length()) : "";
@@ -273,6 +328,15 @@ public class MediaService {
     } finally {
       client.shutdown();
     }
+  }
+
+  public boolean bookStorageReady() {
+    return ossEndpoint != null
+        && !ossEndpoint.isEmpty()
+        && ossBucket != null
+        && !ossBucket.isEmpty()
+        && parameters.configured("oss.access_key_id")
+        && parameters.configured("oss.access_key_secret");
   }
 
   protected OSS buildClient() {

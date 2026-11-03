@@ -1,0 +1,148 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">正在打开这本书…</view
+  ><view wx:if="{{error}}" class="state"
+    >{{error}}<button size="mini" bindtap="load">重新加载</button></view
+  >
+  <block wx:if="{{book&&chapter}}">
+    <view class="eyebrow">{{book.kind==='ai_original'?'AI 原创图文书':'英语图文听读'}}</view
+    ><view class="book-title">{{book.title}}</view
+    ><view class="meta">{{book.author}} · {{book.edition}}</view>
+    <view class="toolbar"
+      ><button size="mini" bindtap="toggleDirectory"
+        >目录 · {{completedCount}} / {{book.chapters.length}}</button
+      ><button size="mini" bindtap="togglePictures">{{showPictures?'纯文字':'显示画面'}}</button
+      ><button size="mini" bindtap="toggleTranslation"
+        >{{showTranslation?'隐藏译文':'显示译文'}}</button
+      ><button size="mini" data-delta="-2" bindtap="changeSize">A−</button
+      ><button size="mini" data-delta="2" bindtap="changeSize">A＋</button></view
+    >
+    <view wx:if="{{directory}}" class="directory"
+      ><view class="intro">{{book.summary}}</view><view class="source">{{book.licenseNote}}</view
+      ><view class="toolbar"
+        ><button size="mini" bindtap="addShelf">加入书架</button
+        ><button size="mini" bindtap="continueListening">继续听书</button></view
+      ><view
+        wx:for="{{book.chapters}}"
+        wx:key="id"
+        class="chapter-link {{chapterIndex===index?'selected':''}}"
+        data-index="{{index}}"
+        bindtap="selectChapter"
+        >{{index+1}}. {{item.title}} {{item.completed?"✓":""}}</view
+      ></view
+    >
+    <view wx:if="{{syncError}}" class="sync" bindtap="retrySync">{{syncError}}</view>
+    <view class="chapter-title">{{chapter.title}}</view>
+    <view class="pictures" wx:if="{{showPictures}}"
+      ><view wx:for="{{chapter.pictures}}" wx:key="assetId" wx:if="{{!item.paragraphId}}"
+        ><image
+          wx:if="{{item.url&&!item.failed}}"
+          src="{{item.url}}"
+          mode="widthFix"
+          lazy-load
+          data-index="{{index}}"
+          binderror="pictureError"
+          data-url="{{item.url}}"
+          bindtap="previewPicture"
+        /><view wx:elif="{{item.failed}}" class="image-fallback" bindtap="retryPictures"
+          >{{item.caption||'本章插图'}} · 点击重新加载</view
+        ><view wx:else class="image-fallback">画面加载中…</view
+        ><view class="caption"
+          >{{item.source==='ai'?'AI 配图':'原版／授权插图'}} · {{item.caption}}</view
+        ></view
+      ></view
+    >
+    <view
+      wx:for="{{chapter.paragraphs}}"
+      wx:key="id"
+      wx:for-item="paragraph"
+      class="paragraph"
+      id="p-{{paragraph.id}}"
+      style="font-size:{{fontSize}}rpx"
+      ><view class="pictures" wx:if="{{showPictures}}"
+        ><view
+          wx:for="{{chapter.pictures}}"
+          wx:key="assetId"
+          wx:if="{{item.paragraphId===paragraph.id}}"
+          ><image
+            wx:if="{{item.url&&!item.failed}}"
+            src="{{item.url}}"
+            mode="widthFix"
+            lazy-load
+            data-index="{{index}}"
+            binderror="pictureError"
+            data-url="{{item.url}}"
+            bindtap="previewPicture"
+          /><view wx:elif="{{item.failed}}" class="image-fallback" bindtap="retryPictures"
+            >{{item.caption||'本章插图'}} · 点击重新加载</view
+          ><view wx:else class="image-fallback">画面加载中…</view
+          ><view class="caption"
+            >{{item.source==='ai'?'AI 配图':'原版／授权插图'}} · {{item.caption}}</view
+          ></view
+        ></view
+      ><text
+        wx:for="{{paragraph.tokens}}"
+        wx:key="index"
+        wx:for-item="token"
+        class="{{token.word?'word-token':''}}"
+        data-term="{{token.text}}"
+        data-pid="{{paragraph.id}}"
+        bindtap="{{token.word?'selectWord':''}}"
+        >{{token.text}}</text
+      ><view wx:if="{{showTranslation&&paragraph.translation}}" class="translation"
+        >{{paragraph.translation}}</view
+      ></view
+    >
+    <view class="chapter-actions"
+      ><button size="mini" data-delta="-1" bindtap="changeChapter" disabled="{{chapterIndex===0}}"
+        >上一章</button
+      ><button size="mini" class="complete" bindtap="complete">完成本章</button
+      ><button
+        size="mini"
+        data-delta="1"
+        bindtap="changeChapter"
+        disabled="{{chapterIndex+1>=book.chapters.length}}"
+        >下一章</button
+      ></view
+    >
+    <view class="player"
+      ><view class="player-top"
+        ><button class="play" size="mini" bindtap="toggleAudio" disabled="{{buffering}}"
+          >{{buffering?'加载中':playing?'暂停':'播放本章'}}</button
+        ><picker range="{{speeds}}" bindchange="speedChange"><text>{{speed}}×</text></picker
+        ><text class="continuous" bindtap="toggleContinuous"
+          >连播 {{continuous?'开':'关'}}</text
+        ></view
+      ><slider
+        min="0"
+        max="1000"
+        value="{{sliderValue}}"
+        step="1"
+        bindchange="seek"
+        activeColor="#315c45"
+        block-size="16"
+      /><view class="times"><text>{{elapsedText}}</text><text>{{durationText}}</text></view
+      ><view wx:if="{{audioError}}" class="audio-error" bindtap="retryAudio"
+        >{{audioError}}</view
+      ></view
+    >
+  </block>
+  <view wx:if="{{word}}" class="word-sheet"
+    ><view class="word-heading"><text>{{word.term}}</text><text bindtap="closeWord">×</text></view
+    ><view wx:if="{{wordLoading}}">正在查词…</view
+    ><view class="word-error" wx:if="{{wordError}}">{{wordError}}</view
+    ><view wx:for="{{wordResults}}" wx:key="contentId"
+      ><view class="phonetic">{{item.phonetic}}</view><view class="meaning">{{item.meaning}}</view
+      ><view class="toolbar"
+        ><button
+          size="mini"
+          data-id="{{item.contentId}}"
+          bindtap="saveWord"
+          disabled="{{savingWord}}"
+          >加入生词本</button
+        ><button size="mini" data-id="{{item.contentId}}" bindtap="openWord"
+          >词条详情与发音</button
+        ></view
+      ></view
+    ></view
+  >
+</view>

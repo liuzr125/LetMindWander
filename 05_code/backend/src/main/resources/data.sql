@@ -106,3 +106,14 @@ INSERT INTO admin_role_menu(role_id,menu_id)
 SELECT r.id,m.id FROM admin_role r CROSS JOIN admin_menu m
 WHERE r.code='SUPER_ADMIN' AND m.code='announcements'
 AND NOT EXISTS (SELECT 1 FROM admin_role_menu rm WHERE rm.role_id=r.id AND rm.menu_id=m.id);
+
+INSERT INTO admin_menu(id,code,name,path,icon,sort_order,enabled,parent_id,description)
+SELECT '00000000000000000000000000c7','english_books','英语书籍','/english-books','▤',55,1,
+ (SELECT id FROM admin_menu WHERE code='group_english'),'完整英语图文书籍、音频生成与学习'
+WHERE NOT EXISTS(SELECT 1 FROM admin_menu WHERE code='english_books');
+INSERT INTO admin_role_menu(role_id,menu_id)
+SELECT r.id,m.id FROM admin_role r CROSS JOIN admin_menu m
+WHERE r.code='SUPER_ADMIN' AND m.code='english_books'
+ AND NOT EXISTS(SELECT 1 FROM admin_role_menu x WHERE x.role_id=r.id AND x.menu_id=m.id);
+
+UPDATE admin_menu SET description='英语单词、词库批次、英语短文、英语书籍与词书学习记录' WHERE code='group_english';

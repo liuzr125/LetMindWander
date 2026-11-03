@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="eyebrow">ENGLISH LIBRARY</view><view class="title">读一本英语书</view
+  ><view class="subtitle">跟着画面走进故事，让英语有声有色。</view>
+  <view class="tabs"
+    ><view class="{{!shelf?'selected':''}}" data-shelf="no" bindtap="switchShelf">全部书籍</view
+    ><view class="{{shelf?'selected':''}}" data-shelf="yes" bindtap="switchShelf"
+      >我的书架</view
+    ></view
+  >
+  <view class="search"
+    ><input
+      value="{{keyword}}"
+      bindinput="onKeyword"
+      bindconfirm="search"
+      placeholder="搜索书名"
+      confirm-type="search"
+    /><button bindtap="search" size="mini">搜索</button></view
+  >
+  <view wx:if="{{error}}" class="state"
+    >{{error}}<button bindtap="search" size="mini">重新加载</button></view
+  >
+  <view class="card" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="open"
+    ><view class="cover"
+      ><image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFill" lazy-load /><text
+        >EN</text
+      ><text class="cover-title">{{item.title}}</text></view
+    ><view class="info"
+      ><text class="badge">{{item.kind==='ai_original'?'AI 原创':'图文听读完整版'}}</text
+      ><view class="name">{{item.title}}</view><view class="author">{{item.author}}</view
+      ><view class="progress"
+        >{{item.progressText}}{{item.completed===item.chapterCount?' · 已读完':''}}</view
+      ><text class="continue">{{item.completed?'继续学习':'打开这本书'}} →</text></view
+    ></view
+  >
+  <view wx:if="{{loading}}" class="state">正在读取书库…</view
+  ><view wx:if="{{!loading&&!error&&!items.length}}" class="state"
+    >{{shelf?'还没有加入书架的书，去书库挑一本吧。':'书库正在准备中，稍后再来看看。'}}</view
+  >
+</view>

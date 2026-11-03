@@ -67,3 +67,13 @@ app:
     public-base-url: ${MEDIA_BASE_URL:https://mindkitchen.vip.cpolar.cn/api/media}
   tts:
     mock-enabled: ${TTS_MOCK_ENABLED:false}
+
+  books:
+    # Enable processing only after applying V3.30 and configuring providers. No automatic DDL.
+    worker-enabled: ${BOOK_WORKER_ENABLED:false}
+    licensed-catalog-url: ${BOOK_LICENSED_CATALOG_URL:}
+    catalog-url: ${BOOK_CATALOG_URL:https://gutendex.com}
+    text-url-template: ${BOOK_SOURCE_TEXT_URL_TEMPLATE:}
+    image-endpoint: ${BOOK_IMAGE_ENDPOINT:}
+    image-model: ${BOOK_IMAGE_MODEL:}
+    max-job-cost: ${BOOK_MAX_JOB_COST:30}
