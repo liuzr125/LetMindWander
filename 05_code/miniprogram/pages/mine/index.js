@@ -54,9 +54,6 @@ Page({
   goFavorites() {
     wx.navigateTo({ url: '/pages/mine/favorites/index' });
   },
-  goFriends() {
-    wx.navigateTo({ url: '/pages/friends/index/index' });
-  },
   goBookProgress() {
     wx.navigateTo({ url: '/pages/word/books/progress/index' });
   },

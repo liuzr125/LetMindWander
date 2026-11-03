@@ -36,6 +36,7 @@ public class MineService {
     LocalDate today = LocalDate.now(ZONE);
     MineOverviewView v = mine.selectOverview(ownerId, today, today.atStartOfDay(ZONE).toInstant());
     if (v == null) v = new MineOverviewView();
+    v.setPendingFriendRequests(0);
     v.setProfile(profiles.findView(ownerId));
     v.setAiLimit(
         parameters.intValue(

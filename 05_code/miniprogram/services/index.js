@@ -472,9 +472,6 @@ const knowledgeService = {
   tags() {
     return request({ url: '/knowledge/tags' });
   },
-  friends() {
-    return request({ url: '/knowledge/friends' });
-  },
   get(id) {
     return request({ url: `/knowledge/${encodeURIComponent(id)}` });
   },
@@ -487,13 +484,6 @@ const knowledgeService = {
   verify(id, payload) {
     return request({
       url: `/knowledge/${encodeURIComponent(id)}/verification`,
-      method: 'PUT',
-      data: payload,
-    });
-  },
-  visibility(id, payload) {
-    return request({
-      url: `/knowledge/${encodeURIComponent(id)}/visibility`,
       method: 'PUT',
       data: payload,
     });
@@ -535,37 +525,6 @@ const mineService = {
   },
   feedback(payload) {
     return request({ url: '/mine/feedback', method: 'POST', data: payload });
-  },
-};
-const friendService = {
-  list() {
-    return request({ url: '/friends' });
-  },
-  search(type, query) {
-    return request({
-      url: `/friends/search?type=${encodeURIComponent(type)}&query=${encodeURIComponent(query)}`,
-    });
-  },
-  requests(direction) {
-    return request({
-      url: `/friends/requests?direction=${encodeURIComponent(direction || 'received')}`,
-    });
-  },
-  send(payload) {
-    return request({ url: '/friends/requests', method: 'POST', data: payload });
-  },
-  decide(id, decision, expectedVersion) {
-    return request({
-      url: `/friends/requests/${encodeURIComponent(id)}/decision`,
-      method: 'POST',
-      data: { decision, expectedVersion },
-    });
-  },
-  shared(id) {
-    return request({ url: `/friends/${encodeURIComponent(id)}/shared` });
-  },
-  remove(id) {
-    return request({ url: `/friends/${encodeURIComponent(id)}`, method: 'DELETE' });
   },
 };
 const resourceScheduleService = {
@@ -618,6 +577,5 @@ module.exports = {
   weeklySummaryService,
   knowledgeService,
   mineService,
-  friendService,
   resourceScheduleService,
 };

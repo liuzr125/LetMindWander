@@ -121,12 +121,7 @@
         ></view
       >
     </view>
-    <view class="share-card" bindtap="openShare"
-      ><view
-        ><text class="share-title">▢ 可见范围</text
-        ><text class="hint">好友只能阅读，不能修改原文</text></view
-      ><text>{{visibilityName}} 〉</text></view
-    >
+    <view class="share-card"><text class="hint">仅本人可见，用于个人记录与复习</text></view>
     <view class="bottom-actions"
       ><button data-state="draft" bindtap="save" loading="{{saving}}">保存草稿</button
       ><button class="primary" data-state="active" bindtap="save" loading="{{saving}}"

@@ -32,7 +32,7 @@ class F06KnowledgeLibraryIntegrationTest {
   @Autowired JdbcTemplate jdbc;
 
   @Test
-  void knowledgeCreateSearchEditVerifyShareReviewAndDeleteClosedLoop() throws Exception {
+  void personalKnowledgeCreateSearchEditVerifyReviewAndDeleteClosedLoop() throws Exception {
     Session owner = register("knowledge-owner", "13800000011", "知识作者");
     Session friend = register("knowledge-friend", "13800000012", "知识好友");
     seedFriend(owner.userId, friend.userId);
@@ -58,6 +58,11 @@ class F06KnowledgeLibraryIntegrationTest {
                 .getResponse()
                 .getContentAsString());
     String noteId = created.path("id").asText();
+    jdbc.update("INSERT INTO knowledge_share_rule (id,knowledge_id,friend_id,relation_id,relation_generation,effect,version_no) VALUES (?,?,?,?,1,'allow',1)",
+        "legacy-grant", noteId, friend.userId, "abababababababababababababababab");
+    mvc.perform(get("/api/knowledge").header("Authorization", bearer(friend.token)))
+        .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+    mvc.perform(get("/api/knowledge/{id}", noteId)).andExpect(status().isUnauthorized());
 
     mvc.perform(
             get("/api/knowledge")
@@ -91,19 +96,39 @@ class F06KnowledgeLibraryIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.inReview").value(true));
 
-    Map<String, Object> share = new LinkedHashMap<String, Object>();
-    share.put("expectedVersion", 2);
-    share.put("visibility", "selected");
-    share.put("selectedFriendIds", Collections.singletonList(friend.userId));
-    mvc.perform(
-            put("/api/knowledge/{id}/visibility", noteId)
-                .header("Authorization", bearer(owner.token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(share)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.visibility").value("selected"))
-        .andExpect(jsonPath("$.selectedFriendIds[0]").value(friend.userId))
-        .andExpect(jsonPath("$.versionNo").value(3));
+    // Simulate a previously shared record. Old grants must never enable cross-user reads.
+    for (String legacy : Arrays.asList("friends", "selected")) {
+      jdbc.update("UPDATE knowledge_item SET visibility=? WHERE id=?", legacy, noteId);
+      mvc.perform(get("/api/knowledge/{id}", noteId).header("Authorization", bearer(owner.token)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.visibility").value("private"))
+          .andExpect(jsonPath("$.selectedFriendIds").isEmpty());
+      mvc.perform(get("/api/knowledge/{id}", noteId).header("Authorization", bearer(friend.token)))
+          .andExpect(status().isNotFound());
+      mvc.perform(get("/api/friends/{id}/shared", owner.userId).header("Authorization", bearer(friend.token)))
+          .andExpect(status().isNotFound());
+      Map<String, Object> share = new LinkedHashMap<String, Object>();
+      share.put("expectedVersion", 2);
+      share.put("visibility", legacy);
+      share.put("selectedFriendIds", Collections.singletonList(friend.userId));
+      mvc.perform(put("/api/knowledge/{id}/visibility", noteId)
+              .header("Authorization", bearer(owner.token))
+              .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(share)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("PRIVATE_RECORDS_ONLY"));
+      note.put("visibility", legacy);
+      note.put("expectedVersion", 2);
+      mvc.perform(post("/api/knowledge").header("Authorization", bearer(owner.token))
+              .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note)))
+          .andExpect(status().isBadRequest());
+      mvc.perform(put("/api/knowledge/{id}", noteId).header("Authorization", bearer(owner.token))
+              .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note)))
+          .andExpect(status().isBadRequest());
+    }
+    mvc.perform(put("/api/knowledge/{id}/visibility", noteId)
+            .header("Authorization", bearer(owner.token)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":2,\"visibility\":\"private\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.versionNo").value(3));
 
     Map<String, Object> problem = new LinkedHashMap<String, Object>();
     problem.put("itemType", "problem");

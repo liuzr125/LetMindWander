@@ -64,7 +64,7 @@
       ><switch checked="{{detail.inReview}}" bindchange="toggleReview" color="#1475f7"
     /></view>
     <view class="vis-readonly"
-      ><text class="section-title">可见范围</text
+      ><text class="section-title">个人记录</text
       ><text class="vis-value">{{detail.visibilityName}}</text></view
     >
     <view class="bottom-actions">

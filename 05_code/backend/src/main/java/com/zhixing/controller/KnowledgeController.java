@@ -3,7 +3,6 @@ package com.zhixing.controller;
 import com.zhixing.dto.*;
 import com.zhixing.model.AuthenticatedSession;
 import com.zhixing.model.KnowledgeDetailView;
-import com.zhixing.model.KnowledgeFriendView;
 import com.zhixing.model.KnowledgeListItemView;
 import com.zhixing.service.KnowledgeService;
 import com.zhixing.service.SessionService;
@@ -37,13 +36,6 @@ public class KnowledgeController {
   @GetMapping("/tags")
   public List<String> tags(@RequestHeader(value = "Authorization", required = false) String auth) {
     return knowledge.tags(user(auth));
-  }
-
-  /** 读取知识共享可选的好友列表。 */
-  @GetMapping("/friends")
-  public List<KnowledgeFriendView> friends(
-      @RequestHeader(value = "Authorization", required = false) String auth) {
-    return knowledge.friends(user(auth));
   }
 
   /** 读取当前用户可访问的知识条目详情。 */
@@ -80,7 +72,7 @@ public class KnowledgeController {
     return knowledge.verify(user(auth), id, request);
   }
 
-  /** 更新知识条目的共享可见范围。 */
+  /** 将本人知识条目设为私有，兼容旧版客户端。 */
   @PutMapping("/{id}/visibility")
   public KnowledgeDetailView visibility(
       @RequestHeader(value = "Authorization", required = false) String auth,

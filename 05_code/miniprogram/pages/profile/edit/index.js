@@ -1,7 +1,5 @@
 const { profileService } = require('../../../services/index');
 const { setUserInfo } = require('../../../utils/storage');
-const LEVELS = ['private', 'friends', 'public'];
-const LABELS = ['仅自己可见', '好友可见', '公开'];
 const FIELDS = [
   ['real_name', '真实姓名'],
   ['english_name', '英语名字'],
@@ -28,9 +26,6 @@ Page({
     },
     rules: {},
     genderOptions: ['未设置', '男', '女', '其他'],
-    visibilityOptions: LABELS,
-    visibilityRows: [],
-    visibilityLabel: '仅自己可见',
     mobileMasked: '',
     shortId: '',
     introLength: 0,
@@ -43,7 +38,6 @@ Page({
     canSubmit: false,
     errorMessage: '',
     avatarSheet: false,
-    visibilitySheet: false,
     avatarPreview: '',
     candidate: '',
     confirmAvatar: false,
@@ -109,7 +103,7 @@ Page({
     this.profile = profile;
     const profileVisibility = {};
     FIELDS.forEach(([key]) => {
-      profileVisibility[key] = (profile.profileVisibility || {})[key] || 'private';
+      profileVisibility[key] = 'private';
     });
     this.setData(
       {
@@ -136,17 +130,11 @@ Page({
   },
   refreshState() {
     const { form, rules } = this.data;
-    const levels = FIELDS.map(([key]) => form.profileVisibility[key] || 'private');
+    FIELDS.forEach(([key]) => {
+      form.profileVisibility[key] = 'private';
+    });
     this.setData({
       introLength: count(form.introduction),
-      visibilityLabel: levels.every((v) => v === levels[0])
-        ? LABELS[LEVELS.indexOf(levels[0])]
-        : '按字段设置',
-      visibilityRows: FIELDS.map(([key, label]) => ({
-        key,
-        label,
-        index: LEVELS.indexOf(form.profileVisibility[key] || 'private'),
-      })),
       canSubmit:
         !!this.profile &&
         !this.data.loading &&
@@ -199,37 +187,6 @@ Page({
       },
       () => this.refreshState(),
     );
-  },
-  openVisibility() {
-    this.setData({
-      visibilitySheet: true,
-      visibilityDraft: copy(this.data.form.profileVisibility),
-    });
-  },
-  onVisibility(e) {
-    this.setData({
-      [`visibilityDraft.${e.currentTarget.dataset.field}`]: LEVELS[Number(e.detail.value)],
-    });
-    this.setData({
-      visibilityRows: FIELDS.map(([key, label]) => ({
-        key,
-        label,
-        index: LEVELS.indexOf(this.data.visibilityDraft[key] || 'private'),
-      })),
-    });
-  },
-  confirmVisibility() {
-    this.setData(
-      {
-        'form.profileVisibility': copy(this.data.visibilityDraft),
-        dirty: true,
-        visibilitySheet: false,
-      },
-      () => this.refreshState(),
-    );
-  },
-  cancelVisibility() {
-    this.setData({ visibilitySheet: false }, () => this.refreshState());
   },
   changeAvatar() {
     if (!this.data.loading && !this.data.uploading && !this.data.saving)

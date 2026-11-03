@@ -134,12 +134,7 @@
           /><text class="intro-count">{{introLength}}/{{rules.introduction}}</text></view
         ></view
       >
-      <view class="section visibility-row" bindtap="openVisibility"
-        ><text class="row-label">资料可见范围</text
-        ><view class="readonly-cell muted"
-          ><text>{{visibilityLabel}}</text><text>›</text></view
-        ></view
-      >
+      <view class="section visibility-row"><text class="row-label">个人资料仅本人可见</text></view>
     </block>
     <text wx:if="{{errorMessage}}" class="error-message">{{errorMessage}}</text>
     <button wx:if="{{!shortId || conflict}}" class="retry" bindtap="loadProfile">重新加载</button>
@@ -186,23 +181,5 @@
       ></view
     ></view
   >
-  <view wx:if="{{visibilitySheet}}" class="overlay" catchtouchmove="noop"
-    ><view class="sheet"
-      ><text class="sheet-title">资料权限设置</text><text class="hint">手机号始终不对外展示</text
-      ><picker
-        wx:for="{{visibilityRows}}"
-        wx:key="key"
-        data-field="{{item.key}}"
-        mode="selector"
-        range="{{visibilityOptions}}"
-        value="{{item.index}}"
-        bindchange="onVisibility"
-        ><view class="field-row"
-          ><text>{{item.label}}</text
-          ><text class="muted">{{visibilityOptions[item.index]}} ›</text></view
-        ></picker
-      ><button class="save-button" bindtap="confirmVisibility">确认范围</button
-      ><button class="cancel-button" bindtap="cancelVisibility">取消</button></view
-    ></view
-  >
+
 </view>

@@ -41,12 +41,7 @@ function decorate(item) {
             item.verificationStatus === 'verified'
           ? 'success'
           : 'primary',
-    visibilityName:
-      item.visibility === 'private'
-        ? '只对你可见'
-        : item.visibility === 'friends'
-          ? '所有好友可见'
-          : '指定好友可见',
+    visibilityName: '仅本人可见',
     updatedLabel: displayTime(item.updatedAt),
     icon: item.itemType === 'problem' ? '?' : item.itemType === 'word' ? 'Aa' : '≡',
   });

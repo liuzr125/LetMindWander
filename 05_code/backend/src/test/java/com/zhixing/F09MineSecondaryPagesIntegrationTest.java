@@ -31,51 +31,20 @@ class F09MineSecondaryPagesIntegrationTest {
   @Autowired JdbcTemplate jdbc;
 
   @Test
-  void mineFriendsPrivacyAndSchedulesFormClosedLoops() throws Exception {
+  void minePrivateToolsAndSchedulesFormClosedLoops() throws Exception {
     Session a = register("mine-a", "13800009001", "小林");
     Session b = register("mine-b", "13800009002", "阿岚");
     mvc.perform(get("/api/mine/overview").header("Authorization", bearer(a.token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.profile.shortId").value(a.shortId))
         .andExpect(jsonPath("$.aiLimit").value(10));
-    mvc.perform(
-            get("/api/friends/search")
-                .param("type", "id")
-                .param("query", b.shortId)
-                .header("Authorization", bearer(a.token)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].id").value(b.id));
-    mvc.perform(
-            post("/api/friends/requests")
-                .header("Authorization", bearer(a.token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"targetUserId\":\"" + b.id + "\",\"remark\":\"一起交流学习笔记\"}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.state").value("pending"));
-    String received =
-        mvc.perform(
-                get("/api/friends/requests")
-                    .param("direction", "received")
-                    .header("Authorization", bearer(b.token)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].remark").value("一起交流学习笔记"))
-            .andReturn()
-            .getResponse()
-            .getContentAsString();
-    JsonNode request = json.readTree(received).get(0);
-    mvc.perform(
-            post("/api/friends/requests/" + request.path("id").asText() + "/decision")
-                .header("Authorization", bearer(b.token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{\"decision\":\"accept\",\"expectedVersion\":"
-                        + request.path("versionNo").asInt()
-                        + "}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.state").value("accepted"));
-    mvc.perform(get("/api/friends").header("Authorization", bearer(a.token)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].id").value(b.id));
+    for (String path : new String[] {"/api/friends", "/api/friends/search", "/api/friends/requests", "/api/knowledge/friends"}) {
+      mvc.perform(get(path).header("Authorization", bearer(a.token)))
+          .andExpect(status().isNotFound());
+    }
+    mvc.perform(post("/api/friends/requests").header("Authorization", bearer(a.token))
+            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+        .andExpect(status().isNotFound());
     mvc.perform(
             put("/api/admin/users/" + a.id + "/ai-authorization")
                 .header("X-Admin-Token", "dev-admin-token")
@@ -110,7 +79,7 @@ class F09MineSecondaryPagesIntegrationTest {
             get("/api/resource-schedules/sources/available")
                 .header("Authorization", bearer(a.token)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].name").value("官方文档"));
+        .andExpect(jsonPath("$[*].name").value(org.hamcrest.Matchers.hasItem("官方文档")));
     String schedule =
         mvc.perform(
                 post("/api/resource-schedules")

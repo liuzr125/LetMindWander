@@ -10,7 +10,6 @@ import com.zhixing.mapper.ContentMapper;
 import com.zhixing.mapper.KnowledgeMapper;
 import com.zhixing.model.ContentDetailView;
 import com.zhixing.model.KnowledgeDetailView;
-import com.zhixing.model.KnowledgeFriendView;
 import com.zhixing.model.KnowledgeListItemView;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,8 +25,6 @@ public class KnowledgeService {
   private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
   private static final Set<String> ITEM_TYPES =
       new HashSet<String>(Arrays.asList("note", "problem"));
-  private static final Set<String> VISIBILITIES =
-      new HashSet<String>(Arrays.asList("private", "friends", "selected"));
   private static final Set<String> VERIFICATION_STATES =
       new HashSet<String>(Arrays.asList("unverified", "verified", "partial", "invalid"));
   private final KnowledgeMapper knowledge;
@@ -56,8 +53,10 @@ public class KnowledgeService {
             clean(learningStatus),
             clean(verificationStatus),
             safeLimit);
-    for (KnowledgeListItemView item : result)
+    for (KnowledgeListItemView item : result) {
       item.setTags(knowledge.selectTags(ownerId, item.getId()));
+      item.setVisibility("private");
+    }
     return result;
   }
 
@@ -65,15 +64,12 @@ public class KnowledgeService {
     return knowledge.selectAllTags(ownerId);
   }
 
-  public List<KnowledgeFriendView> friends(String ownerId) {
-    return knowledge.selectFriends(ownerId);
-  }
-
   public KnowledgeDetailView get(String ownerId, String id) {
     KnowledgeDetailView view = knowledge.selectDetail(ownerId, id);
     if (view == null) throw notFound();
     view.setTags(knowledge.selectTags(ownerId, id));
-    view.setSelectedFriendIds(knowledge.selectSelectedFriendIds(id));
+    view.setVisibility("private");
+    view.setSelectedFriendIds(Collections.emptyList());
     String problemJson = knowledge.selectProblemJson(ownerId, id);
     if (problemJson != null && !problemJson.trim().isEmpty())
       view.setProblem(readProblem(problemJson));
@@ -103,7 +99,7 @@ public class KnowledgeService {
     entity.setUpdatedAt(Instant.now());
     knowledge.insert(entity);
     replaceTags(ownerId, entity.getId(), prepared.tags);
-    replaceShares(ownerId, entity.getId(), prepared.visibility, prepared.friendIds);
+    knowledge.deleteShareRules(entity.getId());
     insertRevision(
         ownerId, entity.getId(), 1, "create", snapshot(entity, prepared.tags, prepared.friendIds));
     return get(ownerId, entity.getId());
@@ -133,7 +129,7 @@ public class KnowledgeService {
             expected)
         == 0) throw conflict();
     replaceTags(ownerId, id, prepared.tags);
-    replaceShares(ownerId, id, prepared.visibility, prepared.friendIds);
+    knowledge.deleteShareRules(id);
     KnowledgeDetailView changed = get(ownerId, id);
     insertRevision(ownerId, id, changed.getVersionNo(), "edit", snapshot(changed));
     return changed;
@@ -182,10 +178,8 @@ public class KnowledgeService {
         request == null || request.getExpectedVersion() == null ? -1 : request.getExpectedVersion();
     if (expected != current.getVersionNo()) throw conflict();
     String visibility = visibility(request.getVisibility());
-    List<KnowledgeFriendView> friends =
-        validateFriends(ownerId, visibility, request.getSelectedFriendIds());
     if (knowledge.updateVisibility(ownerId, id, visibility, expected) == 0) throw conflict();
-    replaceShareLinks(id, visibility, friends);
+    knowledge.deleteShareRules(id);
     KnowledgeDetailView changed = get(ownerId, id);
     insertRevision(ownerId, id, changed.getVersionNo(), "edit", snapshot(changed));
     return changed;
@@ -233,10 +227,7 @@ public class KnowledgeService {
       throw new ApiException(HttpStatus.BAD_REQUEST, "KNOWLEDGE_TITLE_TOO_LONG", "标题最多 100 个字符");
     p.tags = normalizeTags(request.getTags());
     p.visibility = visibility(request.getVisibility());
-    List<KnowledgeFriendView> friends =
-        validateFriends(ownerId, p.visibility, request.getSelectedFriendIds());
-    p.friendIds = new ArrayList<String>();
-    for (KnowledgeFriendView friend : friends) p.friendIds.add(friend.getId());
+    p.friendIds = Collections.emptyList();
     p.noteParentId = cleanToNull(request.getNoteParentId());
     if (p.noteParentId != null && knowledge.selectOwnedForUpdate(ownerId, p.noteParentId) == null)
       throw new ApiException(HttpStatus.NOT_FOUND, "NOTE_SOURCE_NOT_FOUND", "原文知识不存在或已不可访问");
@@ -276,49 +267,9 @@ public class KnowledgeService {
     return p;
   }
 
-  private List<KnowledgeFriendView> validateFriends(
-      String ownerId, String visibility, List<String> requested) {
-    LinkedHashSet<String> ids = new LinkedHashSet<String>();
-    if (requested != null)
-      for (String id : requested) {
-        String clean = clean(id);
-        if (!clean.isEmpty()) ids.add(clean);
-      }
-    if ("selected".equals(visibility) && ids.isEmpty())
-      throw new ApiException(
-          HttpStatus.UNPROCESSABLE_ENTITY, "SHARE_FRIEND_REQUIRED", "指定好友范围至少选择一位当前好友");
-    List<KnowledgeFriendView> result = new ArrayList<KnowledgeFriendView>();
-    if (!"selected".equals(visibility)) return result;
-    for (String id : ids) {
-      KnowledgeFriendView friend = knowledge.selectFriend(ownerId, id);
-      if (friend == null)
-        throw new ApiException(
-            HttpStatus.UNPROCESSABLE_ENTITY, "FRIEND_NOT_AVAILABLE", "所选好友关系已失效，请刷新后重试");
-      result.add(friend);
-    }
-    return result;
-  }
-
   private void replaceTags(String ownerId, String id, List<String> tags) {
     knowledge.deleteTags(ownerId, id);
     for (String tag : tags) knowledge.insertTag(CryptoUtils.randomId(), ownerId, id, tag);
-  }
-
-  private void replaceShares(String ownerId, String id, String visibility, List<String> friendIds) {
-    List<KnowledgeFriendView> links = validateFriends(ownerId, visibility, friendIds);
-    replaceShareLinks(id, visibility, links);
-  }
-
-  private void replaceShareLinks(String id, String visibility, List<KnowledgeFriendView> friends) {
-    knowledge.deleteShareRules(id);
-    if (!"selected".equals(visibility)) return;
-    for (KnowledgeFriendView friend : friends)
-      knowledge.insertShareRule(
-          CryptoUtils.randomId(),
-          id,
-          friend.getId(),
-          friend.getRelationId(),
-          friend.getRelationGeneration());
   }
 
   private KnowledgeItemEntity requiredForUpdate(String ownerId, String id) {
@@ -339,8 +290,8 @@ public class KnowledgeService {
   private String visibility(String value) {
     String v = clean(value);
     if (v.isEmpty()) v = "private";
-    if (!VISIBILITIES.contains(v))
-      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_VISIBILITY", "可见范围不正确");
+    if (!"private".equals(v))
+      throw new ApiException(HttpStatus.BAD_REQUEST, "PRIVATE_RECORDS_ONLY", "个人记录仅本人可见");
     return v;
   }
 

@@ -26,7 +26,6 @@ Page({
       tags: [],
       versionNo: 0,
     },
-    visibilityName: '仅自己',
   },
   onLoad(options) {
     const id = options.id || '',
@@ -58,8 +57,8 @@ Page({
             title: detail.title,
             body: detail.body,
             state: detail.state,
-            visibility: detail.visibility,
-            selectedFriendIds: detail.selectedFriendIds || [],
+            visibility: 'private',
+            selectedFriendIds: [],
             problem: detail.problem || emptyProblem(),
             tags: detail.tags || [],
             versionNo: detail.versionNo,
@@ -68,7 +67,6 @@ Page({
           source: detail.sourceTitle
             ? { title: detail.sourceTitle, summary: detail.sourceSummary }
             : null,
-          visibilityName: this.visibilityLabel(detail.visibility, detail.selectedFriendIds),
           loading: false,
         }),
       )
@@ -138,32 +136,6 @@ Page({
     const index = Number(event.currentTarget.dataset.index);
     this.setData({ 'form.tags': this.data.form.tags.filter((_, i) => i !== index) });
   },
-  openShare() {
-    const self = this;
-    wx.navigateTo({
-      url: '/pages/knowledge/share/index',
-      success(res) {
-        res.eventChannel.emit('shareDraft', {
-          visibility: self.data.form.visibility,
-          selectedFriendIds: self.data.form.selectedFriendIds,
-        });
-        res.eventChannel.on('shareSelected', (value) =>
-          self.setData({
-            'form.visibility': value.visibility,
-            'form.selectedFriendIds': value.selectedFriendIds,
-            visibilityName: self.visibilityLabel(value.visibility, value.selectedFriendIds),
-          }),
-        );
-      },
-    });
-  },
-  visibilityLabel(value, ids) {
-    return value === 'friends'
-      ? '所有好友'
-      : value === 'selected'
-        ? `指定好友 · ${(ids || []).length} 人`
-        : '仅自己';
-  },
   save(event) {
     if (this.data.saving) return;
     const state = event.currentTarget.dataset.state;
@@ -174,8 +146,8 @@ Page({
       problem: this.data.form.problem,
       tags: this.data.form.tags,
       state,
-      visibility: this.data.form.visibility,
-      selectedFriendIds: this.data.form.selectedFriendIds,
+      visibility: 'private',
+      selectedFriendIds: [],
       noteParentId: this.data.parentId || this.data.form.noteParentId || null,
       sourceContentId: this.data.sourceContentId || null,
       sourceContentVersionId: this.data.sourceContentVersionId || null,

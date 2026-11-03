@@ -35,12 +35,7 @@ Page({
               detail.itemType === 'problem'
                 ? verificationLabels[detail.verificationStatus]
                 : learningLabels[detail.learningStatus],
-            visibilityName:
-              detail.visibility === 'private'
-                ? '仅自己可见'
-                : detail.visibility === 'friends'
-                  ? '所有好友可见'
-                  : `指定好友可见 · ${detail.selectedFriendIds.length} 人`,
+            visibilityName: '仅本人可见',
           }),
           loading: false,
         });
@@ -111,17 +106,13 @@ Page({
   },
   more() {
     wx.showActionSheet({
-      itemList: ['编辑可见范围', '删除知识'],
+      itemList: ['删除知识'],
       success: ({ tapIndex }) => {
-        if (tapIndex === 0) this.editVisibility();
-        else
+        if (tapIndex === 0)
           wx.navigateTo({
             url: `/pages/knowledge/delete/index?id=${encodeURIComponent(this.data.id)}`,
           });
       },
     });
-  },
-  editVisibility() {
-    wx.navigateTo({ url: `/pages/knowledge/share/index?id=${encodeURIComponent(this.data.id)}` });
   },
 });
