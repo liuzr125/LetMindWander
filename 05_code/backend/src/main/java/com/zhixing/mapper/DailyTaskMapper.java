@@ -12,6 +12,20 @@ import org.apache.ibatis.annotations.Update;
 /** F04 任务数据访问入口，业务层不得直接编写任务查询 SQL。 */
 @Mapper
 public interface DailyTaskMapper extends BaseMapper<DailyTaskEntity> {
+  @Select(
+      "SELECT t.content_id,cv.meaning,CASE WHEN lc.state='published' AND live.review_status='approved' THEN 1 ELSE 0 END AS available "
+          + "FROM daily_task t JOIN daily_package p ON p.id=t.package_id AND p.owner_id=#{owner} "
+          + "LEFT JOIN learning_content lc ON lc.id=t.content_id "
+          + "LEFT JOIN content_version cv ON cv.id=t.content_version_id AND cv.content_id=t.content_id "
+          + "LEFT JOIN content_version live ON live.id=lc.published_version_id AND live.content_id=lc.id "
+          + "WHERE t.package_id=#{id} AND t.task_type='word' AND t.status<>'CANCELLED'")
+  List<java.util.Map<String, Object>> selectWordInfo(
+      @Param("id") String id, @Param("owner") String owner);
+
+  @Select(
+      "SELECT b.book_name FROM daily_package p LEFT JOIN vocabulary_book b ON b.id=p.words_book_id WHERE p.id=#{id} AND p.owner_id=#{owner}")
+  String selectWordsBookName(@Param("id") String id, @Param("owner") String owner);
+
   @Select("SELECT * FROM daily_task WHERE package_id = #{packageId} ORDER BY sort_no, id")
   List<DailyTaskEntity> selectByPackage(@Param("packageId") String packageId);
 

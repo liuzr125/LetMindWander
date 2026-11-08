@@ -109,7 +109,7 @@ class DailyWordSelectionIntegrationTest {
     assertThat(ids(preview)).containsExactlyElementsOf(words.subList(0, 3));
     List<MaterialCandidate> random = materials.selectWordContent(owner, book, "intro", 12, today);
     List<MaterialCandidate> chosen = Arrays.asList(random.get(9), random.get(7), random.get(5));
-    doReturn(chosen).when(materials).selectRandomWordContent(owner, book, "intro", 3);
+    doReturn(chosen).when(materials).selectRandomWordContent(owner, book, "intro", 3, today);
     DailyPackageView fixed = daily.selectWords(owner, today);
     assertThat(ids(fixed)).containsExactlyInAnyOrder(words.get(9), words.get(7), words.get(5));
     List<String> taskIds =
@@ -123,7 +123,7 @@ class DailyWordSelectionIntegrationTest {
         .extracting(DailyTaskView::getId)
         .containsExactlyElementsOf(taskIds);
     assertThat(ids(daily.get(owner, today))).containsExactlyElementsOf(ids(fixed));
-    verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3);
+    verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3, today);
     assertThat(
             jdbc.queryForObject(
                 "SELECT COUNT(*) FROM package_revision WHERE owner_id=? AND reason='word_selection'",
@@ -168,7 +168,7 @@ class DailyWordSelectionIntegrationTest {
     assertThat(ids(result)).containsExactlyElementsOf(ids(preview));
     assertThat(active(result).get(0).getStatus()).isEqualTo("DOING");
     verify(materials, never())
-        .selectRandomWordContent(eq(owner), anyString(), anyString(), anyInt());
+        .selectRandomWordContent(eq(owner), anyString(), anyString(), anyInt(), any());
   }
 
   @Test
@@ -228,7 +228,7 @@ class DailyWordSelectionIntegrationTest {
       List<String> expected = ids(results.get(0).get(10, TimeUnit.SECONDS));
       for (Future<DailyPackageView> result : results)
         assertThat(ids(result.get(10, TimeUnit.SECONDS))).containsExactlyElementsOf(expected);
-      verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3);
+      verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3, today);
     } finally {
       pool.shutdownNow();
     }
@@ -265,7 +265,7 @@ class DailyWordSelectionIntegrationTest {
         "UPDATE content_version SET review_status='approved' WHERE content_id IN (SELECT content_id FROM vocabulary_book_word WHERE book_id=?)",
         book);
     assertThat(ids(daily.selectWords(owner, today))).isEmpty();
-    verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3);
+    verify(materials, times(1)).selectRandomWordContent(owner, book, "intro", 3, today);
   }
 
   @Test

@@ -51,6 +51,28 @@ public class DailyPackageEntity {
   @TableField("words_book_id")
   private String wordsBookId;
 
+  @TableField("words_target_count")
+  private Integer wordsTargetCount;
+
+  @TableField("words_selection_note")
+  private String wordsSelectionNote;
+
+  public Integer getWordsTargetCount() {
+    return wordsTargetCount;
+  }
+
+  public void setWordsTargetCount(Integer v) {
+    wordsTargetCount = v;
+  }
+
+  public String getWordsSelectionNote() {
+    return wordsSelectionNote;
+  }
+
+  public void setWordsSelectionNote(String v) {
+    wordsSelectionNote = v;
+  }
+
   public Instant getWordsSelectedAt() {
     return wordsSelectedAt;
   }

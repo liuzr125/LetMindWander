@@ -1,4 +1,5 @@
-const { dailyTaskService, growthService, wordMemoryService } = require('../../services/index');
+const { dailyTaskService, growthService, wordMemoryService, wordStudyService } = require('../../services/index');
+const { queueNotice } = require('../../utils/word-study-entry');
 const {
   formatBusinessDate: formatDate,
   formatBusinessChineseDate: formatChineseDate,
@@ -35,6 +36,7 @@ Page({
     growthError: '',
     memoryEnabled: true,
     memorySummary: null,
+    pendingConsolidationCount: 0,
   },
   // 每次返回都读取任务完成状态；成长与记忆请求只合并在途调用，不跨返回缓存。
   onShow() {
@@ -59,8 +61,11 @@ Page({
               done === items.length
                 ? '已完成'
                 : `${done === 0 ? '未开始' : '进行中'} ${done}/${items.length}`;
+            const blocked = items.filter((item) => item.available === false && item.status !== 'DONE' && item.status !== 'SKIPPED').length;
             return Object.assign(
-              { type, items, done, total: items.length, statusText },
+              { type, items, done, total: items.length,
+                statusText: blocked ? `${statusText} · ${blocked} 词暂不可用` : statusText,
+                selectionText: type === 'word' ? (pack.wordsSelectedAt ? `今日词表已固定${pack.wordsBookName ? ' · ' + pack.wordsBookName : ''}` : '首次进入时随机确定今日词表') : '', },
               GROUPS[type],
             );
           })
@@ -98,6 +103,7 @@ Page({
           groups,
           remainingMinutes,
           loading: false,
+          pendingConsolidationCount: Number(pack.pendingConsolidationCount || 0),
         });
       })
       .catch((error) =>
@@ -171,17 +177,15 @@ Page({
     if (this._openingWords) return this._openingWords;
     if (group.requiresBook || !group.items.length) return this.openBookSelector();
     wx.showLoading({ title: '正在准备' });
-    this._openingWords = dailyTaskService
-      .selectWords(this.data.today)
-      .then((pack) => {
-        const words = (pack.tasks || []).filter(
-          (item) => item.taskType === 'word' && item.status !== 'CANCELLED',
-        );
-        const task = words.find((item) => item.status !== 'DONE' && item.status !== 'SKIPPED');
-        if (!task)
+    this._openingWords = wordStudyService
+      .queue('daily')
+      .then((queue) => {
+        if (!queue.current) {
+          if (queue.remaining || queue.unavailableCount) wx.showToast({ title: queueNotice(queue), icon: 'none' });
           return wx.navigateTo({ url: `/pages/today/words/index?date=${this.data.today}` });
+        }
         wx.navigateTo({
-          url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}&daily=1`,
+          url: `/pages/word/detail/index?id=${queue.current.contentId}&daily=1`,
         });
       })
       .catch((error) => {
@@ -193,6 +197,17 @@ Page({
         this._openingWords = null;
       });
     return this._openingWords;
+  },
+  openConsolidation() {
+    if (this._openingConsolidation) return this._openingConsolidation;
+    this._openingConsolidation = wordStudyService.queue('consolidation')
+      .then((queue) => {
+        if (!queue.current) return wx.showToast({ title: queueNotice(queue), icon: 'none' });
+        wx.navigateTo({ url: `/pages/word/detail/index?id=${queue.current.contentId}&studyMode=consolidation` });
+      })
+      .catch((error) => wx.showToast({ title: error.message || '待巩固词加载失败', icon: 'none' }))
+      .finally(() => { this._openingConsolidation = null; });
+    return this._openingConsolidation;
   },
   openBookSelector() {
     wx.navigateTo({ url: `/pages/word/books/index?date=${this.data.today}` });

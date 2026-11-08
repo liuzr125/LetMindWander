@@ -5,6 +5,7 @@ const vm = require('node:vm');
 function page(service, extras = {}) {
   let p;
   const navigation = [];
+  const timers = [];
   vm.runInNewContext(fs.readFileSync(require.resolve('../pages/word/detail/index.js'), 'utf8'), {
     Page: (v) => (p = v),
     require: (n) =>
@@ -12,6 +13,8 @@ function page(service, extras = {}) {
         ? require('../utils/word-study-preferences')
         : n.includes('word-learning-cards')
           ? require('../utils/word-learning-cards')
+          : n.includes('word-study-entry')
+            ? require('../utils/word-study-entry')
           : n.includes('/date')
             ? { formatBusinessDate: () => '2026-10-08' }
             : Object.assign({ wordStudyService: service }, extras),
@@ -24,13 +27,13 @@ function page(service, extras = {}) {
     Date,
     Math,
     Promise,
-    setTimeout: () => {},
+    setTimeout: () => { timers.push(true); },
     clearTimeout,
   });
   p.setData = (v) => Object.assign(p.data, v);
   p.data.contentId = 'word';
   p.load = async () => {};
-  return { p, navigation };
+  return { p, navigation, timers };
 }
 const queue = { businessDate: '2026-10-08', current: { contentId: 'word', version: 3 } };
 test('original feedback buttons save consolidation and advance to queued word', async () => {
@@ -65,6 +68,26 @@ test('daily word mode persists through feedback and advancing to another selecte
   assert.equal(writes[0].mode, 'daily');
   assert.equal(p.dailyWordMode, true);
   assert.equal(p.data.contentId, 'next');
+});
+test('resuming daily study displays the server-ready word instead of a waiting preferred word', async () => {
+  const { p } = page({ queue: async () => ({ businessDate: '2026-10-08', current: { contentId: 'ready-next', version: 2 } }) });
+  p.dailyWordMode = true;
+  p.loadWordQueue = () => {};
+  await p.resumeStudy();
+  assert.equal(p.data.contentId, 'ready-next');
+  assert.equal(p.data.studyPaused, false);
+});
+test('blocked words after feedback keep an explanation and never auto-navigate as completed', async () => {
+  const { p, timers } = page({
+    queue: async () => queue,
+    feedback: async () => ({ current: null, remaining: 0, unavailableCount: 1, unfinishedCount: 1, allCompleted: false }),
+  });
+  p.dailyWordMode = true;
+  p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  await new Promise(setImmediate);
+  assert.match(p.data.studyNotice, /暂不可用/);
+  assert.equal(p.data.studyPaused, true);
+  assert.equal(timers.length, 0);
 });
 test('failed request retries identical receipt even when another button is tapped', async () => {
   const writes = [];

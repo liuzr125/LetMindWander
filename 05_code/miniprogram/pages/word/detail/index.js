@@ -10,6 +10,7 @@ const {
   preferenceTypes: defaultCardPreferenceTypes,
 } = require('../../../utils/word-learning-cards');
 const studyPreferenceUtils = require('../../../utils/word-study-preferences');
+const { queueNotice } = require('../../../utils/word-study-entry');
 const EXAMPLE_ACCENT_KEY = 'word_example_accent_v1';
 const WORD_BROWSE_QUEUE_KEY = 'word_learning_queue_v1';
 
@@ -29,6 +30,7 @@ Page({
     taskId: '',
     taskVersion: 1,
     acting: false,
+    studyNotice: '', studyPaused: false, studyReadOnly: false,
     displayExample: '',
     displayExampleTranslation: '',
     wordSizeClass: '',
@@ -44,6 +46,9 @@ Page({
   },
   onLoad(options) {
     this.dailyWordMode = options.daily === '1';
+    this.studyMode = options.studyMode === 'consolidation' ? 'consolidation' : this.dailyWordMode ? 'daily' : 'all';
+    this.studyReadOnly = options.readonly === '1';
+    this.setData({ studyReadOnly: this.studyReadOnly });
     const savedAccent = wx.getStorageSync(EXAMPLE_ACCENT_KEY) === 'us' ? 'us' : 'uk';
     this.setData(
       Object.assign({}, this.supplementDefaults, {
@@ -55,9 +60,15 @@ Page({
         memoryHintOpen: false,
       }),
     );
-    this.prepareStudyQueue();
-    this.load();
-    this.loadWordQueue();
+    if (this.studyReadOnly) {
+      this.setData({ studyPaused: true, studyNotice: '查看已学或历史词条，不重复提交学习反馈' });
+      this.load();
+    } else if (this.studyMode !== 'all') this.resumeStudy();
+    else {
+      this.prepareStudyQueue();
+      this.load();
+      this.loadWordQueue();
+    }
   },
   onShow() {
     if (!this.refreshSettingsOnShow) return;
@@ -75,18 +86,32 @@ Page({
     this.stopAudio();
   },
   load(reusePreferences) {
+    const contentId = this.data.contentId;
     const preferenceRequest = reusePreferences
       ? Promise.resolve(this.data.wordStudyPreferences)
       : contentService.wordStudyPreferences().catch(() => studyPreferenceUtils.defaults());
-    return Promise.all([contentService.get(this.data.contentId), preferenceRequest])
+    return Promise.all([contentService.get(contentId), preferenceRequest])
       .then(([detail, preference]) => {
+        if (contentId !== this.data.contentId) return;
         this.applyStudyPreferences(preference, true);
         this.setDetail(detail);
         this.loadMemory();
         this.loadLearningCards();
         this.startAutoPronunciation();
       })
-      .catch((error) => this.setData({ loading: false, error: error.message || '词条加载失败' }));
+      .catch((error) => { if (contentId === this.data.contentId) this.setData({ loading: false, error: error.message || '词条加载失败' }); });
+  },
+  currentStudyMode() { return this.studyMode || (this.dailyWordMode ? 'daily' : 'all'); },
+  resumeStudy() {
+    if (this.studyReadOnly) return;
+    return this.prepareStudyQueue().then((queue) => {
+      if (queue && queue.current) {
+        if (this.data.contentId !== queue.current.contentId) this.stopAudio();
+        this.setData({ contentId: queue.current.contentId, taskId: '', studyPaused: false, studyNotice: '' });
+      } else this.setData({ studyPaused: true, studyNotice: queueNotice(queue) });
+      this.loadWordQueue();
+      return this.load();
+    });
   },
   openLearningSettings() {
     this.refreshSettingsOnShow = true;
@@ -370,7 +395,7 @@ Page({
   prepareStudyQueue() {
     if (!this.studyQueueRequest)
       this.studyQueueRequest = wordStudyService
-        .queue(this.dailyWordMode ? 'daily' : 'all', this.data.contentId)
+        .queue(this.currentStudyMode(), this.data.contentId)
         .then((queue) => {
           this.studyQueue = queue;
           return queue;
@@ -382,6 +407,7 @@ Page({
     return this.studyQueueRequest;
   },
   rateWord(event) {
+    if (this.studyReadOnly || this.data.studyPaused) return wx.showToast({ title: this.data.studyNotice || '请先刷新学习队列', icon: 'none' });
     if (this.data.acting || this.data.recallActive) return;
     this.setData({ acting: true });
     const cached = this.studyQueue;
@@ -396,7 +422,7 @@ Page({
         : (this.studyQueueRequest || this.prepareStudyQueue()).then(
             (queue) =>
               queue ||
-              wordStudyService.queue(this.dailyWordMode ? 'daily' : 'all', this.data.contentId),
+              wordStudyService.queue(this.currentStudyMode(), this.data.contentId),
           );
     prepare
       .then((queue) => {
@@ -412,7 +438,7 @@ Page({
             feedback: event.currentTarget.dataset.value,
             expectedVersion: queue.current.version,
             businessDate: queue.businessDate,
-            mode: this.dailyWordMode ? 'daily' : 'all',
+            mode: this.currentStudyMode(),
           };
         return wordStudyService.feedback(this.data.contentId, this.pendingWordAttempt);
       })
@@ -430,16 +456,19 @@ Page({
               memoryHintOpen: false,
               memoryHints: [],
               memoryEnabled: false,
+              studyNotice: '', studyPaused: false,
             }),
           );
           wx.pageScrollTo({ scrollTop: 0, duration: 0 });
           return this.load(true);
         }
+        const notice = this.currentStudyMode() === 'all' ? (queue.remaining ? '本轮已保存，间隔后继续巩固' : '今日单词学习完成') : queueNotice(queue);
+        this.setData({ studyNotice: notice, studyPaused: true });
         wx.showToast({
-          title: queue.remaining ? '本轮已保存，间隔后继续巩固' : '今日单词学习完成',
+          title: notice,
           icon: 'none',
         });
-        setTimeout(() => wx.navigateBack(), 600);
+        if (!queue.remaining && !queue.unavailableCount && queue.allCompleted !== false) setTimeout(() => wx.navigateBack(), 600);
       })
       .catch((error) => {
         // 明确拒绝才丢弃旧尝试；网络/服务异常保留凭据用于幂等重试。

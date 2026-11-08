@@ -745,6 +745,8 @@ CREATE TABLE IF NOT EXISTS daily_package (
   activated_at TIMESTAMP(3),
   words_selected_at TIMESTAMP(3),
   words_book_id CHAR(32),
+  words_target_count INT,
+  words_selection_note VARCHAR(200),
   gap_json VARCHAR(4000),
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

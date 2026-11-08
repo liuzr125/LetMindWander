@@ -1522,6 +1522,9 @@
         </section>
         <section id="daily_package">
           <h2>daily_package <span>&#x6BCF;&#x65E5;&#x4EFB;&#x52A1;&#x5305;</span></h2>
+          <p class="meta">V3.32（2026-11-08）：首页初始化与选词在事务内按用户行锁、任务包行锁统一顺序执行；旧版 original_count 为 NULL 的半成品任务包可按 activation_repair 修订恢复。新增 words_target_count（INT，可空，首次确定时的计划数量，旧版已开始词表取不小于保留数量的值）和 words_selection_note（VARCHAR(200)，可空，预算、素材不足或旧进度保留说明），仅首次确定时保存，后续改计划不覆盖；旧快照保持 NULL。迁移 05_code/backend/sql/V3.32_daily_word_flow_recovery.sql 依赖 V3.31。</p>
+          <p>未完成词重新规划：往日 word 任务为 TODO / DOING、词条仍属于目标词书且已发布审核通过、学习记录尚未 understood / mastered、无活动复习排期的词，从次日起重新进入该书英语新词候选池，即使已有 exposed=1 的待学习状态也可再次随机选中。不是保证次日必选，也不重抽已固定的今日范围。再次选中时将 pending 的 new 状态绑定新日任务与 origin_task_id；保留旧日未完成任务事实，不把未来完成反写到旧日进度。待巩固入口作为可提前继续的途径，再次入选当天新词后不重复显示在待巩固队列。</p>
+          <p>任务包接口通过一条批量查询附带全部新词的快照释义和实时可用性，不逐词请求详情；词书名从 words_book_id 读取。内容下架或发布版本未审核时保留原任务和范围，以 available=false、unavailableReason、wordsUnavailableCount 说明，不能将队列空等同于任务已完成。mode=daily 返回 unfinishedCount、unavailableCount、allCompleted 区分完成、等待间隔和暂不可用。mode=consolidation 单独处理往日 exposed=1、pending=1、source_kind=new 且不属于今日新词任务的词；依据 first_seen_date 保持跨日待巩固身份，不改变今日固定新词数量，不生成额外内容或调用 AI。完成后继续复用既有学习反馈、复习排期与幂等凭据。</p>
           <p class="meta">V3.31（2026-11-08）：英语新词每日首次进入时，在当前学习词书内随机抽取已发布、审核通过且尚未学习的词，计划难度优先、同书其他难度补足，受当天新词数量与剩余时间预算限制。首页任务预排不代表已固定；POST /api/days/{date}/words/select 首次确定后，实际词条、版本和任务 ID 保存在 daily_task。用户行锁与任务包行锁保证并发请求和网络重试只确定一次；后续刷新、重进、换书或改计划均保留当日范围，次日使用新的任务包重新确定。旧任务已有进行中、完成或跳过事实时直接冻结既有词表，保留进度。</p>
           <table><thead><tr><th>V3.31 新字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>words_selected_at</td><td>DATETIME(3)，可空，NULL</td><td>今日词表确定的 UTC 时间；NULL 表示尚未确定，非空后不可自动重排。</td></tr>

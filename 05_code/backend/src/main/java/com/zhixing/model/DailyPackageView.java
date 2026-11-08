@@ -13,6 +13,48 @@ public class DailyPackageView {
   private Object gaps;
   private java.time.Instant wordsSelectedAt;
   private String wordsBookId;
+  private String wordsBookName, wordsSelectionNote;
+  private Integer wordsTargetCount, wordsUnavailableCount, pendingConsolidationCount;
+
+  public String getWordsBookName() {
+    return wordsBookName;
+  }
+
+  public void setWordsBookName(String v) {
+    wordsBookName = v;
+  }
+
+  public String getWordsSelectionNote() {
+    return wordsSelectionNote;
+  }
+
+  public void setWordsSelectionNote(String v) {
+    wordsSelectionNote = v;
+  }
+
+  public Integer getWordsTargetCount() {
+    return wordsTargetCount;
+  }
+
+  public void setWordsTargetCount(Integer v) {
+    wordsTargetCount = v;
+  }
+
+  public Integer getWordsUnavailableCount() {
+    return wordsUnavailableCount;
+  }
+
+  public void setWordsUnavailableCount(Integer v) {
+    wordsUnavailableCount = v;
+  }
+
+  public Integer getPendingConsolidationCount() {
+    return pendingConsolidationCount;
+  }
+
+  public void setPendingConsolidationCount(Integer v) {
+    pendingConsolidationCount = v;
+  }
 
   public java.time.Instant getWordsSelectedAt() {
     return wordsSelectedAt;

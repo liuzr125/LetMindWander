@@ -1,20 +1,30 @@
 <view class="words-page">
   <view class="head">
     <text class="date">{{title}}</text>
-    <text class="count">{{words.length}} 个单词</text>
+    <text class="count">{{words.length}} 个单词 · 已学 {{doneCount}}</text>
+  </view>
+  <view wx:if="{{!loading && !error}}" class="selection-card">
+    <text class="book-name">{{bookName}}</text>
+    <text wx:if="{{fixed}}" class="selection-copy">{{selectedTime}} 确定 · 北京时间</text>
+    <text wx:if="{{targetCount !== null}}" class="selection-copy">计划 {{targetCount}} 个，实际确定 {{words.length}} 个</text>
+    <text class="selection-copy">{{fixed ? '今日范围已固定，换书或调整计划次日生效。' : '今日范围尚未固定。'}}</text>
+    <text wx:if="{{fixed}}" class="selection-copy">今天没学完的词，从次日起重新进入所属词书的新词候选池。</text>
+    <text wx:if="{{selectionNote}}" class="selection-note">{{selectionNote}}</text>
+    <text wx:if="{{unavailableCount}}" class="selection-note">{{unavailableCount}} 个词暂不可用，已保留原范围，请稍后重试。</text>
+    <button wx:if="{{isToday && words.length > doneCount}}" class="continue-study" bindtap="continueStudy">继续今日学习</button>
   </view>
   <view wx:if="{{loading}}" class="state">正在加载…</view>
   <view wx:elif="{{error}}" class="state"
     ><text>{{error}}</text><button class="retry" bindtap="load">重试</button></view
   >
   <view wx:elif="{{!words.length}}" class="state"
-    ><text>今天还没有学习单词</text><button class="retry" bindtap="load">刷新</button></view
+    ><text>{{fixed ? '今日词表已确定，暂时没有可安排的新词' : '这一天没有学习单词'}}</text><button class="retry" bindtap="load">刷新</button></view
   >
   <view wx:else class="list">
     <view
       wx:for="{{words}}"
       wx:key="id"
-      class="row"
+      class="row {{item.available === false ? 'unavailable' : ''}}"
       hover-class="row-hover"
       bindtap="openWord"
       data-id="{{item.contentId}}"
@@ -25,8 +35,10 @@
       <view class="main">
         <text class="word">{{item.title}}</text>
         <text class="meaning">{{item.meaning}}</text>
+        <text wx:if="{{item.available === false}}" class="selection-note">{{item.unavailableReason}}</text>
       </view>
       <text class="status" wx:if="{{item.status === 'DONE'}}">✓ 已学</text>
+      <text class="status" wx:elif="{{item.status === 'SKIPPED'}}">已跳过</text>
       <text class="chevron">›</text>
     </view>
   </view>

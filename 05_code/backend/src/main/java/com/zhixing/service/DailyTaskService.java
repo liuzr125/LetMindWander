@@ -43,11 +43,22 @@ public class DailyTaskService {
     json = j;
   }
 
+  @Transactional
   public DailyPackageView get(String owner, LocalDate date) {
+    vocabularyBooks.lockOwner(owner);
     DailyPackageEntity p = packages.selectByOwnerAndDate(owner, date);
-    if (p != null) return view(p, tasks.selectByPackage(p.getId()));
+    if (p != null) {
+      if (p.getOriginalCount() == null && p.getWordsSelectedAt() == null) {
+        LearningPlanEntity plan = plans.selectEffectiveOn(owner, date);
+        if (plan != null) {
+          syncPackage(owner, date, plan, "activation_repair");
+          p = packages.selectByOwnerAndDate(owner, date);
+        }
+      }
+      return view(p, tasks.selectByPackage(p.getId()));
+    }
     LearningPlanEntity plan = plans.selectEffectiveOn(owner, date);
-    if (plan == null || !active(plan, date)) return empty(date, "非活动日(不自动安排任务)");
+    if (plan == null || !active(plan, date)) return empty(owner, date, "非活动日(不自动安排任务)");
     return activate(owner, date, false);
   }
 
@@ -58,6 +69,10 @@ public class DailyTaskService {
       throw fail(HttpStatus.BAD_REQUEST, "WORD_SELECTION_TODAY_ONLY", "只能确定今天的新词，历史词表请直接查看");
     vocabularyBooks.lockOwner(owner);
     DailyPackageEntity p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    if (p != null && p.getOriginalCount() == null && p.getWordsSelectedAt() == null) {
+      get(owner, date);
+      p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    }
     if (p == null) {
       DailyPackageView activated = activate(owner, date, false);
       if (!Boolean.TRUE.equals(activated.getActive()))
@@ -80,17 +95,21 @@ public class DailyTaskService {
       } else if (t.getStatus() != DailyTaskStatus.CANCELLED) reserved += t.getEstimatedSeconds();
     }
     // 升级前已经学过的当天词表直接冻结，避免替换用户已看到或完成的单词。
+    String selectionNote = started ? "保留已经开始学习的今日词表" : null;
     if (!started) {
       List<DailyTaskEntity> chosen = new ArrayList<>();
       int[] budget = {Math.max(0, p.getBudgetSeconds() - reserved)};
+      List<MaterialCandidate> candidates = Collections.emptyList();
       if (plan.getNewWordCount() > 0 && budget[0] > 0)
-        addMaterials(
-            chosen,
-            p,
-            "word",
+        candidates =
             materials.selectRandomWordContent(
-                owner, book, plan.getDifficulty(), plan.getNewWordCount()),
-            budget);
+                owner, book, plan.getDifficulty(), plan.getNewWordCount(), date);
+      addMaterials(chosen, p, "word", candidates, budget);
+      if (chosen.size() < plan.getNewWordCount())
+        selectionNote =
+            candidates.size() > chosen.size() || p.getBudgetSeconds() <= reserved
+                ? "受今日剩余时间预算限制，已固定实际可安排的新词"
+                : "词书内可用未学词不足，已固定实际可安排的新词";
       int sort = before.stream().mapToInt(DailyTaskEntity::getSortNo).max().orElse(0);
       for (DailyTaskEntity want : chosen) {
         DailyTaskEntity old = find(before, want);
@@ -114,6 +133,17 @@ public class DailyTaskService {
     }
     List<DailyTaskEntity> after = tasks.selectByPackage(p.getId());
     p.setWordsBookId(book);
+    p.setWordsTargetCount(
+        Math.max(
+            plan.getNewWordCount(),
+            (int)
+                after.stream()
+                    .filter(
+                        t ->
+                            "word".equals(t.getTaskType())
+                                && t.getStatus() != DailyTaskStatus.CANCELLED)
+                    .count()));
+    p.setWordsSelectionNote(selectionNote);
     p.setWordsSelectedAt(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
     p.setVersionNo(p.getVersionNo() + 1);
     p.setCurrentCount(
@@ -143,7 +173,11 @@ public class DailyTaskService {
   /** 保存计划后同步尚未完成的今日任务；进行中、已完成、已跳过任务均是事实记录，不予覆盖。 */
   @Transactional
   public void syncToday(String owner, LearningPlanEntity plan) {
-    LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+    syncPackage(owner, LocalDate.now(ZoneId.of("Asia/Shanghai")), plan, "user_adjust");
+  }
+
+  private void syncPackage(String owner, LocalDate today, LearningPlanEntity plan, String reason) {
+    vocabularyBooks.lockOwner(owner);
     DailyPackageEntity p = packages.selectByOwnerAndDateForUpdate(owner, today);
     if (p == null) return;
     List<DailyTaskEntity> before = tasks.selectByPackage(p.getId());
@@ -180,6 +214,7 @@ public class DailyTaskService {
         if (task.getStatus() == DailyTaskStatus.DONE) done++;
       }
     p.setCurrentCount(total);
+    if (p.getOriginalCount() == null) p.setOriginalCount(total);
     p.setFinalDoneCount(done);
     packages.updateById(p);
     PackageRevisionEntity revision = new PackageRevisionEntity();
@@ -187,7 +222,7 @@ public class DailyTaskService {
     revision.setOwnerId(owner);
     revision.setPackageId(p.getId());
     revision.setVersionNo(p.getVersionNo());
-    revision.setReason("user_adjust");
+    revision.setReason(reason);
     revision.setBeforeJson(beforeJson);
     revision.setAfterJson(snapshot(p, after));
     packages.insertRevision(revision);
@@ -202,11 +237,12 @@ public class DailyTaskService {
 
   @Transactional
   public DailyPackageView activate(String owner, LocalDate date, boolean temporary) {
+    vocabularyBooks.lockOwner(owner);
     DailyPackageEntity prior = packages.selectByOwnerAndDateForUpdate(owner, date);
     if (prior != null) return view(prior, tasks.selectByPackage(prior.getId()));
     LearningPlanEntity plan = plans.selectEffectiveOn(owner, date);
     if (plan == null) throw fail(HttpStatus.CONFLICT, "PLAN_REQUIRED", "请先保存学习计划后再激活今日任务");
-    if (!temporary && !active(plan, date)) return empty(date, "非活动日(不自动安排任务)");
+    if (!temporary && !active(plan, date)) return empty(owner, date, "非活动日(不自动安排任务)");
     try {
       DailyPackageEntity p = pack(owner, date, plan, temporary);
       packages.insert(p);
@@ -234,6 +270,7 @@ public class DailyTaskService {
 
   @Transactional
   public DailyTaskView event(String owner, String id, TaskEventRequest r) {
+    vocabularyBooks.lockOwner(owner);
     DailyTaskEntity t = tasks.selectOwnedForUpdate(id, owner);
     if (t == null) throw fail(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", "任务不存在或无权访问");
     Transition x = transition(t.getStatus(), r.getEventType());
@@ -288,6 +325,7 @@ public class DailyTaskService {
   @Transactional
   public DailyTaskView completeContentTask(
       String owner, String taskId, String contentId, Integer expectedVersion) {
+    vocabularyBooks.lockOwner(owner);
     DailyTaskEntity t = tasks.selectOwnedForUpdate(taskId, owner);
     if (t == null) throw fail(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", "任务不存在或无权访问");
     if (!Objects.equals(contentId, t.getContentId())
@@ -310,6 +348,7 @@ public class DailyTaskService {
   /** 提交复盘后只联动同一业务日的 journal 任务；历史补交不会误完成今天任务。 */
   @Transactional
   public DailyTaskView completeJournalTask(String owner, LocalDate date) {
+    vocabularyBooks.lockOwner(owner);
     DailyTaskEntity t = tasks.selectJournalForUpdate(owner, date);
     if (t == null || t.getStatus() == DailyTaskStatus.DONE) return t == null ? null : task(t);
     int version = t.getVersionNo();
@@ -329,6 +368,7 @@ public class DailyTaskService {
 
   @Transactional
   public DailyTaskView completeReviewTask(String owner, String taskId, String knowledgeId) {
+    vocabularyBooks.lockOwner(owner);
     DailyTaskEntity t = tasks.selectReviewForUpdate(owner, taskId, knowledgeId);
     if (t == null) throw fail(HttpStatus.BAD_REQUEST, "TASK_TARGET_MISMATCH", "复习任务与当前知识不匹配");
     if (t.getStatus() == DailyTaskStatus.DONE) return task(t);
@@ -586,7 +626,7 @@ public class DailyTaskService {
     }
   }
 
-  private DailyPackageView empty(LocalDate d, String m) {
+  private DailyPackageView empty(String owner, LocalDate d, String m) {
     DailyPackageView v = new DailyPackageView();
     v.setBusinessDate(d);
     v.setActive(false);
@@ -595,6 +635,9 @@ public class DailyTaskService {
     v.setMessage(m);
     v.setCurrentCount(0);
     v.setDoneCount(0);
+    if (studyMapper != null)
+      v.setPendingConsolidationCount(
+          studyMapper.countConsolidation(owner, java.sql.Date.valueOf(d)));
     v.setTasks(Collections.<DailyTaskView>emptyList());
     return v;
   }
@@ -613,6 +656,9 @@ public class DailyTaskService {
     v.setBusinessDate(p.getBusinessDate());
     v.setWordsSelectedAt(p.getWordsSelectedAt());
     v.setWordsBookId(p.getWordsBookId());
+    v.setWordsTargetCount(p.getWordsTargetCount());
+    v.setWordsSelectionNote(p.getWordsSelectionNote());
+    v.setWordsBookName(tasks.selectWordsBookName(p.getId(), p.getOwnerId()));
     v.setActive(true);
     v.setTemporary(p.getTemporary() != null && p.getTemporary() == 1);
     v.setNonActiveDay(false);
@@ -622,6 +668,27 @@ public class DailyTaskService {
     v.setDoneCount(done);
     v.setCompletionRate(all == 0 ? null : Math.round(done * 1000.0 / all) / 10.0);
     v.setTasks(result);
+    Map<String, Map<String, Object>> wordInfo = new HashMap<>();
+    for (Map<String, Object> row : tasks.selectWordInfo(p.getId(), p.getOwnerId()))
+      wordInfo.put(String.valueOf(row.get("content_id")), row);
+    int unavailable = 0;
+    for (DailyTaskView task : result) {
+      if (!"word".equals(task.getTaskType()) || "CANCELLED".equals(task.getStatus())) continue;
+      Map<String, Object> info = wordInfo.get(task.getContentId());
+      boolean available = info != null && ((Number) info.get("available")).intValue() == 1;
+      task.setAvailable(available);
+      task.setMeaning(
+          info == null || info.get("meaning") == null ? "" : String.valueOf(info.get("meaning")));
+      if (!available) {
+        task.setUnavailableReason("词条暂不可用，今日范围已保留，请稍后重试");
+        if ("TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())) unavailable++;
+      }
+    }
+    v.setWordsUnavailableCount(unavailable);
+    if (studyMapper != null)
+      v.setPendingConsolidationCount(
+          studyMapper.countConsolidation(
+              p.getOwnerId(), java.sql.Date.valueOf(p.getBusinessDate())));
     try {
       v.setGaps(
           p.getGapJson() == null
@@ -662,6 +729,8 @@ public class DailyTaskService {
       x.put("count", ts.size());
       x.put("budgetSeconds", p.getBudgetSeconds());
       x.put("wordsBookId", p.getWordsBookId());
+      x.put("wordsTargetCount", p.getWordsTargetCount());
+      x.put("wordsSelectionNote", p.getWordsSelectionNote());
       x.put(
           "wordsSelectedAt",
           p.getWordsSelectedAt() == null ? null : p.getWordsSelectedAt().toString());

@@ -5,6 +5,32 @@ public class DailyTaskView {
   private String id, taskType, title, targetKey, status;
   private String contentId, contentVersionId, knowledgeId, journalId, actionId;
   private Integer estimatedSeconds, sortNo, versionNo;
+  private Boolean available;
+  private String meaning, unavailableReason;
+
+  public Boolean getAvailable() {
+    return available;
+  }
+
+  public void setAvailable(Boolean v) {
+    available = v;
+  }
+
+  public String getMeaning() {
+    return meaning;
+  }
+
+  public void setMeaning(String v) {
+    meaning = v;
+  }
+
+  public String getUnavailableReason() {
+    return unavailableReason;
+  }
+
+  public void setUnavailableReason(String v) {
+    unavailableReason = v;
+  }
 
   public String getId() {
     return id;

@@ -4,6 +4,7 @@
     ><text>{{error}}</text><button bindtap="load">重试</button></view
   >
   <block wx:else>
+    <view wx:if="{{studyNotice}}" class="study-notice"><text>{{studyNotice}}</text><button wx:if="{{!studyReadOnly}}" bindtap="resumeStudy">刷新学习队列</button></view>
     <view class="word-settings-toolbar"
       ><button class="word-settings-entry" bindtap="openLearningSettings" aria-label="打开学习设置"
         ><text class="settings-gear"></text><text>设置</text></button
@@ -219,20 +220,20 @@
           data-value="unclear"
           bindtap="rateWord"
           loading="{{acting}}"
-          disabled="{{acting || recallActive}}"
+          disabled="{{acting || recallActive || studyPaused}}"
           >不认识</button
         ><button
           class="fuzzy"
           data-value="fuzzy"
           bindtap="rateWord"
           loading="{{acting}}"
-          disabled="{{acting || recallActive}}"
+          disabled="{{acting || recallActive || studyPaused}}"
           >模糊</button
         ><button
           class="remember"
           data-value="remember"
           bindtap="rateWord"
-          disabled="{{acting || recallActive}}"
+          disabled="{{acting || recallActive || studyPaused}}"
           >认识</button
         ></view
       >

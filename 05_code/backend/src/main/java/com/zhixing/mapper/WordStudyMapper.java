@@ -19,6 +19,15 @@ public interface WordStudyMapper {
   List<Map<String, Object>> selectDailyPending(
       @Param("owner") String owner, @Param("date") java.sql.Date date);
 
+  List<Map<String, Object>> selectConsolidationPending(
+      @Param("owner") String owner, @Param("date") java.sql.Date date);
+
+  int countConsolidation(@Param("owner") String owner, @Param("date") java.sql.Date date);
+
+  int countDailyUnavailable(@Param("owner") String owner, @Param("date") java.sql.Date date);
+
+  int countDailyUnfinished(@Param("owner") String owner, @Param("date") java.sql.Date date);
+
   List<Map<String, Object>> selectDueWordReviews(
       @Param("owner") String owner, @Param("date") java.sql.Date date);
 

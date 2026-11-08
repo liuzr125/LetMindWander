@@ -73,8 +73,6 @@ public class WordStudyService {
     LocalDate date = today();
     if ("daily".equals(mode)) {
       tasks.selectWords(owner, date);
-      if (contentId != null && !dailyWordIds(owner).contains(contentId))
-        throw fail("WORD_OUTSIDE_DAILY_SELECTION", "该单词不在今日新词范围内，请重新进入英语新词");
     }
     tasks.get(owner, date);
     // Lazy compatibility: old learning records remain pending, understood records remain learned.
@@ -102,7 +100,10 @@ public class WordStudyService {
         else studyMapper.bindReviewTask(taskId, str(r, "id"), owner, id);
       }
     }
-    if (contentId != null && !contentId.isEmpty()) {
+    if (contentId != null
+        && !contentId.isEmpty()
+        && !"daily".equals(mode)
+        && !"consolidation".equals(mode)) {
       required(owner, contentId);
       Map<String, Object> old = state(owner, contentId);
       if (old == null) {
@@ -116,8 +117,10 @@ public class WordStudyService {
     // Across midnight a partial success must be confirmed afresh; unfinished work survives.
     studyMapper.resetPendingForNewDay(
         java.sql.Date.valueOf(date), owner, java.sql.Date.valueOf(date));
-    if (contentId != null && state(owner, contentId) != null)
-      studyMapper.enableFreeStudy(owner, contentId);
+    if (contentId != null
+        && !"daily".equals(mode)
+        && !"consolidation".equals(mode)
+        && state(owner, contentId) != null) studyMapper.enableFreeStudy(owner, contentId);
     return view(owner, mode, contentId);
   }
 
@@ -125,7 +128,10 @@ public class WordStudyService {
       String owner, String id, String kind, String task, String schedule, int interval) {
     Map<String, Object> old = state(owner, id);
     if (old != null) {
-      if ("new".equals(kind) && task != null && num(old, "exposed") == 0)
+      if ("new".equals(kind)
+          && task != null
+          && (num(old, "exposed") == 0
+              || (num(old, "pending") == 1 && "new".equals(str(old, "source_kind")))))
         studyMapper.bindNewTask(task, task, owner, id);
       return;
     }
@@ -167,6 +173,8 @@ public class WordStudyService {
   private List<Map<String, Object>> pending(String owner, String mode) {
     if ("daily".equals(mode))
       return studyMapper.selectDailyPending(owner, java.sql.Date.valueOf(today()));
+    if ("consolidation".equals(mode))
+      return studyMapper.selectConsolidationPending(owner, java.sql.Date.valueOf(today()));
     return studyMapper.selectPending(
         owner,
         java.sql.Date.valueOf(today()),
@@ -227,6 +235,19 @@ public class WordStudyService {
     result.put("reviewCount", review);
     result.put("remaining", rows.size());
     result.put("waitSeconds", current == null && wait != Long.MAX_VALUE ? wait : 0);
+    if ("daily".equals(mode) || "consolidation".equals(mode)) {
+      int unfinished =
+          "daily".equals(mode)
+              ? studyMapper.countDailyUnfinished(owner, java.sql.Date.valueOf(today()))
+              : studyMapper.countConsolidation(owner, java.sql.Date.valueOf(today()));
+      int unavailable =
+          "daily".equals(mode)
+              ? studyMapper.countDailyUnavailable(owner, java.sql.Date.valueOf(today()))
+              : Math.max(0, unfinished - rows.size());
+      result.put("unfinishedCount", unfinished);
+      result.put("unavailableCount", unavailable);
+      result.put("allCompleted", unfinished == 0);
+    }
     if (current != null) {
       Map<String, Object> item = new LinkedHashMap<String, Object>();
       item.put("contentId", str(current, "content_id"));
@@ -248,7 +269,9 @@ public class WordStudyService {
     String mode =
         "review".equals(request.get("mode"))
             ? "review"
-            : "daily".equals(request.get("mode")) ? "daily" : "all";
+            : "daily".equals(request.get("mode"))
+                ? "daily"
+                : "consolidation".equals(request.get("mode")) ? "consolidation" : "all";
     if (attempt.isEmpty()
         || attempt.length() > 96
         || !Arrays.asList("remember", "fuzzy", "unclear").contains(feedback))
@@ -265,6 +288,10 @@ public class WordStudyService {
     Map<String, Object> s = state(owner, id);
     if ("daily".equals(mode) && !dailyWordIds(owner).contains(id))
       throw fail("WORD_OUTSIDE_DAILY_SELECTION", "该单词不在今日待学范围内，请刷新学习队列");
+    if ("consolidation".equals(mode)
+        && studyMapper.selectConsolidationPending(owner, java.sql.Date.valueOf(today())).stream()
+            .noneMatch(row -> id.equals(str(row, "content_id"))))
+      throw fail("WORD_OUTSIDE_CONSOLIDATION", "该单词不在待巩固范围内，请刷新队列");
     if (s == null || num(s, "pending") == 0) throw fail("WORD_STUDY_REQUIRED", "请刷新学习队列");
     if (!today().toString().equals(String.valueOf(request.get("businessDate")))
         || !today().equals(day(s, "business_date")))
