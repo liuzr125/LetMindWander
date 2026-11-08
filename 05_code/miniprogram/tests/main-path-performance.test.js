@@ -28,7 +28,7 @@ test('returning from feedback reloads daily word statuses without duplicating fi
   let calls = 0;
   const p = page('pages/today/words/index.js', {
     dailyTaskService: {
-      day: async () => {
+      selectWords: async () => {
         calls++;
         return {
           tasks: [{ taskType: 'word', contentId: 'a', status: calls === 1 ? 'TODO' : 'DONE' }],

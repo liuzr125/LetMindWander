@@ -1,9 +1,4 @@
-const {
-  dailyTaskService,
-  vocabularyBookService,
-  growthService,
-  wordMemoryService,
-} = require('../../services/index');
+const { dailyTaskService, growthService, wordMemoryService } = require('../../services/index');
 const {
   formatBusinessDate: formatDate,
   formatBusinessChineseDate: formatChineseDate,
@@ -173,26 +168,31 @@ Page({
       });
   },
   openWordGroup(group) {
+    if (this._openingWords) return this._openingWords;
     if (group.requiresBook || !group.items.length) return this.openBookSelector();
     wx.showLoading({ title: '正在准备' });
-    vocabularyBookService
-      .current()
-      .then((book) => {
-        wx.hideLoading();
-        if (!book || !book.id) return this.openBookSelector();
-        if (group.done === group.total)
+    this._openingWords = dailyTaskService
+      .selectWords(this.data.today)
+      .then((pack) => {
+        const words = (pack.tasks || []).filter(
+          (item) => item.taskType === 'word' && item.status !== 'CANCELLED',
+        );
+        const task = words.find((item) => item.status !== 'DONE' && item.status !== 'SKIPPED');
+        if (!task)
           return wx.navigateTo({ url: `/pages/today/words/index?date=${this.data.today}` });
-        const task =
-          group.items.find((item) => item.status !== 'DONE' && item.status !== 'SKIPPED') ||
-          group.items[0];
         wx.navigateTo({
-          url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}`,
+          url: `/pages/word/detail/index?id=${task.contentId}&taskId=${task.id}&version=${task.versionNo}&daily=1`,
         });
       })
       .catch((error) => {
-        wx.hideLoading();
+        if (error.code === 'VOCABULARY_BOOK_REQUIRED') return this.openBookSelector();
         wx.showToast({ title: error.message || '词书状态加载失败', icon: 'none' });
+      })
+      .finally(() => {
+        wx.hideLoading();
+        this._openingWords = null;
       });
+    return this._openingWords;
   },
   openBookSelector() {
     wx.navigateTo({ url: `/pages/word/books/index?date=${this.data.today}` });

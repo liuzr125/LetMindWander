@@ -1522,6 +1522,12 @@
         </section>
         <section id="daily_package">
           <h2>daily_package <span>&#x6BCF;&#x65E5;&#x4EFB;&#x52A1;&#x5305;</span></h2>
+          <p class="meta">V3.31（2026-11-08）：英语新词每日首次进入时，在当前学习词书内随机抽取已发布、审核通过且尚未学习的词，计划难度优先、同书其他难度补足，受当天新词数量与剩余时间预算限制。首页任务预排不代表已固定；POST /api/days/{date}/words/select 首次确定后，实际词条、版本和任务 ID 保存在 daily_task。用户行锁与任务包行锁保证并发请求和网络重试只确定一次；后续刷新、重进、换书或改计划均保留当日范围，次日使用新的任务包重新确定。旧任务已有进行中、完成或跳过事实时直接冻结既有词表，保留进度。</p>
+          <table><thead><tr><th>V3.31 新字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
+            <tr><td>words_selected_at</td><td>DATETIME(3)，可空，NULL</td><td>今日词表确定的 UTC 时间；NULL 表示尚未确定，非空后不可自动重排。</td></tr>
+            <tr><td>words_book_id</td><td>CHAR(32) ascii_bin，可空，NULL</td><td>首次确定时当前学习词书的逻辑快照，关联 vocabulary_book.id；不是动态当前词书。</td></tr>
+          </tbody></table>
+          <p>不新增词条副本表，复用 uk_daily_package_owner_date 和 uk_daily_task_target；package_revision.reason=word_selection 记录确定前后任务 ID 和词书快照。全部改动在同一事务提交。已确定为空或素材不足的范围当天同样不反复抽取。每日学习队列 mode=daily 仅返回该范围中未完成的词，完成反馈不会自动进入词书外词条或其他自由学习队列。历史日期只读取，不能重新抽词。部署先执行 05_code/backend/sql/V3.31_daily_word_selection.sql，再更新后端及小程序。</p>
           <p class="meta">02 &#x8BA1;&#x5212;&#x4E0E;&#x4ECA;&#x65E5;&#x4EFB;&#x52A1; &#xB7; &#x6BCF;&#x7528;&#x6237;&#x6BCF;&#x5929;&#x4EC5;&#x4E00;&#x5305;&#xFF1B;&#x9996;&#x6B21;&#x6FC0;&#x6D3B;&#x51BB;&#x7ED3;&#x539F;&#x8BA1;&#x5212;&#x6570;&#x91CF;&#xFF1B;&#x622A;&#x6B62;&#x7EDF;&#x8BA1;&#x4E0E;&#x6700;&#x7EC8;&#x5B8C;&#x6210;&#x6570;&#x5206;&#x5F00;&#x4FDD;&#x5B58;&#x3002;</p>
           <div class="scroll">
             <table>

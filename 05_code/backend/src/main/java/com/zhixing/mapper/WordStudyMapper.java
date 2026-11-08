@@ -16,6 +16,9 @@ public interface WordStudyMapper {
   List<Map<String, Object>> selectUnstartedWordTasks(
       @Param("owner") String owner, @Param("date") java.sql.Date date);
 
+  List<Map<String, Object>> selectDailyPending(
+      @Param("owner") String owner, @Param("date") java.sql.Date date);
+
   List<Map<String, Object>> selectDueWordReviews(
       @Param("owner") String owner, @Param("date") java.sql.Date date);
 

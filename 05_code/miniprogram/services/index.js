@@ -121,6 +121,9 @@ const dailyTaskService = {
   day(date) {
     return request({ url: `/days/${encodeURIComponent(date)}` });
   },
+  selectWords(date) {
+    return request({ url: `/days/${encodeURIComponent(date)}/words/select`, method: 'POST' });
+  },
   activate(date) {
     return request({ url: `/days/${encodeURIComponent(date)}/activate`, method: 'POST' });
   },

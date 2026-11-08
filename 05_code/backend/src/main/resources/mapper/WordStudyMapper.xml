@@ -123,6 +123,16 @@
         <choose><when test="reviewOnly"> AND s.source_kind='review'</when><otherwise> AND (s.source_kind='review' OR s.free_study=1 OR EXISTS(SELECT 1 FROM daily_task t WHERE t.id=s.task_id AND t.status='DOING') OR EXISTS(SELECT 1 FROM vocabulary_book_word w WHERE w.content_id=s.content_id AND w.book_id=#{book}))</otherwise></choose>
         ORDER BY s.eligible_position,s.first_seen_date,s.content_id
     </select>
+  <select id="selectDailyPending" resultType="map">
+      SELECT s.*,cv.word_term FROM word_study_state s
+      JOIN daily_task t ON t.owner_id=s.owner_id AND t.content_id=s.content_id AND t.task_type='word' AND t.status IN ('TODO','DOING')
+      JOIN daily_package p ON p.id=t.package_id AND p.owner_id=s.owner_id AND p.business_date=#{date} AND p.words_selected_at IS NOT NULL
+      JOIN learning_content lc ON lc.id=s.content_id AND lc.state='published'
+      JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved'
+      WHERE s.owner_id=#{owner} AND s.pending=1
+      AND (s.source_kind&lt;&gt;'review' OR EXISTS(SELECT 1 FROM review_schedule live WHERE live.id=s.schedule_id AND live.owner_id=s.owner_id AND live.state='active' AND live.due_date&lt;=#{date}))
+      ORDER BY s.eligible_position,t.sort_no,t.id
+  </select>
   <select id="countCompletedWordTask" resultType="int">
       SELECT COUNT(*) FROM word_study_state WHERE owner_id=#{owner} AND content_id=#{content} AND pending=0 AND (task_id=#{task} OR origin_task_id=#{task})
     </select>

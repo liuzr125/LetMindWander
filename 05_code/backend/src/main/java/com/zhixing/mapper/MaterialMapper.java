@@ -46,6 +46,24 @@ public interface MaterialMapper {
       @Param("limit") int limit,
       @Param("date") LocalDate date);
 
+  /** 首次点击时仅在当前词书的合格未学词中随机抽取；结果由 daily_task 持久化。 */
+  @Select(
+      "SELECT lc.id,cv.id AS version_id,cv.title,cv.estimated_seconds FROM vocabulary_book_word vbw "
+          + "JOIN learning_content lc ON lc.id=vbw.content_id "
+          + "JOIN content_version cv ON cv.id=lc.published_version_id "
+          + "WHERE vbw.book_id=#{bookId} AND lc.content_type='word' AND lc.state='published' "
+          + "AND cv.review_status='approved' "
+          + "AND NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status<>'unlearned') "
+          + "AND NOT EXISTS (SELECT 1 FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id WHERE rs.owner_id=#{ownerId} AND k.source_content_id=lc.id AND rs.state='active') "
+          + "AND NOT EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1) "
+          + "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE' AND NOT EXISTS (SELECT 1 FROM learning_record reset_lr WHERE reset_lr.owner_id=#{ownerId} AND reset_lr.content_id=lc.id AND reset_lr.learning_status='unlearned')) "
+          + "ORDER BY CASE WHEN cv.difficulty=#{difficulty} THEN 0 ELSE 1 END,RAND() LIMIT #{limit}")
+  List<MaterialCandidate> selectRandomWordContent(
+      @Param("ownerId") String ownerId,
+      @Param("bookId") String bookId,
+      @Param("difficulty") String difficulty,
+      @Param("limit") int limit);
+
   /** 复习素材：V3.0 复习队列在 review_schedule（state=active 且 due_date 到期），标题取 knowledge_item。 */
   @Select(
       "SELECT k.id, k.title, 30 AS estimated_seconds FROM review_schedule rs "

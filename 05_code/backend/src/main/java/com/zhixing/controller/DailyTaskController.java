@@ -38,6 +38,14 @@ public class DailyTaskController {
     return daily.activate(user(auth), date, true);
   }
 
+  /** 今日英语新词首次进入随机选词，之后返回相同的数据库任务范围。 */
+  @PostMapping("/api/days/{date}/words/select")
+  public DailyPackageView selectWords(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    return daily.selectWords(user(auth), date);
+  }
+
   /** 通过版本校验推进任务状态，禁止绕过单词学习完成校验。 */
   @PostMapping("/api/tasks/{id}/events")
   public DailyTaskView event(

@@ -20,8 +20,11 @@ Page({
     const generation = (this._generation || 0) + 1;
     this._generation = generation;
     this.setData({ loading: true, error: '' });
-    return dailyTaskService
-      .day(this.data.date)
+    const read =
+      this.data.date === formatDate(new Date())
+        ? dailyTaskService.selectWords(this.data.date)
+        : dailyTaskService.day(this.data.date);
+    return read
       .then((pack) => {
         const words = (pack.tasks || []).filter(
           (t) => t.taskType === 'word' && t.status !== 'CANCELLED',
@@ -50,7 +53,7 @@ Page({
     const { id, taskid, version } = e.currentTarget.dataset;
     if (!id) return;
     wx.navigateTo({
-      url: `/pages/word/detail/index?id=${id}&taskId=${taskid || ''}&version=${version || 1}`,
+      url: `/pages/word/detail/index?id=${id}&taskId=${taskid || ''}&version=${version || 1}&daily=${this.data.date === formatDate(new Date()) ? 1 : 0}`,
     });
   },
 });

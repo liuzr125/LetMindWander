@@ -71,6 +71,11 @@ public class WordStudyService {
   public Map<String, Object> queue(String owner, String mode, String contentId) {
     lock(owner);
     LocalDate date = today();
+    if ("daily".equals(mode)) {
+      tasks.selectWords(owner, date);
+      if (contentId != null && !dailyWordIds(owner).contains(contentId))
+        throw fail("WORD_OUTSIDE_DAILY_SELECTION", "该单词不在今日新词范围内，请重新进入英语新词");
+    }
     tasks.get(owner, date);
     // Lazy compatibility: old learning records remain pending, understood records remain learned.
     String book = books.selectActiveBookId(owner);
@@ -160,9 +165,22 @@ public class WordStudyService {
   }
 
   private List<Map<String, Object>> pending(String owner, String mode) {
-    String book = books.selectActiveBookId(owner);
+    if ("daily".equals(mode))
+      return studyMapper.selectDailyPending(owner, java.sql.Date.valueOf(today()));
     return studyMapper.selectPending(
-        owner, java.sql.Date.valueOf(today()), book, "review".equals(mode));
+        owner,
+        java.sql.Date.valueOf(today()),
+        books.selectActiveBookId(owner),
+        "review".equals(mode));
+  }
+
+  private Set<String> dailyWordIds(String owner) {
+    Set<String> ids = new HashSet<>();
+    for (com.zhixing.model.DailyTaskView task : tasks.get(owner, today()).getTasks())
+      if ("word".equals(task.getTaskType())
+          && ("TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())))
+        ids.add(task.getContentId());
+    return ids;
   }
 
   boolean ready(Map<String, Object> s, long position) {
@@ -227,7 +245,10 @@ public class WordStudyService {
     lock(owner);
     String attempt = String.valueOf(request.getOrDefault("attemptId", ""));
     String feedback = String.valueOf(request.get("feedback"));
-    String mode = "review".equals(request.get("mode")) ? "review" : "all";
+    String mode =
+        "review".equals(request.get("mode"))
+            ? "review"
+            : "daily".equals(request.get("mode")) ? "daily" : "all";
     if (attempt.isEmpty()
         || attempt.length() > 96
         || !Arrays.asList("remember", "fuzzy", "unclear").contains(feedback))
@@ -242,6 +263,8 @@ public class WordStudyService {
       return decode(str(receipt, "result_json"));
     }
     Map<String, Object> s = state(owner, id);
+    if ("daily".equals(mode) && !dailyWordIds(owner).contains(id))
+      throw fail("WORD_OUTSIDE_DAILY_SELECTION", "该单词不在今日待学范围内，请刷新学习队列");
     if (s == null || num(s, "pending") == 0) throw fail("WORD_STUDY_REQUIRED", "请刷新学习队列");
     if (!today().toString().equals(String.valueOf(request.get("businessDate")))
         || !today().equals(day(s, "business_date")))

@@ -43,6 +43,7 @@ Page({
     wordStudyPreferences: studyPreferenceUtils.defaults(),
   },
   onLoad(options) {
+    this.dailyWordMode = options.daily === '1';
     const savedAccent = wx.getStorageSync(EXAMPLE_ACCENT_KEY) === 'us' ? 'us' : 'uk';
     this.setData(
       Object.assign({}, this.supplementDefaults, {
@@ -369,7 +370,7 @@ Page({
   prepareStudyQueue() {
     if (!this.studyQueueRequest)
       this.studyQueueRequest = wordStudyService
-        .queue('all', this.data.contentId)
+        .queue(this.dailyWordMode ? 'daily' : 'all', this.data.contentId)
         .then((queue) => {
           this.studyQueue = queue;
           return queue;
@@ -393,7 +394,9 @@ Page({
       this.pendingWordAttempt || usable
         ? Promise.resolve(cached)
         : (this.studyQueueRequest || this.prepareStudyQueue()).then(
-            (queue) => queue || wordStudyService.queue('all', this.data.contentId),
+            (queue) =>
+              queue ||
+              wordStudyService.queue(this.dailyWordMode ? 'daily' : 'all', this.data.contentId),
           );
     prepare
       .then((queue) => {
@@ -409,7 +412,7 @@ Page({
             feedback: event.currentTarget.dataset.value,
             expectedVersion: queue.current.version,
             businessDate: queue.businessDate,
-            mode: 'all',
+            mode: this.dailyWordMode ? 'daily' : 'all',
           };
         return wordStudyService.feedback(this.data.contentId, this.pendingWordAttempt);
       })

@@ -11,6 +11,24 @@ public class DailyPackageView {
   private Double completionRate;
   private List<DailyTaskView> tasks;
   private Object gaps;
+  private java.time.Instant wordsSelectedAt;
+  private String wordsBookId;
+
+  public java.time.Instant getWordsSelectedAt() {
+    return wordsSelectedAt;
+  }
+
+  public void setWordsSelectedAt(java.time.Instant value) {
+    wordsSelectedAt = value;
+  }
+
+  public String getWordsBookId() {
+    return wordsBookId;
+  }
+
+  public void setWordsBookId(String value) {
+    wordsBookId = value;
+  }
 
   public LocalDate getBusinessDate() {
     return businessDate;

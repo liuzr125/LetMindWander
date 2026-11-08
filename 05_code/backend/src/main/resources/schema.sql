@@ -743,6 +743,8 @@ CREATE TABLE IF NOT EXISTS daily_package (
   cutoff_at TIMESTAMP(3),
   metrics_frozen_at TIMESTAMP(3),
   activated_at TIMESTAMP(3),
+  words_selected_at TIMESTAMP(3),
+  words_book_id CHAR(32),
   gap_json VARCHAR(4000),
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

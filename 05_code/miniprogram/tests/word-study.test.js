@@ -49,6 +49,23 @@ test('original feedback buttons save consolidation and advance to queued word', 
   assert.equal(p.data.contentId, 'next');
   assert.equal(navigation.length, 0);
 });
+test('daily word mode persists through feedback and advancing to another selected word', async () => {
+  const modes = [], writes = [];
+  const { p } = page({
+    queue: async (mode) => { modes.push(mode); return queue; },
+    feedback: async (id, body) => {
+      writes.push(body);
+      return { businessDate: '2026-10-08', current: { contentId: 'next', version: 2 } };
+    },
+  });
+  p.dailyWordMode = true;
+  p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  await new Promise(setImmediate);
+  assert.equal(modes[0], 'daily');
+  assert.equal(writes[0].mode, 'daily');
+  assert.equal(p.dailyWordMode, true);
+  assert.equal(p.data.contentId, 'next');
+});
 test('failed request retries identical receipt even when another button is tapped', async () => {
   const writes = [];
   let n = 0;

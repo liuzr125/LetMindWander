@@ -45,6 +45,28 @@ public class DailyPackageEntity {
   @TableField("activated_at")
   private Instant activatedAt;
 
+  @TableField("words_selected_at")
+  private Instant wordsSelectedAt;
+
+  @TableField("words_book_id")
+  private String wordsBookId;
+
+  public Instant getWordsSelectedAt() {
+    return wordsSelectedAt;
+  }
+
+  public void setWordsSelectedAt(Instant value) {
+    wordsSelectedAt = value;
+  }
+
+  public String getWordsBookId() {
+    return wordsBookId;
+  }
+
+  public void setWordsBookId(String value) {
+    wordsBookId = value;
+  }
+
   public String getId() {
     return id;
   }

@@ -50,6 +50,96 @@ public class DailyTaskService {
     if (plan == null || !active(plan, date)) return empty(date, "非活动日(不自动安排任务)");
     return activate(owner, date, false);
   }
+
+  /** 按用户、北京时间日期串行确定范围；重试和多端请求共享同一份快照。 */
+  @Transactional
+  public DailyPackageView selectWords(String owner, LocalDate date) {
+    if (!LocalDate.now(ZoneId.of("Asia/Shanghai")).equals(date))
+      throw fail(HttpStatus.BAD_REQUEST, "WORD_SELECTION_TODAY_ONLY", "只能确定今天的新词，历史词表请直接查看");
+    vocabularyBooks.lockOwner(owner);
+    DailyPackageEntity p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    if (p == null) {
+      DailyPackageView activated = activate(owner, date, false);
+      if (!Boolean.TRUE.equals(activated.getActive()))
+        throw fail(HttpStatus.CONFLICT, "DAY_NOT_ACTIVE", "请先激活今日任务");
+      p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    }
+    List<DailyTaskEntity> before = tasks.selectByPackage(p.getId());
+    if (p.getWordsSelectedAt() != null) return view(p, before);
+    String book = vocabularyBooks.selectActiveBookId(owner);
+    if (book == null) throw fail(HttpStatus.CONFLICT, "VOCABULARY_BOOK_REQUIRED", "请先选择学习词书");
+    LearningPlanEntity plan = plans.selectEffectiveOn(owner, date);
+    if (plan == null) throw fail(HttpStatus.CONFLICT, "PLAN_REQUIRED", "请先保存学习计划");
+    String beforeJson = snapshot(p, before);
+    boolean started = false;
+    int reserved = 0;
+    for (DailyTaskEntity t : before) {
+      if ("word".equals(t.getTaskType())) {
+        if (t.getStatus() != DailyTaskStatus.TODO && t.getStatus() != DailyTaskStatus.CANCELLED)
+          started = true;
+      } else if (t.getStatus() != DailyTaskStatus.CANCELLED) reserved += t.getEstimatedSeconds();
+    }
+    // 升级前已经学过的当天词表直接冻结，避免替换用户已看到或完成的单词。
+    if (!started) {
+      List<DailyTaskEntity> chosen = new ArrayList<>();
+      int[] budget = {Math.max(0, p.getBudgetSeconds() - reserved)};
+      if (plan.getNewWordCount() > 0 && budget[0] > 0)
+        addMaterials(
+            chosen,
+            p,
+            "word",
+            materials.selectRandomWordContent(
+                owner, book, plan.getDifficulty(), plan.getNewWordCount()),
+            budget);
+      int sort = before.stream().mapToInt(DailyTaskEntity::getSortNo).max().orElse(0);
+      for (DailyTaskEntity want : chosen) {
+        DailyTaskEntity old = find(before, want);
+        if (old == null) {
+          want.setSortNo(++sort);
+          tasks.insert(want);
+        } else if (old.getStatus() == DailyTaskStatus.CANCELLED) {
+          reopen(old);
+          recordSystemEvent(
+              old, "readd", DailyTaskStatus.CANCELLED, DailyTaskStatus.TODO, "首次进入英语新词，确定今日词表");
+        }
+      }
+      for (DailyTaskEntity old : before)
+        if ("word".equals(old.getTaskType())
+            && old.getStatus() == DailyTaskStatus.TODO
+            && !contains(chosen, old)) {
+          cancel(old);
+          recordSystemEvent(
+              old, "cancel", DailyTaskStatus.TODO, DailyTaskStatus.CANCELLED, "首次进入英语新词，确定今日词表");
+        }
+    }
+    List<DailyTaskEntity> after = tasks.selectByPackage(p.getId());
+    p.setWordsBookId(book);
+    p.setWordsSelectedAt(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+    p.setVersionNo(p.getVersionNo() + 1);
+    p.setCurrentCount(
+        (int) after.stream().filter(t -> t.getStatus() != DailyTaskStatus.CANCELLED).count());
+    p.setFinalDoneCount(
+        (int) after.stream().filter(t -> t.getStatus() == DailyTaskStatus.DONE).count());
+    p.setGapJson(
+        gaps(
+            owner,
+            date,
+            plan,
+            after.stream()
+                .filter(t -> t.getStatus() != DailyTaskStatus.CANCELLED)
+                .collect(java.util.stream.Collectors.toList())));
+    packages.updateById(p);
+    PackageRevisionEntity revision = new PackageRevisionEntity();
+    revision.setId(CryptoUtils.randomId());
+    revision.setOwnerId(owner);
+    revision.setPackageId(p.getId());
+    revision.setVersionNo(p.getVersionNo());
+    revision.setReason("word_selection");
+    revision.setBeforeJson(beforeJson);
+    revision.setAfterJson(snapshot(p, after));
+    packages.insertRevision(revision);
+    return view(p, after);
+  }
   /** 保存计划后同步尚未完成的今日任务；进行中、已完成、已跳过任务均是事实记录，不予覆盖。 */
   @Transactional
   public void syncToday(String owner, LearningPlanEntity plan) {
@@ -275,14 +365,23 @@ public class DailyTaskService {
   }
   /** PRD M03 固定优先级：行动、复盘、到期复习、技术新学、英语新词，全部受每日时间预算约束。 */
   private List<DailyTaskEntity> generate(DailyPackageEntity p, LearningPlanEntity plan) {
+    List<DailyTaskEntity> fixedWords = new ArrayList<>();
     int wordSlots = 0;
     for (DailyTaskEntity old : tasks.selectByPackage(p.getId()))
       if ("word".equals(old.getTaskType())
+          && p.getWordsSelectedAt() != null
+          && old.getStatus() != DailyTaskStatus.CANCELLED) fixedWords.add(old);
+      else if ("word".equals(old.getTaskType())
           && old.getStatus() != DailyTaskStatus.TODO
           && old.getStatus() != DailyTaskStatus.CANCELLED) wordSlots++;
     int wordLimit = Math.max(0, plan.getNewWordCount() - wordSlots);
     List<DailyTaskEntity> result = new ArrayList<DailyTaskEntity>();
-    int[] budget = {p.getBudgetSeconds()};
+    int[] budget = {
+      Math.max(
+          0,
+          p.getBudgetSeconds()
+              - fixedWords.stream().mapToInt(DailyTaskEntity::getEstimatedSeconds).sum())
+    };
     addMaterials(
         result,
         p,
@@ -305,7 +404,8 @@ public class DailyTaskService {
         materials.selectContent(
             p.getOwnerId(), plan.getId(), "tech", plan.getDifficulty(), plan.getTechCount()),
         budget);
-    String bookId = vocabularyBooks.selectActiveBookId(p.getOwnerId());
+    String bookId =
+        p.getWordsSelectedAt() == null ? vocabularyBooks.selectActiveBookId(p.getOwnerId()) : null;
     if (bookId != null)
       addMaterials(
           result,
@@ -314,6 +414,7 @@ public class DailyTaskService {
           materials.selectWordContent(
               p.getOwnerId(), bookId, plan.getDifficulty(), wordLimit, p.getBusinessDate()),
           budget);
+    result.addAll(fixedWords);
     return result;
   }
 
@@ -398,6 +499,11 @@ public class DailyTaskService {
 
   private void recordSystemEvent(
       DailyTaskEntity t, String type, DailyTaskStatus from, DailyTaskStatus to) {
+    recordSystemEvent(t, type, from, to, "计划保存后同步今日任务");
+  }
+
+  private void recordSystemEvent(
+      DailyTaskEntity t, String type, DailyTaskStatus from, DailyTaskStatus to, String reason) {
     TaskEventEntity e = new TaskEventEntity();
     e.setId(CryptoUtils.randomId());
     e.setOwnerId(t.getOwnerId());
@@ -408,7 +514,7 @@ public class DailyTaskService {
     e.setFromStatus(from.name());
     e.setToStatus(to.name());
     e.setOccurredAt(Instant.now());
-    e.setReason("计划保存后同步今日任务");
+    e.setReason(reason);
     packages.insertEvent(e);
   }
 
@@ -429,9 +535,12 @@ public class DailyTaskService {
         materials
             .selectContent(owner, p.getId(), "tech", p.getDifficulty(), p.getTechCount())
             .size());
-    String bookId = vocabularyBooks.selectActiveBookId(owner);
-    if (bookId == null) gap(r, "word", p.getNewWordCount(), count(selected, "word"), 0, "未选择词书");
-    else
+    DailyPackageEntity daily = packages.selectByOwnerAndDate(owner, date);
+    boolean fixed = daily != null && daily.getWordsSelectedAt() != null;
+    String bookId = fixed ? daily.getWordsBookId() : vocabularyBooks.selectActiveBookId(owner);
+    if (!fixed && bookId == null)
+      gap(r, "word", p.getNewWordCount(), count(selected, "word"), 0, "未选择词书");
+    else if (!fixed)
       gap(
           r,
           "word",
@@ -502,6 +611,8 @@ public class DailyTaskService {
     }
     DailyPackageView v = new DailyPackageView();
     v.setBusinessDate(p.getBusinessDate());
+    v.setWordsSelectedAt(p.getWordsSelectedAt());
+    v.setWordsBookId(p.getWordsBookId());
     v.setActive(true);
     v.setTemporary(p.getTemporary() != null && p.getTemporary() == 1);
     v.setNonActiveDay(false);
@@ -550,6 +661,10 @@ public class DailyTaskService {
       x.put("taskIds", ids);
       x.put("count", ts.size());
       x.put("budgetSeconds", p.getBudgetSeconds());
+      x.put("wordsBookId", p.getWordsBookId());
+      x.put(
+          "wordsSelectedAt",
+          p.getWordsSelectedAt() == null ? null : p.getWordsSelectedAt().toString());
       return json.writeValueAsString(x);
     } catch (Exception e) {
       throw new IllegalStateException(e);
