@@ -36,6 +36,75 @@ function page(service, extras = {}) {
   return { p, navigation, timers };
 }
 const queue = { businessDate: '2026-10-08', current: { contentId: 'word', version: 3 } };
+test('daily continuous feedback rotates immediately and only recognizing every word completes the day', async () => {
+  const continuous = (current, known, remaining) => ({
+    businessDate: '2026-10-08', practiceMode: 'continuous', current,
+    dailyTotal: 2, dailyRecognized: known, unfinishedCount: remaining,
+    remaining, unavailableCount: 0, allCompleted: remaining === 0, waitSeconds: 0,
+  });
+  const writes = [];
+  let reads = 0;
+  const responses = [
+    continuous({ contentId: 'next', version: 1 }, 0, 2),
+    continuous({ contentId: 'word', version: 4 }, 0, 2),
+    continuous({ contentId: 'next', version: 2 }, 1, 1),
+    continuous({ contentId: 'next', version: 3 }, 1, 1),
+    continuous(null, 2, 0),
+  ];
+  const { p, timers } = page({
+    queue: async () => { reads++; return continuous(queue.current, 0, 2); },
+    feedback: async (id, body) => { writes.push({ id, body }); return responses.shift(); },
+  });
+  p.dailyWordMode = true;
+  await p.resumeStudy();
+  assert.equal(p.data.continuousPractice, true);
+  assert.equal(p.data.dailyRemaining, 2);
+  assert.equal(p.data.studyPaused, false);
+  for (const value of ['unclear', 'fuzzy', 'remember', 'fuzzy', 'remember']) {
+    await p.rateWord({ currentTarget: { dataset: { value } } });
+    assert.equal(p.data.acting, false);
+    assert.equal(p.data.studyPaused, value === 'remember' && writes.length === 5);
+  }
+  assert.deepEqual(writes.map((w) => w.id), ['word', 'next', 'word', 'next', 'next']);
+  assert.equal(reads, 1);
+  assert.equal(p.data.dailyRecognized, 2);
+  assert.equal(p.data.dailyRemaining, 0);
+  assert.match(p.data.studyNotice, /全部已标记认识/);
+  assert.equal(timers.length, 1);
+});
+test('continuous progress preserves unavailable unfinished words and does not finish or navigate away', async () => {
+  const { p, timers } = page({
+    queue: async () => ({ ...queue, practiceMode: 'continuous', dailyTotal: 2, dailyRecognized: 0, unfinishedCount: 2 }),
+    feedback: async () => ({ current: null, practiceMode: 'continuous', dailyTotal: 2, dailyRecognized: 1,
+      unfinishedCount: 1, remaining: 0, unavailableCount: 1, allCompleted: false }),
+  });
+  p.dailyWordMode = true;
+  await p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  assert.equal(p.data.dailyRemaining, 1);
+  assert.equal(p.data.dailyUnavailable, 1);
+  assert.equal(p.data.dailyRecognized, 1);
+  assert.match(p.data.studyNotice, /暂不可用/);
+  assert.equal(timers.length, 0);
+});
+test('old saved cooldown receipt refreshes once to the new continuous daily queue', async () => {
+  let reads = 0, writes = 0;
+  const { p } = page({
+    queue: async () => { reads++; return { ...queue, practiceMode: 'continuous', dailyTotal: 1, dailyRecognized: 0, unfinishedCount: 1 }; },
+    feedback: async () => { writes++; return { businessDate: '2026-10-08', current: null, remaining: 1, waitSeconds: 109 }; },
+  });
+  p.dailyWordMode = true;
+  p.studyQueue = queue;
+  await p.rateWord({ currentTarget: { dataset: { value: 'unclear' } } });
+  assert.equal(reads, 1);
+  assert.equal(writes, 1);
+  assert.equal(p.data.studyPaused, false);
+  assert.equal(p.data.continuousPractice, true);
+  assert.equal(p.data.studyNotice, '');
+});
+test('continuous empty range is not described as all words recognized', () => {
+  const { queueNotice } = require('../utils/word-study-entry');
+  assert.equal(queueNotice({ practiceMode: 'continuous', dailyTotal: 0, remaining: 0, allCompleted: true }), '今日没有待学新词');
+});
 test('original feedback buttons save consolidation and advance to queued word', async () => {
   const writes = [];
   const { p, navigation } = page({

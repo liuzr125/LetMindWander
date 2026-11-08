@@ -31,6 +31,7 @@ Page({
     taskVersion: 1,
     acting: false,
     studyNotice: '', studyPaused: false, studyReadOnly: false,
+    continuousPractice: false, dailyTotal: 0, dailyRecognized: 0, dailyRemaining: 0, dailyUnavailable: 0,
     displayExample: '',
     displayExampleTranslation: '',
     wordSizeClass: '',
@@ -102,6 +103,15 @@ Page({
       .catch((error) => { if (contentId === this.data.contentId) this.setData({ loading: false, error: error.message || '词条加载失败' }); });
   },
   currentStudyMode() { return this.studyMode || (this.dailyWordMode ? 'daily' : 'all'); },
+  updatePracticeProgress(queue) {
+    this.setData({
+      continuousPractice: !!(this.currentStudyMode() === 'daily' && queue && queue.practiceMode === 'continuous'),
+      dailyTotal: Number((queue && queue.dailyTotal) || 0),
+      dailyRecognized: Number((queue && queue.dailyRecognized) || 0),
+      dailyRemaining: Number((queue && queue.unfinishedCount) || 0),
+      dailyUnavailable: Number((queue && queue.unavailableCount) || 0),
+    });
+  },
   resumeStudy() {
     if (this.studyReadOnly) return;
     if (this.data.acting) return this._feedbackRequest;
@@ -403,6 +413,7 @@ Page({
         .queue(this.currentStudyMode(), this.data.contentId)
         .then((queue) => {
           this.studyQueue = queue;
+          this.updatePracticeProgress(queue);
           return queue;
         })
         .catch(() => null)
@@ -464,7 +475,8 @@ Page({
         // 仅服务端确认成功后换词；复用返回队列省去下一次排队请求。
         this.pendingWordAttempt = null;
         this.pendingWordContentId = null;
-        if (queue.businessDate && queue.businessDate !== formatDate(new Date())) {
+        if ((queue.businessDate && queue.businessDate !== formatDate(new Date()))
+            || (this.currentStudyMode() === 'daily' && !queue.current && queue.remaining > 0 && queue.practiceMode !== 'continuous')) {
           this.studyQueue = null;
           return wordStudyService.queue(this.currentStudyMode());
         }
@@ -472,6 +484,7 @@ Page({
       })
       .then((queue) => {
         this.studyQueue = queue;
+        this.updatePracticeProgress(queue);
         if (queue.current) {
           this.stopAudio();
           this.setData(

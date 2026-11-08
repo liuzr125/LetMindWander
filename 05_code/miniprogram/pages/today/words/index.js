@@ -52,7 +52,7 @@ Page({
     if (!id) return;
     const word = this.data.words.find((item) => item.contentId === id);
     if (word && word.available === false) return wx.showToast({ title: word.unavailableReason || '词条暂不可用', icon: 'none' });
-    if (this.data.date !== formatDate(new Date()) || (word && ['DONE','SKIPPED'].includes(word.status)))
+    if (this.data.date !== formatDate(new Date()) || (word && word.status === 'DONE'))
       return wx.navigateTo({ url: `/pages/word/detail/index?id=${id}&readonly=1` });
     return this.continueStudy(id);
   },

@@ -4,6 +4,11 @@
     ><text>{{error}}</text><button bindtap="load">重试</button></view
   >
   <block wx:else>
+    <view wx:if="{{continuousPractice && !studyReadOnly}}" class="daily-practice">
+      <view class="daily-practice-head"><text>今日还剩 {{dailyRemaining}} 个未认识</text><text class="daily-practice-progress">已认识 {{dailyRecognized}} / {{dailyTotal}}</text></view>
+      <text class="daily-practice-copy">不认识或模糊：继续轮练；认识：移出今日待学，后续仍会复习</text>
+      <text wx:if="{{dailyUnavailable}}" class="daily-practice-warning">其中 {{dailyUnavailable}} 个词暂不可用，已保留范围，未计为完成</text>
+    </view>
     <view wx:if="{{studyNotice}}" class="study-notice"><text>{{studyNotice}}</text><button wx:if="{{!studyReadOnly}}" bindtap="resumeStudy">刷新学习队列</button></view>
     <view class="word-settings-toolbar"
       ><button class="word-settings-entry" bindtap="openLearningSettings" aria-label="打开学习设置"
@@ -212,7 +217,7 @@
     <view class="bottom-actions">
       <text class="feedback-note"
         >{{recallActive ? '先显示答案核对，再按真实记忆选择' :
-        '这是自评，不代表已掌握；保存后进入下一词'}}</text
+        (continuousPractice ? '认识后移出今日待学；不认识和模糊会继续轮练' : '这是自评，不代表已掌握；保存后进入下一词')}}</text
       >
       <view class="feedback-buttons"
         ><button

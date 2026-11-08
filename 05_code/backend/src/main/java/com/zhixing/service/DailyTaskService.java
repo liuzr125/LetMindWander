@@ -170,6 +170,24 @@ public class DailyTaskService {
     packages.insertRevision(revision);
     return view(p, after);
   }
+
+  /** 继续今日新词时恢复旧版跳过项；跳过不能代替“认识”，原事件仍保留。 */
+  @Transactional
+  public void resumeSkippedWords(String owner, LocalDate date) {
+    if (!LocalDate.now(ZoneId.of("Asia/Shanghai")).equals(date))
+      throw fail(HttpStatus.BAD_REQUEST, "WORD_SELECTION_TODAY_ONLY", "只能继续今天的新词");
+    vocabularyBooks.lockOwner(owner);
+    DailyPackageEntity p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    if (p == null || p.getWordsSelectedAt() == null) return;
+    for (DailyTaskEntity task : tasks.selectByPackage(p.getId()))
+      if ("word".equals(task.getTaskType()) && task.getStatus() == DailyTaskStatus.SKIPPED) {
+        task.setStatus(DailyTaskStatus.TODO);
+        task.setVersionNo(task.getVersionNo() + 1);
+        tasks.updateById(task);
+        recordSystemEvent(
+            task, "resume", DailyTaskStatus.SKIPPED, DailyTaskStatus.TODO, "继续完成今日新词，恢复尚未认识的单词");
+      }
+  }
   /** 保存计划后同步尚未完成的今日任务；进行中、已完成、已跳过任务均是事实记录，不予覆盖。 */
   @Transactional
   public void syncToday(String owner, LearningPlanEntity plan) {

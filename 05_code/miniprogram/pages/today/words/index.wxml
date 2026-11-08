@@ -9,6 +9,7 @@
     <text wx:if="{{targetCount !== null}}" class="selection-copy">计划 {{targetCount}} 个，实际确定 {{words.length}} 个</text>
     <text class="selection-copy">{{fixed ? (isToday ? '今日范围已固定，换书或调整计划次日生效。' : '当日范围已固定，历史词表仅供查看。') : '当日范围尚未固定。'}}</text>
     <text wx:if="{{fixed}}" class="selection-copy">当日没学完的词，从次日起重新进入所属词书的新词候选池。</text>
+    <text wx:if="{{fixed && isToday}}" class="selection-copy">未认识的词可连续轮练，全部标记认识后完成今日新词，后续仍会安排复习。</text>
     <text wx:if="{{selectionNote}}" class="selection-note">{{selectionNote}}</text>
     <text wx:if="{{unavailableCount}}" class="selection-note">{{unavailableCount}} 个词暂不可用，已保留原范围，请稍后重试。</text>
     <button wx:if="{{isToday && words.length > doneCount}}" class="continue-study" bindtap="continueStudy">继续今日学习</button>

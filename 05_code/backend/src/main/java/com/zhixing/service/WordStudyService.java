@@ -8,6 +8,7 @@ import com.zhixing.mapper.ContentMapper;
 import com.zhixing.mapper.VocabularyBookMapper;
 import com.zhixing.mapper.WordStudyMapper;
 import com.zhixing.model.ContentDetailView;
+import com.zhixing.model.DailyPackageView;
 import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
@@ -72,7 +73,10 @@ public class WordStudyService {
     lock(owner);
     LocalDate date = today();
     if ("daily".equals(mode)) {
-      tasks.selectWords(owner, date);
+      DailyPackageView pack = tasks.selectWords(owner, date);
+      if (pack.getTasks().stream()
+          .anyMatch(t -> "word".equals(t.getTaskType()) && "SKIPPED".equals(t.getStatus())))
+        tasks.resumeSkippedWords(owner, date);
     } else tasks.get(owner, date);
     // Lazy compatibility: old learning records remain pending, understood records remain learned.
     String book = books.selectActiveBookId(owner);
@@ -202,13 +206,15 @@ public class WordStudyService {
     Map<String, Object> current = null;
     int fresh = 0, consolidation = 0, review = 0;
     long wait = Long.MAX_VALUE;
+    boolean continuous = "daily".equals(mode);
     for (Map<String, Object> s : rows) {
       boolean isReview = "review".equals(str(s, "source_kind"));
       if (isReview && s.get("recovery") == null) review++;
       else if (isReview) consolidation++;
       else if (num(s, "exposed") == 0) fresh++;
       else consolidation++;
-      if (ready(s, pos) && (current == null || str(s, "content_id").equals(preferred))) current = s;
+      if ((continuous || ready(s, pos))
+          && (current == null || str(s, "content_id").equals(preferred))) current = s;
       if (s.get("eligible_at") != null)
         wait =
             Math.min(
@@ -224,16 +230,23 @@ public class WordStudyService {
     result.put("consolidationCount", consolidation);
     result.put("reviewCount", review);
     result.put("remaining", rows.size());
-    result.put("waitSeconds", current == null && wait != Long.MAX_VALUE ? wait : 0);
+    result.put("waitSeconds", !continuous && current == null && wait != Long.MAX_VALUE ? wait : 0);
+    result.put("practiceMode", continuous ? "continuous" : "spaced");
     if ("daily".equals(mode) || "consolidation".equals(mode)) {
+      Map<String, Object> progress =
+          continuous
+              ? studyMapper.selectDailyProgress(owner, java.sql.Date.valueOf(today()))
+              : null;
       int unfinished =
-          "daily".equals(mode)
-              ? studyMapper.countDailyUnfinished(owner, java.sql.Date.valueOf(today()))
+          continuous
+              ? num(progress, "unfinished_count")
               : studyMapper.countConsolidation(owner, java.sql.Date.valueOf(today()));
       int unavailable =
-          "daily".equals(mode)
-              ? studyMapper.countDailyUnavailable(owner, java.sql.Date.valueOf(today()))
-              : Math.max(0, unfinished - rows.size());
+          continuous ? num(progress, "unavailable_count") : Math.max(0, unfinished - rows.size());
+      if (continuous) {
+        result.put("dailyTotal", num(progress, "total_count"));
+        result.put("dailyRecognized", num(progress, "recognized_count"));
+      }
       result.put("unfinishedCount", unfinished);
       result.put("unavailableCount", unavailable);
       result.put("allCompleted", unfinished == 0);
@@ -291,7 +304,8 @@ public class WordStudyService {
         || num(s, "version_no") != ((Number) request.get("expectedVersion")).intValue())
       throw fail("WORD_VERSION_CONFLICT", "学习进度已变化，请刷新");
     long cursor = position(owner);
-    if (!ready(s, cursor)) throw fail("WORD_RECALL_TOO_SOON", "先学习其他词，或稍后再回忆这个词");
+    if (!"daily".equals(mode) && !ready(s, cursor))
+      throw fail("WORD_RECALL_TOO_SOON", "先学习其他词，或稍后再回忆这个词");
     ContentDetailView word = required(owner, id);
     boolean review = "review".equals(str(s, "source_kind"));
     String recovery = str(s, "recovery");
@@ -324,7 +338,7 @@ public class WordStudyService {
         recovery,
         complete ? 0 : 1,
         position + 4,
-        Timestamp.from(moment.plusSeconds(120)),
+        "daily".equals(mode) ? null : Timestamp.from(moment.plusSeconds(120)),
         owner,
         id);
     String status = complete ? "understood" : "learning";

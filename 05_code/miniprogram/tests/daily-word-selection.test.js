@@ -66,6 +66,21 @@ test('a completed fixed range opens its list instead of requesting another word'
   assert.equal(navigation[0], '/pages/today/words/index?date=2026-11-08');
 });
 
+test('a skipped word in today list resumes the daily queue while recognized words remain read only', async () => {
+  const { p, navigation } = page('pages/today/words/index.js', {
+    wordStudyService: { queue: async (mode, preferred) => {
+      assert.equal(mode, 'daily'); assert.equal(preferred, 'selected'); return selectedQueue;
+    } },
+  });
+  p.data.date = '2026-11-08';
+  p.data.words = [{ ...fixed.tasks[0], status: 'SKIPPED' }];
+  await p.openWord({ currentTarget: { dataset: { id: 'selected' } } });
+  assert.match(navigation[0], /id=selected&daily=1/);
+  p.data.words[0].status = 'DONE';
+  p.openWord({ currentTarget: { dataset: { id: 'selected' } } });
+  assert.match(navigation[1], /readonly=1/);
+});
+
 test('today list reuses selection while past date lists only read history', async () => {
   const calls = [];
   const { p } = page('pages/today/words/index.js', {

@@ -24,9 +24,8 @@ public interface WordStudyMapper {
 
   int countConsolidation(@Param("owner") String owner, @Param("date") java.sql.Date date);
 
-  int countDailyUnavailable(@Param("owner") String owner, @Param("date") java.sql.Date date);
-
-  int countDailyUnfinished(@Param("owner") String owner, @Param("date") java.sql.Date date);
+  Map<String, Object> selectDailyProgress(
+      @Param("owner") String owner, @Param("date") java.sql.Date date);
 
   int countDailyPendingContent(
       @Param("owner") String owner,

@@ -251,4 +251,128 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
                 outside))
         .isZero();
   }
+
+  @Test
+  void recoveryDailyUnknownWordsRotateWithoutWaitingUntilEachIsRecognized() {
+    DailyPackageView fixed = daily.selectWords(owner, today);
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String first = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    Set<String> cycle = new LinkedHashSet<>();
+    for (int i = 0; i < 3; i++) {
+      String current = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+      cycle.add(current);
+      queue = feedback(current, queue, "daily", i == 1 ? "unclear" : "fuzzy");
+      assertThat(queue.get("waitSeconds")).isEqualTo(0);
+      assertThat(queue.get("practiceMode")).isEqualTo("continuous");
+      assertThat(queue.get("dailyRecognized")).isEqualTo(0);
+      assertThat(queue.get("allCompleted")).isEqualTo(false);
+    }
+    assertThat(cycle).containsExactlyInAnyOrderElementsOf(ids(fixed));
+    assertThat(((Map<?, ?>) queue.get("current")).get("contentId")).isEqualTo(first);
+    Set<String> learned = new HashSet<>();
+    for (int i = 0; i < 3; i++) {
+      String current = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+      assertThat(learned).doesNotContain(current);
+      learned.add(current);
+      queue = feedback(current, queue, "daily", "remember");
+      assertThat(queue.get("dailyRecognized")).isEqualTo(i + 1);
+      assertThat(queue.get("unfinishedCount")).isEqualTo(2 - i);
+    }
+    assertThat(queue.get("allCompleted")).isEqualTo(true);
+    assertThat(queue.get("current")).isNull();
+    assertThat(daily.get(owner, today).getDoneCount()).isEqualTo(3);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM review_schedule WHERE owner_id=? AND state='active'",
+                Integer.class,
+                owner))
+        .isEqualTo(3);
+  }
+
+  @Test
+  void recoveryOnlyOneUnknownDailyWordCanBePracticedImmediatelyUntilRemembered() {
+    jdbc.update("UPDATE learning_plan SET new_word_count=1 WHERE id=?", plan);
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String only = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    for (String answer : Arrays.asList("unclear", "fuzzy", "unclear")) {
+      queue = feedback(only, queue, "daily", answer);
+      assertThat(((Map<?, ?>) queue.get("current")).get("contentId")).isEqualTo(only);
+      assertThat(queue.get("waitSeconds")).isEqualTo(0);
+      assertThat(queue.get("dailyRecognized")).isEqualTo(0);
+    }
+    queue = feedback(only, queue, "daily", "remember");
+    assertThat(queue.get("dailyRecognized")).isEqualTo(1);
+    assertThat(queue.get("dailyTotal")).isEqualTo(1);
+    assertThat(queue.get("allCompleted")).isEqualTo(true);
+  }
+
+  @Test
+  void recoveryOldDailyCooldownDoesNotDisableFeedbackAfterUpgrade() {
+    daily.selectWords(owner, today);
+    study.queue(owner, "daily", null);
+    jdbc.update(
+        "UPDATE word_study_state SET eligible_position=4,eligible_at=? WHERE owner_id=?",
+        java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(120)),
+        owner);
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    assertThat(queue.get("current")).isNotNull();
+    String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    Map<String, Object> next = feedback(id, queue, "daily", "fuzzy");
+    assertThat(next.get("current")).isNotNull();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT eligible_at FROM word_study_state WHERE owner_id=? AND content_id=?",
+                Object.class,
+                owner,
+                id))
+        .isNull();
+  }
+
+  @Test
+  void recoverySkippedDailyWordIsRestoredRatherThanCountedAsRecognized() {
+    DailyPackageView fixed = daily.selectWords(owner, today);
+    com.zhixing.model.DailyTaskView task = active(fixed).get(0);
+    com.zhixing.dto.TaskEventRequest skip = new com.zhixing.dto.TaskEventRequest();
+    skip.setEventType("skip");
+    skip.setExpectedVersion(task.getVersionNo());
+    daily.event(owner, task.getId(), skip);
+    Map<String, Object> queue = study.queue(owner, "daily", task.getContentId());
+    assertThat(queue.get("dailyRecognized")).isEqualTo(0);
+    assertThat(queue.get("unfinishedCount")).isEqualTo(3);
+    assertThat(((Map<?, ?>) queue.get("current")).get("contentId")).isEqualTo(task.getContentId());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM daily_task WHERE id=?", String.class, task.getId()))
+        .isEqualTo("TODO");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM task_event WHERE owner_id=? AND event_type='resume'",
+                Integer.class,
+                owner))
+        .isEqualTo(1);
+    feedback(task.getContentId(), queue, "daily", "remember");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM daily_task WHERE id=?", String.class, task.getId()))
+        .isEqualTo("DONE");
+  }
+
+  @Test
+  void recoveryScheduledReviewStillUsesSpacingAfterContinuousDailyStudy() {
+    jdbc.update("UPDATE learning_plan SET new_word_count=1 WHERE id=?", plan);
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    feedback(id, queue, "daily", "remember");
+    jdbc.update("UPDATE review_schedule SET due_date=? WHERE owner_id=?", today, owner);
+    jdbc.update(
+        "UPDATE word_study_state SET last_completed_date=? WHERE owner_id=?",
+        today.minusDays(1),
+        owner);
+    queue = study.queue(owner, "review", null);
+    Map<String, Object> next = feedback(id, queue, "review", "fuzzy");
+    assertThat(next.get("practiceMode")).isEqualTo("spaced");
+    assertThat(next.get("remaining")).isEqualTo(1);
+    assertThat(next.get("current")).isNull();
+    assertThat(((Number) next.get("waitSeconds")).longValue()).isGreaterThan(0);
+  }
 }

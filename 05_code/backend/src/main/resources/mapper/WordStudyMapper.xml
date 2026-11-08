@@ -147,22 +147,21 @@
   <select id="countConsolidation" resultType="int">
     SELECT COUNT(*) FROM word_study_state s WHERE <include refid="consolidationScope"/>
   </select>
-  <select id="countDailyUnfinished" resultType="int">
-    SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
-    WHERE t.owner_id=#{owner} AND p.business_date=#{date} AND t.task_type='word' AND t.status IN ('TODO','DOING')
-  </select>
   <select id="countDailyPendingContent" resultType="int">
     SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
     WHERE t.owner_id=#{owner} AND p.owner_id=#{owner} AND p.business_date=#{date}
     AND p.words_selected_at IS NOT NULL AND t.task_type='word' AND t.content_id=#{content}
     AND t.status IN ('TODO','DOING')
   </select>
-  <select id="countDailyUnavailable" resultType="int">
-    SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
+  <select id="selectDailyProgress" resultType="map">
+    SELECT COUNT(*) AS total_count,
+    COALESCE(SUM(CASE WHEN t.status='DONE' THEN 1 ELSE 0 END),0) AS recognized_count,
+    COALESCE(SUM(CASE WHEN t.status&lt;&gt;'DONE' THEN 1 ELSE 0 END),0) AS unfinished_count,
+    COALESCE(SUM(CASE WHEN t.status&lt;&gt;'DONE' AND (lc.id IS NULL OR lc.state&lt;&gt;'published' OR cv.id IS NULL OR cv.review_status&lt;&gt;'approved') THEN 1 ELSE 0 END),0) AS unavailable_count
+    FROM daily_task t JOIN daily_package p ON p.id=t.package_id
     LEFT JOIN learning_content lc ON lc.id=t.content_id
     LEFT JOIN content_version cv ON cv.id=lc.published_version_id AND cv.content_id=lc.id
-    WHERE t.owner_id=#{owner} AND p.business_date=#{date} AND t.task_type='word' AND t.status IN ('TODO','DOING')
-    AND (lc.id IS NULL OR lc.state&lt;&gt;'published' OR cv.id IS NULL OR cv.review_status&lt;&gt;'approved')
+    WHERE t.owner_id=#{owner} AND p.owner_id=#{owner} AND p.business_date=#{date} AND t.task_type='word' AND t.status&lt;&gt;'CANCELLED'
   </select>
   <select id="countCompletedWordTask" resultType="int">
       SELECT COUNT(*) FROM word_study_state WHERE owner_id=#{owner} AND content_id=#{content} AND pending=0 AND (task_id=#{task} OR origin_task_id=#{task})

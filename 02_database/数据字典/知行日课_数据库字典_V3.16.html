@@ -1522,6 +1522,7 @@
         </section>
         <section id="daily_package">
           <h2>daily_package <span>&#x6BCF;&#x65E5;&#x4EFB;&#x52A1;&#x5305;</span></h2>
+          <p>今日新词连续轮练（2026-11-08）：mode=daily 不以 eligible_at 或 eligible_position 为再次反馈的门槛，仍以 eligible_position 维持已练词向后轮转的顺序；新反馈清空 eligible_at，版本和 attemptId 幂等保护不变。practiceMode=continuous，dailyTotal / dailyRecognized / unfinishedCount / unavailableCount 从本人当天非 CANCELLED 词任务聚合；只有 DONE 计认识，暂不可用和 SKIPPED 均不计完成。进入今日队列时将旧 SKIPPED 恢复 TODO 并记录 task_event.event_type=resume，原跳过事件保留，词表范围不变。当天“认识”为自评完成，继续生成原有长期复习排期；review、consolidation、all 模式保留间隔规则。无新增表或字段。</p>
           <p>续学优化（2026-11-08）：daily 反馈使用带用户、业务日期、词条、固定标记和待学状态的范围查询，避免读取整包和批量释义；初始化同一队列不重复调用任务包读取。客户端合并在途请求，不确定反馈保留原词条及原 attemptId，跨日旧回执确认后刷新当前队列。历史词表每次点击核对北京时间并只读，旧首页请求不覆盖新进度；本项无新增表、字段或迁移脚本。</p>
           <p class="meta">V3.32（2026-11-08）：首页初始化与选词在事务内按用户行锁、任务包行锁统一顺序执行；旧版 original_count 为 NULL 的半成品任务包可按 activation_repair 修订恢复。新增 words_target_count（INT，可空，首次确定时的计划数量，旧版已开始词表取不小于保留数量的值）和 words_selection_note（VARCHAR(200)，可空，预算、素材不足或旧进度保留说明），仅首次确定时保存，后续改计划不覆盖；旧快照保持 NULL。迁移 05_code/backend/sql/V3.32_daily_word_flow_recovery.sql 依赖 V3.31。</p>
           <p>未完成词重新规划：往日 word 任务为 TODO / DOING、词条仍属于目标词书且已发布审核通过、学习记录尚未 understood / mastered、无活动复习排期的词，从次日起重新进入该书英语新词候选池，即使已有 exposed=1 的待学习状态也可再次随机选中。不是保证次日必选，也不重抽已固定的今日范围。再次选中时将 pending 的 new 状态绑定新日任务与 origin_task_id；保留旧日未完成任务事实，不把未来完成反写到旧日进度。待巩固入口作为可提前继续的途径，再次入选当天新词后不重复显示在待巩固队列。</p>
