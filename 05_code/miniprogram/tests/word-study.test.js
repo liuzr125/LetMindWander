@@ -292,3 +292,86 @@ test('late previous-word cards and memory hints cannot replace next-word supplem
   assert.deepEqual(p.data.learningCardGroups, ['next-card']);
   assert.deepEqual(p.data.memoryHints, ['next-hint']);
 });
+
+test('refresh after uncertain feedback retries the original word and receipt before switching', async () => {
+  const writes = []; let queues = 0;
+  const { p } = page({
+    queue: async () => { queues++; return queue; },
+    feedback: async (id, body) => {
+      writes.push({ id, body: JSON.stringify(body) });
+      if (writes.length === 1) throw Error('network');
+      return { businessDate: '2026-10-08', current: { contentId: 'next', version: 4 } };
+    },
+  });
+  p.dailyWordMode = true;
+  await p.rateWord({ currentTarget: { dataset: { value: 'fuzzy' } } });
+  p.data.contentId = 'another-view'; p.data.recallActive = true;
+  await p.resumeStudy();
+  assert.deepEqual(writes[1], writes[0]);
+  assert.equal(writes[1].id, 'word'); assert.equal(queues, 1);
+  assert.equal(p.data.contentId, 'next'); assert.equal(p.pendingWordAttempt, null);
+});
+
+test('refresh and repeated feedback during an in-flight write share its promise', async () => {
+  let finish, writes = 0;
+  const { p } = page({
+    queue: async () => queue,
+    feedback: () => { writes++; return new Promise((resolve) => { finish = resolve; }); },
+  });
+  const first = p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  await new Promise(setImmediate);
+  assert.equal(p.resumeStudy(), first);
+  assert.equal(p.rateWord({ currentTarget: { dataset: { value: 'unclear' } } }), first);
+  finish({ businessDate: '2026-10-08', current: { contentId: 'next', version: 4 } });
+  await first; assert.equal(writes, 1); assert.equal(p.data.contentId, 'next');
+});
+
+test('duplicate resume reads are merged and restricted study skips a redundant task-package read', async () => {
+  let finish, reads = 0, loads = 0;
+  const { p } = page({ queue: () => { reads++; return new Promise((resolve) => { finish = resolve; }); } });
+  p.dailyWordMode = true;
+  p.loadWordQueue = () => { throw Error('redundant task-package request'); };
+  p.load = async () => { loads++; };
+  const first = p.resumeStudy(); assert.equal(p.resumeStudy(), first);
+  assert.equal(p.rateWord({ currentTarget: { dataset: { value: 'remember' } } }), first);
+  finish(queue); await first;
+  assert.equal(reads, 1); assert.equal(loads, 1);
+});
+
+test('a confirmed old-day receipt is followed by a fresh queue instead of replaying yesterday next word', async () => {
+  let reads = 0; const writes = [];
+  const { p } = page({
+    queue: async () => { reads++; return { businessDate: '2026-10-08', current: { contentId: 'today', version: 7 } }; },
+    feedback: async (id, body) => { writes.push({ id, day: body.businessDate }); return { businessDate: '2026-10-07', current: { contentId: 'yesterday', version: 2 } }; },
+  });
+  p.dailyWordMode = true;
+  p.pendingWordAttempt = { attemptId: 'uncertain', feedback: 'remember', expectedVersion: 1, businessDate: '2026-10-07', mode: 'daily' };
+  p.pendingWordContentId = 'original';
+  await p.resumeStudy();
+  assert.equal(reads, 1); assert.equal(writes[0].id, 'original');
+  assert.equal(writes[0].day, '2026-10-07'); assert.equal(p.data.contentId, 'today');
+});
+
+test('changed restricted queue switches the displayed word but requires a new feedback decision', async () => {
+  const writes = []; let reads = 0;
+  const { p } = page({
+    queue: async () => { reads++; return { businessDate: '2026-10-08', current: { contentId: 'changed', version: 6 } }; },
+    feedback: async (id, body) => { writes.push({ id, feedback: body.feedback }); return { remaining: 0 }; },
+  });
+  p.dailyWordMode = true;
+  await p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  assert.equal(p.data.contentId, 'changed'); assert.equal(writes.length, 0);
+  await p.rateWord({ currentTarget: { dataset: { value: 'fuzzy' } } });
+  assert.equal(writes[0].id, 'changed'); assert.equal(writes[0].feedback, 'fuzzy');
+  assert.equal(reads, 1);
+});
+
+test('a failed preflight queue read does not immediately duplicate the request or submit feedback', async () => {
+  let reads = 0, writes = 0;
+  const { p } = page({
+    queue: async () => { reads++; throw Error('network'); },
+    feedback: async () => { writes++; },
+  });
+  await p.rateWord({ currentTarget: { dataset: { value: 'remember' } } });
+  assert.equal(reads, 1); assert.equal(writes, 0); assert.equal(p.data.acting, false);
+});

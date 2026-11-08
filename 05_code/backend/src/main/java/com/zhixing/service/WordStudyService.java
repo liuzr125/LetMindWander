@@ -73,8 +73,7 @@ public class WordStudyService {
     LocalDate date = today();
     if ("daily".equals(mode)) {
       tasks.selectWords(owner, date);
-    }
-    tasks.get(owner, date);
+    } else tasks.get(owner, date);
     // Lazy compatibility: old learning records remain pending, understood records remain learned.
     String book = books.selectActiveBookId(owner);
     if (book != null) {
@@ -182,15 +181,6 @@ public class WordStudyService {
         "review".equals(mode));
   }
 
-  private Set<String> dailyWordIds(String owner) {
-    Set<String> ids = new HashSet<>();
-    for (com.zhixing.model.DailyTaskView task : tasks.get(owner, today()).getTasks())
-      if ("word".equals(task.getTaskType())
-          && ("TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())))
-        ids.add(task.getContentId());
-    return ids;
-  }
-
   boolean ready(Map<String, Object> s, long position) {
     return position >= lng(s, "eligible_position")
         || s.get("eligible_at") == null
@@ -286,7 +276,8 @@ public class WordStudyService {
       return decode(str(receipt, "result_json"));
     }
     Map<String, Object> s = state(owner, id);
-    if ("daily".equals(mode) && !dailyWordIds(owner).contains(id))
+    if ("daily".equals(mode)
+        && studyMapper.countDailyPendingContent(owner, id, java.sql.Date.valueOf(today())) == 0)
       throw fail("WORD_OUTSIDE_DAILY_SELECTION", "该单词不在今日待学范围内，请刷新学习队列");
     if ("consolidation".equals(mode)
         && studyMapper.selectConsolidationPending(owner, java.sql.Date.valueOf(today())).stream()

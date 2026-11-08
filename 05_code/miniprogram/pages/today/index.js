@@ -45,12 +45,15 @@ Page({
     this.loadMemoryEntry();
   },
   load() {
+    const generation = (this._loadGeneration || 0) + 1;
+    this._loadGeneration = generation;
     const now = new Date();
     const today = formatDate(now);
     this.setData({ loading: true, today, dateText: formatChineseDate(now), error: '' });
     return dailyTaskService
       .day(today)
       .then((pack) => {
+        if (generation !== this._loadGeneration) return;
         const tasks = (pack.tasks || []).filter((task) => task.status !== 'CANCELLED');
         const groups = Object.keys(GROUPS)
           .map((type) => {
@@ -106,9 +109,9 @@ Page({
           pendingConsolidationCount: Number(pack.pendingConsolidationCount || 0),
         });
       })
-      .catch((error) =>
-        this.setData({ error: error.message || '加载今日任务失败', loading: false }),
-      );
+      .catch((error) => {
+        if (generation === this._loadGeneration) this.setData({ error: error.message || '加载今日任务失败', loading: false });
+      });
   },
   // 相同在途读取共享 Promise；结束后清除，保留后续刷新能力。
   loadGrowth() {
@@ -180,9 +183,11 @@ Page({
     this._openingWords = wordStudyService
       .queue('daily')
       .then((queue) => {
+        const businessDate = queue.businessDate || formatDate(new Date());
+        if (businessDate !== this.data.today) this.load();
         if (!queue.current) {
           if (queue.remaining || queue.unavailableCount) wx.showToast({ title: queueNotice(queue), icon: 'none' });
-          return wx.navigateTo({ url: `/pages/today/words/index?date=${this.data.today}` });
+          return wx.navigateTo({ url: `/pages/today/words/index?date=${businessDate}` });
         }
         wx.navigateTo({
           url: `/pages/word/detail/index?id=${queue.current.contentId}&daily=1`,

@@ -141,3 +141,34 @@ test('queue notice distinguishes waiting, unavailable and completed states', () 
   assert.match(queueNotice({ remaining: 0, unavailableCount: 1, allCompleted: false }), /暂不可用/);
   assert.equal(queueNotice({ remaining: 0, allCompleted: true }), '本轮单词已学完');
 });
+
+test('a list left open across midnight is treated as history when tapped', async () => {
+  let reads = 0;
+  const { p, navigation, messages } = page('pages/today/words/index.js', {
+    wordStudyService: { queue: async () => { reads++; return selectedQueue; } },
+  });
+  p.data.date = '2026-11-07'; p.data.isToday = true; p.data.words = fixed.tasks;
+  p.openWord({ currentTarget: { dataset: { id: 'selected' } } });
+  assert.match(navigation[0], /readonly=1/);
+  p.continueStudy(); assert.equal(reads, 0); assert.equal(p.data.isToday, false);
+  assert.match(messages[0], /历史词表/);
+});
+
+test('late homepage responses cannot overwrite newer completion progress', async () => {
+  const pending = [];
+  const { p } = page('pages/today/index.js', { dailyTaskService: { day: () => new Promise((resolve) => pending.push(resolve)) } });
+  const first = p.load(), second = p.load();
+  pending[1]({ active: true, tasks: [{ ...fixed.tasks[0], status: 'DONE' }] }); await second;
+  pending[0]({ active: true, tasks: fixed.tasks }); await first;
+  assert.equal(p.data.groups[0].done, 1);
+});
+
+test('homepage completed-list navigation uses the queue business day after midnight', async () => {
+  const { p, navigation } = page('pages/today/index.js', {
+    wordStudyService: { queue: async () => ({ businessDate: '2026-11-09', remaining: 0, allCompleted: true }) },
+  });
+  let refreshes = 0; p.load = () => { refreshes++; };
+  await p.openWordGroup(stale);
+  assert.equal(navigation[0], '/pages/today/words/index?date=2026-11-09');
+  assert.equal(refreshes, 1);
+});

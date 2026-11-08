@@ -17,6 +17,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegrationTest {
   @SpyBean DailyTaskMapper taskMapper;
   @SpyBean ContentMapper contentMapper;
+  @SpyBean com.zhixing.service.DailyTaskService dailySpy;
 
   Map<String, Object> feedback(String id, Map<String, Object> queue, String mode, String answer) {
     Map<String, Object> input = new HashMap<>();
@@ -212,5 +213,42 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
             materials.selectWordContent(
                 owner, CryptoUtils.randomId(), "intro", 100, today.plusDays(1)))
         .isEmpty();
+  }
+
+  @Test
+  void recoveryDailyQueueAvoidsReadingTheSameFullPackageTwice() {
+    daily.selectWords(owner, today);
+    clearInvocations(dailySpy);
+    study.queue(owner, "daily", null);
+    verify(dailySpy, times(1)).selectWords(owner, today);
+    verify(dailySpy, never()).get(anyString(), any());
+  }
+
+  @Test
+  void recoveryDailyFeedbackUsesScopedMembershipQueryWithoutReloadingWordList() {
+    String first = ids(daily.selectWords(owner, today)).get(0);
+    Map<String, Object> queue = study.queue(owner, "daily", first);
+    clearInvocations(dailySpy, taskMapper);
+    feedback(first, queue, "daily", "remember");
+    verify(dailySpy, never()).get(anyString(), any());
+    verify(taskMapper, never()).selectWordInfo(anyString(), anyString());
+    verify(taskMapper, never()).selectWordsBookName(anyString(), anyString());
+  }
+
+  @Test
+  void recoveryDailyMembershipStillRejectsAnUnallocatedFreeStudyWord() {
+    List<String> selected = ids(daily.selectWords(owner, today));
+    String outside = words.stream().filter(id -> !selected.contains(id)).findFirst().get();
+    Map<String, Object> queue = study.queue(owner, "all", outside);
+    assertThatThrownBy(() -> feedback(outside, queue, "daily", "remember"))
+        .isInstanceOf(com.zhixing.common.ApiException.class)
+        .hasMessageContaining("今日待学范围");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM learning_record WHERE owner_id=? AND content_id=?",
+                Integer.class,
+                owner,
+                outside))
+        .isZero();
   }
 }

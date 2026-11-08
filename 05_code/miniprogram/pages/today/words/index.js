@@ -52,11 +52,15 @@ Page({
     if (!id) return;
     const word = this.data.words.find((item) => item.contentId === id);
     if (word && word.available === false) return wx.showToast({ title: word.unavailableReason || '词条暂不可用', icon: 'none' });
-    if (!this.data.isToday || (word && ['DONE','SKIPPED'].includes(word.status)))
+    if (this.data.date !== formatDate(new Date()) || (word && ['DONE','SKIPPED'].includes(word.status)))
       return wx.navigateTo({ url: `/pages/word/detail/index?id=${id}&readonly=1` });
     return this.continueStudy(id);
   },
   continueStudy(preferred) {
+    if (this.data.date !== formatDate(new Date())) {
+      this.setData({ isToday: false });
+      return wx.showToast({ title: '这是历史词表，请返回首页学习今天的新词', icon: 'none' });
+    }
     if (this._opening) return this._opening;
     this._opening = wordStudyService.queue('daily', typeof preferred === 'string' ? preferred : undefined)
       .then((queue) => {

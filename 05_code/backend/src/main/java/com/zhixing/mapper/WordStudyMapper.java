@@ -28,6 +28,11 @@ public interface WordStudyMapper {
 
   int countDailyUnfinished(@Param("owner") String owner, @Param("date") java.sql.Date date);
 
+  int countDailyPendingContent(
+      @Param("owner") String owner,
+      @Param("content") String content,
+      @Param("date") java.sql.Date date);
+
   List<Map<String, Object>> selectDueWordReviews(
       @Param("owner") String owner, @Param("date") java.sql.Date date);
 

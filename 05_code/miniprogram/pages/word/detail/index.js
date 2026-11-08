@@ -104,14 +104,19 @@ Page({
   currentStudyMode() { return this.studyMode || (this.dailyWordMode ? 'daily' : 'all'); },
   resumeStudy() {
     if (this.studyReadOnly) return;
-    return this.prepareStudyQueue().then((queue) => {
+    if (this.data.acting) return this._feedbackRequest;
+    if (this.pendingWordAttempt)
+      return this.rateWord({ currentTarget: { dataset: { value: this.pendingWordAttempt.feedback } } });
+    if (this._resumeRequest) return this._resumeRequest;
+    this._resumeRequest = this.prepareStudyQueue().then((queue) => {
       if (queue && queue.current) {
         if (this.data.contentId !== queue.current.contentId) this.stopAudio();
         this.setData({ contentId: queue.current.contentId, taskId: '', studyPaused: false, studyNotice: '' });
       } else this.setData({ studyPaused: true, studyNotice: queueNotice(queue) });
-      this.loadWordQueue();
+      if (this.currentStudyMode() === 'all') this.loadWordQueue();
       return this.load();
-    });
+    }).finally(() => { this._resumeRequest = null; });
+    return this._resumeRequest;
   },
   openLearningSettings() {
     this.refreshSettingsOnShow = true;
@@ -407,8 +412,10 @@ Page({
     return this.studyQueueRequest;
   },
   rateWord(event) {
-    if (this.studyReadOnly || this.data.studyPaused) return wx.showToast({ title: this.data.studyNotice || '请先刷新学习队列', icon: 'none' });
-    if (this.data.acting || this.data.recallActive) return;
+    if (this.studyReadOnly || (this.data.studyPaused && !this.pendingWordAttempt)) return wx.showToast({ title: this.data.studyNotice || '请先刷新学习队列', icon: 'none' });
+    if (this.data.acting) return this._feedbackRequest;
+    if (this._resumeRequest) return this._resumeRequest;
+    if (this.data.recallActive && !this.pendingWordAttempt) return;
     this.setData({ acting: true });
     const cached = this.studyQueue;
     const usable =
@@ -420,17 +427,27 @@ Page({
       this.pendingWordAttempt || usable
         ? Promise.resolve(cached)
         : (this.studyQueueRequest || this.prepareStudyQueue()).then(
-            (queue) =>
-              queue ||
-              wordStudyService.queue(this.currentStudyMode(), this.data.contentId),
+            (queue) => {
+              if (!queue) throw new Error('学习队列暂时不可用，请刷新后重试');
+              return queue;
+            },
           );
-    prepare
+    this._feedbackRequest = prepare
       .then((queue) => {
+        if (this.pendingWordAttempt) {
+          return wordStudyService.feedback(this.pendingWordContentId || this.data.contentId, this.pendingWordAttempt);
+        }
         this.studyQueue = queue;
-        if (!queue.current || queue.current.contentId !== this.data.contentId)
+        if (!queue.current || queue.current.contentId !== this.data.contentId) {
+          if (queue.current && this.currentStudyMode() !== 'all') {
+            this.stopAudio();
+            this.setData({ contentId: queue.current.contentId, taskId: '', studyNotice: '', studyPaused: false });
+            return this.load(true).then(() => { throw new Error('学习进度已更新，请确认当前单词后再反馈'); });
+          }
           throw new Error(
             queue.remaining ? '本词需要间隔后再练，请稍后重试' : '本词今日学习已完成',
           );
+        }
         // 网络失败重试复用同一 attemptId，避免响应丢失时重复提交反馈。
         if (!this.pendingWordAttempt)
           this.pendingWordAttempt = {
@@ -440,11 +457,20 @@ Page({
             businessDate: queue.businessDate,
             mode: this.currentStudyMode(),
           };
-        return wordStudyService.feedback(this.data.contentId, this.pendingWordAttempt);
+        this.pendingWordContentId = this.data.contentId;
+        return wordStudyService.feedback(this.pendingWordContentId, this.pendingWordAttempt);
       })
       .then((queue) => {
         // 仅服务端确认成功后换词；复用返回队列省去下一次排队请求。
         this.pendingWordAttempt = null;
+        this.pendingWordContentId = null;
+        if (queue.businessDate && queue.businessDate !== formatDate(new Date())) {
+          this.studyQueue = null;
+          return wordStudyService.queue(this.currentStudyMode());
+        }
+        return queue;
+      })
+      .then((queue) => {
         this.studyQueue = queue;
         if (queue.current) {
           this.stopAudio();
@@ -474,11 +500,14 @@ Page({
         // 明确拒绝才丢弃旧尝试；网络/服务异常保留凭据用于幂等重试。
         if ([400, 403, 404, 409].includes(error.statusCode)) {
           this.pendingWordAttempt = null;
+          this.pendingWordContentId = null;
           this.studyQueue = null;
         }
+        if (this.pendingWordAttempt) this.setData({ studyNotice: '上次反馈尚未确认，再次点击将重试原反馈' });
         wx.showToast({ title: error.message || '反馈失败，请重试', icon: 'none' });
       })
-      .finally(() => this.setData({ acting: false }));
+      .finally(() => { this.setData({ acting: false }); this._feedbackRequest = null; });
+    return this._feedbackRequest;
   },
   currentWordTask() {
     return (this.wordQueue || []).find(

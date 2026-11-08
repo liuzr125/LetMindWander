@@ -151,6 +151,12 @@
     SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
     WHERE t.owner_id=#{owner} AND p.business_date=#{date} AND t.task_type='word' AND t.status IN ('TODO','DOING')
   </select>
+  <select id="countDailyPendingContent" resultType="int">
+    SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
+    WHERE t.owner_id=#{owner} AND p.owner_id=#{owner} AND p.business_date=#{date}
+    AND p.words_selected_at IS NOT NULL AND t.task_type='word' AND t.content_id=#{content}
+    AND t.status IN ('TODO','DOING')
+  </select>
   <select id="countDailyUnavailable" resultType="int">
     SELECT COUNT(*) FROM daily_task t JOIN daily_package p ON p.id=t.package_id
     LEFT JOIN learning_content lc ON lc.id=t.content_id
