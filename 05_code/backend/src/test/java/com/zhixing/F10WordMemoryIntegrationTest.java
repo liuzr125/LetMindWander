@@ -83,6 +83,16 @@ class F10WordMemoryIntegrationTest {
     String sessionId = session.path("sessionId").asText(),
         meaningEpisode = session.path("currentEpisode").path("id").asText();
     mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "weak-active")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"source\":\"weak\",\"sourceSessionId\":\""
+                        + sessionId
+                        + "\",\"dimensions\":[\"meaning\"]}"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
             post("/api/word-memory/sessions/{sid}/episodes/{eid}/hint", sessionId, meaningEpisode)
                 .header("Authorization", bearer(user.token))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -184,8 +194,43 @@ class F10WordMemoryIntegrationTest {
         .andExpect(jsonPath("$.retryCorrectCount").value(1))
         .andExpect(jsonPath("$.firstIncorrectCount").value(1))
         .andExpect(jsonPath("$.weakWordCount").value(1))
+        .andExpect(jsonPath("$.weakContentIds[0]").value(WORD))
         .andExpect(jsonPath("$.sessionVersion").value(6))
         .andExpect(jsonPath("$.reviewPlans[0].state").value("active"));
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "weak-retry")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"source\":\"weak\",\"sourceSessionId\":\""
+                        + sessionId
+                        + "\",\"contentIds\":[\"ignored-client-word\"],\"dimensions\":[\"meaning\"]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.source").value("weak"))
+        .andExpect(jsonPath("$.targetCount").value(1));
+    Session other = register("f10-other", "13800000011");
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(other.token))
+                .header("Idempotency-Key", "weak-other")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"source\":\"weak\",\"sourceSessionId\":\""
+                        + sessionId
+                        + "\",\"dimensions\":[\"meaning\"]}"))
+        .andExpect(status().isNotFound());
+    jdbc.update("UPDATE learning_content SET state='withdrawn' WHERE id=?", WORD);
+    mvc.perform(
+            post("/api/word-memory/sessions")
+                .header("Authorization", bearer(user.token))
+                .header("Idempotency-Key", "weak-unavailable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"source\":\"weak\",\"sourceSessionId\":\""
+                        + sessionId
+                        + "\",\"dimensions\":[\"meaning\"]}"))
+        .andExpect(status().isBadRequest());
     assertEquals(
         2,
         jdbc.queryForObject(
@@ -571,6 +616,10 @@ class F10WordMemoryIntegrationTest {
   }
 
   private Session register() throws Exception {
+    return register("f10-user", "13800000010");
+  }
+
+  private Session register(String code, String mobile) throws Exception {
     String invites =
         mvc.perform(
                 post("/api/admin/invites")
@@ -586,7 +635,9 @@ class F10WordMemoryIntegrationTest {
                 post("/api/auth/wechat")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
-                        "{\"code\":\"f10-user\",\"inviteCode\":\""
+                        "{\"code\":\""
+                            + code
+                            + "\",\"inviteCode\":\""
                             + invite
                             + "\",\"privacyVersion\":\"PRIVACY_V1\"}"))
             .andReturn()
@@ -596,7 +647,7 @@ class F10WordMemoryIntegrationTest {
     mvc.perform(
         post("/api/auth/sms-code")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"registrationTicket\":\"" + ticket + "\",\"mobile\":\"13800000010\"}"));
+            .content("{\"registrationTicket\":\"" + ticket + "\",\"mobile\":\"" + mobile + "\"}"));
     JsonNode registered =
         json.readTree(
             mvc.perform(
@@ -605,7 +656,9 @@ class F10WordMemoryIntegrationTest {
                         .content(
                             "{\"registrationTicket\":\""
                                 + ticket
-                                + "\",\"mobile\":\"13800000010\",\"smsCode\":\"123456\",\"nickname\":\"记忆训练用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}"))
+                                + "\",\"mobile\":\""
+                                + mobile
+                                + "\",\"smsCode\":\"123456\",\"nickname\":\"记忆训练用户\",\"privacyVersion\":\"PRIVACY_V1\",\"aiConsent\":false}"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());

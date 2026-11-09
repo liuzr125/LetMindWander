@@ -46,6 +46,16 @@ public class DailyTaskController {
     return daily.selectWords(user(auth), date);
   }
 
+  /** 用户确认后按任务包版本补换当前不可用且未完成的词。 */
+  @PostMapping("/api/days/{date}/words/replace-unavailable")
+  public DailyPackageView replaceUnavailable(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+      @RequestBody java.util.Map<String, Integer> request) {
+    return daily.replaceUnavailableWords(
+        user(auth), date, request == null ? null : request.get("expectedVersion"));
+  }
+
   /** 通过版本校验推进任务状态，禁止绕过单词学习完成校验。 */
   @PostMapping("/api/tasks/{id}/events")
   public DailyTaskView event(

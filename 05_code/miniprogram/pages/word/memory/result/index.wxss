@@ -108,3 +108,4 @@ page {
 .secondary::after {
   border: 0;
 }
+.weak-practice { display: block; text-align: center; padding: 24rpx; margin-top: 24rpx; border-radius: 16rpx; }

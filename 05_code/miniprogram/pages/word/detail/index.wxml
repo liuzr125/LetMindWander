@@ -1,15 +1,24 @@
 <view class="word-page">
   <view wx:if="{{loading}}" class="state">正在加载词条…</view>
   <view wx:elif="{{error}}" class="state"
-    ><text>{{error}}</text><button bindtap="load">重试</button></view
+    ><text>{{error}}</text><button bindtap="load">重试</button>
+    <button wx:if="{{continuousPractice && dailyUnavailable}}" bindtap="viewTodayWords">处理今日不可用词</button></view
   >
+  <view wx:elif="{{studyCompleted}}" class="study-complete">
+    <text class="study-complete-title">{{continuousPractice ? '今日单词学习完成' : '本轮学习完成'}}</text>
+    <text wx:if="{{dailyTotal}}">已认识 {{dailyRecognized}} / {{dailyTotal}} 个</text>
+    <text>已保存学习记录，后续仍会安排复习。</text>
+    <button bindtap="testLearnedWords">测一测今日已学单词</button>
+    <button wx:if="{{continuousPractice}}" bindtap="viewTodayWords">查看今日词表</button>
+    <button bindtap="finishStudy">返回</button>
+  </view>
   <block wx:else>
     <view wx:if="{{continuousPractice && !studyReadOnly}}" class="daily-practice">
       <view class="daily-practice-head"><text>今日还剩 {{dailyRemaining}} 个未认识</text><text class="daily-practice-progress">已认识 {{dailyRecognized}} / {{dailyTotal}}</text></view>
       <text class="daily-practice-copy">不认识或模糊：继续轮练；认识：移出今日待学，后续仍会复习</text>
       <text wx:if="{{dailyUnavailable}}" class="daily-practice-warning">其中 {{dailyUnavailable}} 个词暂不可用，已保留范围，未计为完成</text>
     </view>
-    <view wx:if="{{studyNotice}}" class="study-notice"><text>{{studyNotice}}</text><button wx:if="{{!studyReadOnly}}" bindtap="resumeStudy">刷新学习队列</button></view>
+    <view wx:if="{{studyNotice}}" class="study-notice"><text>{{studyNotice}}</text><button wx:if="{{!studyReadOnly}}" bindtap="resumeStudy">刷新学习队列</button><button wx:if="{{dailyUnavailable}}" bindtap="viewTodayWords">处理不可用词</button></view>
     <view class="word-settings-toolbar"
       ><button class="word-settings-entry" bindtap="openLearningSettings" aria-label="打开学习设置"
         ><text class="settings-gear"></text><text>设置</text></button
@@ -136,6 +145,7 @@
         ><text class="card-title">来源</text
         ><text>{{detail.originAuthor || '课程词表整理'}}</text></view
       >
+      <button wx:if="{{!supplementsRequested}}" class="supplement-entry" bindtap="showSupplements">查看助记与用法</button>
       <view wx:if="{{cardsLoading || cardsError}}" class="supplement-state"
         ><text>{{cardsError || '正在加载辅助卡片…'}}</text
         ><button wx:if="{{cardsError}}" bindtap="loadLearningCards">重试卡片</button></view

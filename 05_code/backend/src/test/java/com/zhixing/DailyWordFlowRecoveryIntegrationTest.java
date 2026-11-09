@@ -466,4 +466,60 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
     assertThat(evidence.get("hintedCorrect")).isEqualTo(1);
     assertThat(evidence.get("firstIncorrect")).isEqualTo(1);
   }
+
+  @Test
+  void recoveryReplacementOnlyTouchesUnavailableUnfinishedWordsAndRejectsStaleRetry() {
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String known = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    feedback(known, queue, "daily", "remember");
+    List<String> selected = ids(daily.get(owner, today));
+    String bad = selected.stream().filter(id -> !id.equals(known)).findFirst().get();
+    feedback(bad, study.queue(owner, "daily", bad), "daily", "unclear");
+    jdbc.update("UPDATE learning_content SET state='withdrawn' WHERE id IN (?,?)", known, bad);
+    DailyPackageView before = daily.get(owner, today);
+    DailyPackageView replaced = daily.replaceUnavailableWords(owner, today, before.getVersionNo());
+    assertThat(ids(replaced)).hasSize(3).contains(known).doesNotContain(bad);
+    assertThat(replaced.getDoneCount()).isEqualTo(1);
+    assertThat(replaced.getWordsUnavailableCount()).isZero();
+    assertThat(replaced.getVersionNo()).isEqualTo(before.getVersionNo() + 1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT cancel_reason FROM daily_task WHERE owner_id=? AND content_id=?",
+                String.class,
+                owner,
+                bad))
+        .isEqualTo("content_unavailable");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM package_revision WHERE owner_id=? AND reason='word_unavailable_replace'",
+                Integer.class,
+                owner))
+        .isEqualTo(1);
+    assertThatThrownBy(() -> daily.replaceUnavailableWords(owner, today, before.getVersionNo()))
+        .isInstanceOf(com.zhixing.common.ApiException.class);
+    assertThat(ids(daily.get(owner, today))).containsExactlyElementsOf(ids(replaced));
+    jdbc.update("UPDATE learning_content SET state='published' WHERE id=?", bad);
+    assertThat(materials.selectWordContent(owner, book, "intro", 100, today.plusDays(1)))
+        .extracting(com.zhixing.model.MaterialCandidate::getId)
+        .contains(bad);
+    assertThat(ids(daily.selectWords(owner, today))).containsExactlyElementsOf(ids(replaced));
+  }
+
+  @Test
+  void recoveryReplacementWithoutEligibleCandidatesPreservesRangeAndCompletion() {
+    DailyPackageView before = daily.selectWords(owner, today);
+    jdbc.update("UPDATE learning_content SET state='withdrawn' WHERE source_id=?", source);
+    DailyPackageView after = daily.replaceUnavailableWords(owner, today, before.getVersionNo());
+    assertThat(ids(after)).containsExactlyElementsOf(ids(before));
+    assertThat(after.getVersionNo()).isEqualTo(before.getVersionNo());
+    assertThat(after.getWordsUnavailableCount()).isEqualTo(3);
+    assertThat(after.getDoneCount()).isZero();
+    assertThatThrownBy(
+            () -> daily.replaceUnavailableWords(owner, today.minusDays(1), before.getVersionNo()))
+        .isInstanceOf(com.zhixing.common.ApiException.class);
+    assertThatThrownBy(
+            () ->
+                daily.replaceUnavailableWords(CryptoUtils.randomId(), today, before.getVersionNo()))
+        .isInstanceOf(com.zhixing.common.ApiException.class);
+  }
 }

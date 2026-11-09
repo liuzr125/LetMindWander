@@ -21,6 +21,7 @@ Page({
     learningCardGroups: [],
     cardsLoading: false,
     cardsError: '',
+    supplementsRequested: false,
   },
   data: {
     loading: true,
@@ -33,6 +34,7 @@ Page({
     studyNotice: '', studyPaused: false, studyReadOnly: false,
     continuousPractice: false, dailyTotal: 0, dailyRecognized: 0, dailyRemaining: 0, dailyUnavailable: 0,
     memoryEvidence: null,
+    studyCompleted: false,
     displayExample: '',
     displayExampleTranslation: '',
     wordSizeClass: '',
@@ -75,11 +77,16 @@ Page({
   onShow() {
     if (!this.refreshSettingsOnShow) return;
     this.refreshSettingsOnShow = false;
+    this._cardPreferencesRequest = null;
+    this._memoryConfigRequest = null;
+    this._supplementRequest = null;
+    this._cardsLoadToken = (this._cardsLoadToken || 0) + 1;
+    this._memoryLoadToken = (this._memoryLoadToken || 0) + 1;
     contentService
       .wordStudyPreferences()
       .then((preference) => this.applyStudyPreferences(preference, true))
       .catch(() => {});
-    this.loadLearningCards();
+    if(this.data.supplementsRequested) this.showSupplements();
   },
   onUnload() {
     this.stopAudio();
@@ -97,8 +104,7 @@ Page({
         if (contentId !== this.data.contentId) return;
         this.applyStudyPreferences(preference, true);
         this.setDetail(detail);
-        this.loadMemory();
-        this.loadLearningCards();
+        if(this.supplementsAutoOpen && !this.data.recallActive) this.showSupplements();
         this.startAutoPronunciation();
       })
       .catch((error) => { if (contentId === this.data.contentId) this.setData({ loading: false, error: error.message || '词条加载失败' }); });
@@ -124,7 +130,7 @@ Page({
     this._resumeRequest = this.prepareStudyQueue().then((queue) => {
       if (queue && queue.current) {
         if (this.data.contentId !== queue.current.contentId) this.stopAudio();
-        this.setData({ contentId: queue.current.contentId, taskId: '', studyPaused: false, studyNotice: '' });
+        this.setData({ contentId: queue.current.contentId, taskId: '', studyPaused: false, studyNotice: '', studyCompleted:false });
       } else this.setData({ studyPaused: true, studyNotice: queueNotice(queue) });
       if (this.currentStudyMode() === 'all') this.loadWordQueue();
       return this.load();
@@ -152,13 +158,13 @@ Page({
   },
   loadLearningCards() {
     const contentId = this.data.contentId;
+    const loadToken=this._cardsLoadToken=(this._cardsLoadToken || 0)+1;
     this.setData({ cardsLoading: true, cardsError: '' });
-    const preferenceRequest = contentService
-      .cardPreferences()
+    const preferenceRequest = this.sessionConfiguration('_cardPreferencesRequest',()=>contentService.cardPreferences())
       .catch(() => ({ types: defaultCardPreferenceTypes() }));
-    Promise.all([preferenceRequest, contentService.learningCards(contentId)])
+    return Promise.all([preferenceRequest, contentService.learningCards(contentId)])
       .then(([preference, cards]) => {
-        if (this.data.contentId !== contentId) return;
+        if (this.data.contentId !== contentId || this._cardsLoadToken!==loadToken) return;
         const types = Array.isArray(preference.types)
           ? preference.types
           : defaultCardPreferenceTypes();
@@ -166,7 +172,7 @@ Page({
         this.setData({ learningCardGroups: cardGroups(cards, enabledTypes), cardsLoading: false });
       })
       .catch(() => {
-        if (this.data.contentId === contentId)
+        if (this.data.contentId === contentId && this._cardsLoadToken===loadToken)
           this.setData({ cardsLoading: false, cardsError: '辅助卡片暂未加载，不影响基础学习' });
       });
   },
@@ -213,24 +219,51 @@ Page({
   toggleRecall() {
     this.stopAudio();
     this.setData({ recallActive: !this.data.recallActive });
+    if(!this.data.recallActive && this.supplementsAutoOpen) this.showSupplements();
     wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
   loadMemory() {
     const contentId = this.data.contentId;
-    wordMemoryService
-      .config()
+    const loadToken=this._memoryLoadToken=(this._memoryLoadToken || 0)+1;
+    return this.sessionConfiguration('_memoryConfigRequest',()=>wordMemoryService.config())
       .then((config) => {
-        if (this.data.contentId !== contentId) return;
+        if (this.data.contentId !== contentId || this._memoryLoadToken!==loadToken) return;
         this.setData({ memoryEnabled: !!config.enabled });
         if (config.enabled)
           return wordMemoryService.hints(contentId).then((memoryHints) => {
-            if (this.data.contentId === contentId) this.setData({ memoryHints: memoryHints || [] });
+            if (this.data.contentId === contentId && this._memoryLoadToken===loadToken) this.setData({ memoryHints: memoryHints || [] });
           });
       })
       .catch(() => {
-        if (this.data.contentId === contentId)
+        if (this.data.contentId === contentId && this._memoryLoadToken===loadToken)
           this.setData({ memoryEnabled: false, memoryHints: [] });
       });
+  },
+  sessionConfiguration(key,read) {
+    if(!this[key]) {
+      const request=Promise.resolve().then(read).catch((error)=>{if(this[key]===request) this[key]=null;throw error;});
+      this[key]=request;
+    }
+    return this[key];
+  },
+  showSupplements() {
+    if(this.data.recallActive) return;
+    if(this._supplementRequest && this._supplementContentId===this.data.contentId) return this._supplementRequest;
+    this.supplementsAutoOpen=true;
+    this.setData({supplementsRequested:true});
+    this._supplementContentId=this.data.contentId;
+    const request=Promise.all([this.loadMemory(),this.loadLearningCards()]).finally(()=>{if(this._supplementRequest===request)this._supplementRequest=null;});
+    this._supplementRequest=request;
+    return request;
+  },
+  viewTodayWords() {
+    wx.navigateTo({url:`/pages/today/words/index?date=${formatDate(new Date())}`});
+  },
+  finishStudy() {
+    wx.navigateBack({fail:()=>wx.switchTab({url:'/pages/today/index'})});
+  },
+  testLearnedWords() {
+    wx.navigateTo({url:'/pages/word/memory/setup/index?returnTo=%2Fpages%2Ftoday%2Findex'});
   },
   toggleMemoryHint() {
     this.setData({ memoryHintOpen: !this.data.memoryHintOpen });
@@ -294,7 +327,7 @@ Page({
     const token = this.audioSequenceToken;
     const ctx = wx.createInnerAudioContext();
     this.audioContext = ctx;
-    ctx.obeyMuteSwitch = false;
+    ctx.obeyMuteSwitch = !!(diagnostics && diagnostics.automatic);
     const repeatCount = Math.max(
       1,
       Math.min(5, Number(diagnostics && diagnostics.repeatCount) || 1),
@@ -501,6 +534,7 @@ Page({
               memoryHints: [],
               memoryEnabled: false,
               studyNotice: '', studyPaused: false,
+              studyCompleted: false,
             }),
           );
           wx.pageScrollTo({ scrollTop: 0, duration: 0 });
@@ -512,7 +546,8 @@ Page({
           title: notice,
           icon: 'none',
         });
-        if (!queue.remaining && !queue.unavailableCount && queue.allCompleted !== false) setTimeout(() => wx.navigateBack(), 600);
+        if (!queue.remaining && !queue.unavailableCount && queue.allCompleted !== false)
+          this.setData({studyCompleted:true});
       })
       .catch((error) => {
         // 明确拒绝才丢弃旧尝试；网络/服务异常保留凭据用于幂等重试。

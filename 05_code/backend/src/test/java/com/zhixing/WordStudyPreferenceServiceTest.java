@@ -41,7 +41,7 @@ class WordStudyPreferenceServiceTest {
     assertEquals("visible", value.get("defaultAnswerMode"));
     assertEquals(true, value.get("autoPlayEnabled"));
     assertEquals("uk", value.get("autoPlayAccent"));
-    assertEquals(3, value.get("autoPlayCount"));
+    assertEquals(1, value.get("autoPlayCount"));
     assertEquals(1500, value.get("autoPlayIntervalMs"));
   }
 

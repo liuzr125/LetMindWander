@@ -9,6 +9,16 @@ public class DailyPackageView {
   private String state, message;
   private Integer originalCount, currentCount, doneCount;
   private Double completionRate;
+  private Integer versionNo;
+
+  public Integer getVersionNo() {
+    return versionNo;
+  }
+
+  public void setVersionNo(Integer v) {
+    versionNo = v;
+  }
+
   private List<DailyTaskView> tasks;
   private Object gaps;
   private java.time.Instant wordsSelectedAt;

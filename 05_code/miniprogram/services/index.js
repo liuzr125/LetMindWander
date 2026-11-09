@@ -124,6 +124,9 @@ const dailyTaskService = {
   selectWords(date) {
     return request({ url: `/days/${encodeURIComponent(date)}/words/select`, method: 'POST' });
   },
+  replaceUnavailableWords(date,expectedVersion) {
+    return request({url:`/days/${encodeURIComponent(date)}/words/replace-unavailable`,method:'POST',data:{expectedVersion}});
+  },
   activate(date) {
     return request({ url: `/days/${encodeURIComponent(date)}/activate`, method: 'POST' });
   },

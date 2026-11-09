@@ -2,7 +2,7 @@ const DEFAULTS = Object.freeze({
   defaultAnswerMode: 'visible',
   autoPlayEnabled: true,
   autoPlayAccent: 'uk',
-  autoPlayCount: 3,
+  autoPlayCount: 1,
   autoPlayIntervalMs: 1500,
   rowVersion: 0,
 });

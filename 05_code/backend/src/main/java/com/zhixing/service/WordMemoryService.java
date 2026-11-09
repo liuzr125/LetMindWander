@@ -24,7 +24,8 @@ public class WordMemoryService {
       new LinkedHashSet<String>(Arrays.asList("meaning", "spelling"));
   private static final Set<String> SOURCES =
       new HashSet<String>(
-          Arrays.asList("word_detail", "learning", "today", "current_book", "review", "free"));
+          Arrays.asList(
+              "word_detail", "learning", "today", "current_book", "review", "free", "weak"));
   private static final Set<String> HINT_TYPES =
       new HashSet<String>(Arrays.asList("first_letter", "clue", "answer"));
   private static final int MAX_ATTEMPTS = 3;
@@ -101,6 +102,16 @@ public class WordMemoryService {
       contentSet.clear();
       contentSet.addAll(memory.selectCurrentBookLearnedContentIds(ownerId, MAX_BATCH_SIZE));
     }
+    if ("weak".equals(source)) {
+      WordMemorySessionRow origin =
+          required(
+              ownerId,
+              requiredText(request.getSourceSessionId(), "MEMORY_SOURCE_REQUIRED", "缺少来源训练", 32));
+      if (!Arrays.asList("completed", "partial").contains(origin.getState()))
+        throw bad("MEMORY_SOURCE_NOT_FINISHED", "请先结束来源训练");
+      contentSet.clear();
+      contentSet.addAll(result(ownerId, origin).getWeakContentIds());
+    }
     if (contentSet.isEmpty()) throw bad("MEMORY_SOURCE_EMPTY", "所选范围暂无已经学习过且可测试的单词");
     if (contentSet.size() > MAX_BATCH_SIZE) throw bad("INVALID_CONTENT_COUNT", "每组需选择 1 到 5 个单词");
     if (!"today".equals(source) && !"current_book".equals(source)) {
@@ -114,6 +125,8 @@ public class WordMemoryService {
     }
     List<String> dimensions = dimensions(request.getDimensions());
     String returnTo = clean(request.getReturnTo());
+    if ("weak".equals(source))
+      returnTo = "/pages/word/memory/result/index?id=" + clean(request.getSourceSessionId());
     if (returnTo != null && (!returnTo.startsWith("/pages/") || returnTo.length() > 500))
       throw bad("INVALID_RETURN_TO", "返回地址必须是小程序内部页面");
     String taskId = clean(request.getTaskId());
@@ -386,7 +399,7 @@ public class WordMemoryService {
       if ("incorrect".equals(e.getFirstResult())) firstIncorrect++;
       if (Integer.valueOf(1).equals(e.getAnswerRevealed())) answerRevealed++;
       if ("retry_correct".equals(e.getFinalResult())) retry++;
-      if (!isCorrectResult(e.getFinalResult()) || "incorrect".equals(e.getFirstResult()))
+      if (!isCorrectResult(e.getFinalResult()) || !"independent_correct".equals(e.getFirstResult()))
         weak.add(e.getContentId());
     }
     WordMemoryResultView v = new WordMemoryResultView();
@@ -406,6 +419,10 @@ public class WordMemoryService {
     v.setUntestedCount(untested);
     v.setAnswerRevealedCount(answerRevealed);
     v.setWeakWordCount(weak.size());
+    v.setWeakContentIds(
+        weak.isEmpty()
+            ? Collections.emptyList()
+            : memory.selectEligibleLearnedContentIds(ownerId, new ArrayList<>(weak)));
     v.setSessionVersion(session.getVersionNo());
     v.setReviewPlans(memory.selectReviewPlans(ownerId, session.getId()));
     return v;

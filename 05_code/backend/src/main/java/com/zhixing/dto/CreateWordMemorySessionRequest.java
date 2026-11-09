@@ -5,7 +5,16 @@ import java.util.List;
 public class CreateWordMemorySessionRequest {
   private List<String> contentIds;
   private List<String> dimensions;
-  private String source, returnTo, taskId;
+  private String source, returnTo, taskId, sourceSessionId;
+
+  public String getSourceSessionId() {
+    return sourceSessionId;
+  }
+
+  public void setSourceSessionId(String v) {
+    sourceSessionId = v;
+  }
+
   private Boolean addToReview;
 
   public List<String> getContentIds() {

@@ -755,3 +755,7 @@ page {
 .daily-practice-warning { color: #a26725; }
 .memory-evidence { margin: 12rpx 0; color: #687694; font-size: 23rpx; line-height: 1.6; }
 .memory-evidence text { display: block; }
+.study-complete { padding: 90rpx 16rpx; text-align: center; color: #687694; line-height: 1.8; }
+.study-complete text { display: block; margin-bottom: 20rpx; }
+.study-complete-title { color: #0a174f; font-size: 40rpx; font-weight: 700; }
+.study-complete button, .supplement-entry { margin-top: 24rpx; border-radius: 16rpx; color: #0869f7; background: #edf5ff; font-size: 28rpx; }

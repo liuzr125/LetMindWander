@@ -34,8 +34,8 @@
         ></view
       ></view
     >
-    <button wx:if="{{result.weakWordCount}}" class="secondary" bindtap="openWeak"
-      >回到英语学习</button
+    <navigator wx:if="{{result.weakWordCount}}" class="secondary weak-practice" url="/pages/word/memory/setup/index?weakSessionId={{sessionId}}"
+      >练习本轮薄弱词</navigator
     ><button class="primary" bindtap="returnSource">返回来源</button>
   </block>
 </view>

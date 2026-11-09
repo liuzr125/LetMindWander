@@ -153,6 +153,8 @@ DeepSeek 的缓存命中、缓存未命中和输出价格不再由管理员录�
 
 ### 每日英语新词首次点击固定（V3.31）
 
+2026-11-09 体验闭环：记忆测试结果提供 weakContentIds，首答错误、依赖提示或仍未答对的词均属薄弱词；source=weak 创建时必须携带 sourceSessionId，服务端重新读取本人已结束来源会话并过滤可测试词，忽略客户端指定范围，保留原证据及创建幂等保护，returnTo 指回来源结果。不可用词通过 POST /api/days/{date}/words/replace-unavailable 与 expectedVersion 显式补换；同书、已发布审核通过且未学候选逐一补换，不增加原槽位耗时，已完成或仍可用词不动；不足时保留未补齐项。旧任务取消原因为 content_unavailable，并记录 task_event 和 word_unavailable_replace 修订，原词恢复发布后可从次日重回候选。普通刷新仍不重抽范围。完成后停留结果页，由用户选择测试、词表或返回。辅助卡片按需加载，当前页面会话合并配置请求，设置返回时失效；新用户无设置时默认播放一次，保留旧用户配置，自动播放遵循静音开关。复用现有表与字段，无结构迁移。
+
 2026-11-09 回忆与巩固优化：首次确定今日范围时，优先按最早未完成日期选择最多 ceil(计划数量/2) 个同书合格旧词，再随机补全新词；全新词不足时用剩余旧词补齐，仍受预算约束，冻结后不重抽。首页不展示独立待巩固入口。再次出现或复习词由 current.recallRequired=true 标记，先隐藏释义、例句译文和提示，揭晓后反馈；首次接触词遵循用户显示偏好。daily / review 均连续轮练，旧冷却回执刷新一次当前队列，长期跨日复习算法保留。认识等反馈不再写入固定 85/50/0 熟悉度，保留原有用户自评值，新记录为空，不批量改写历史值。current.memoryEvidence 从已有 review_feedback / knowledge_item 与 word_memory_evidence 按本人和词条聚合 recallDays（无失误自评记得的复习日期数）、independentCorrect（无提示且未揭晓答案的首答正确次数）、hintedCorrect、firstIncorrect，不换算为掌握率。无新增表、字段或迁移脚本。以下历史规则以此段更新为准。
 
 今日新词采用连续轮练（mode=daily，practiceMode=continuous）：不强制等待 120 秒/间隔四词，不认识或模糊后按原轮转排序继续展示未认识词，只剩一词也可立即再练；认识后移出今日待学，全部任务为 DONE 才 allCompleted=true。接口返回 dailyTotal、dailyRecognized、unfinishedCount 和 unavailableCount，暂不可用项不算完成。旧版已跳过词进入今日队列时恢复 TODO 并记录 resume 事件，保留原跳过历史。review 同样连续轮练，长期跨日复习算法保留，认识只代表当天自评完成。原有等待状态及旧反馈回执按连续队列兼容，不需要新增数据库字段或迁移脚本。

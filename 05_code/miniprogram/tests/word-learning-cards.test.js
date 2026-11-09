@@ -125,7 +125,7 @@ test('repeated words require recall while first exposure and read-only views hon
   assert.equal(p.data.recallActive,false);
 });
 
-test('new-word preferences default to visible British audio three times with a 1.5 second gap', () => {
+test('new-word preferences default to one British playback and preserve an explicit repeat preference', () => {
   const value = studyPreferences.normalize();
   assert.deepEqual(
     {
@@ -135,11 +135,12 @@ test('new-word preferences default to visible British audio three times with a 1
       count: value.autoPlayCount,
       interval: value.autoPlayIntervalMs,
     },
-    { mode: 'visible', enabled: true, accent: 'uk', count: 3, interval: 1500 },
+    { mode: 'visible', enabled: true, accent: 'uk', count: 1, interval: 1500 },
   );
   assert.equal(studyPreferences.nextPlaybackDelay(1, 3, 1500), 1500);
   assert.equal(studyPreferences.nextPlaybackDelay(2, 3, 1500), 1500);
   assert.equal(studyPreferences.nextPlaybackDelay(3, 3, 1500), null);
+  assert.equal(studyPreferences.normalize({autoPlayCount:3}).autoPlayCount,3);
 });
 test('word detail opens a dedicated settings page for study and card preferences', () => {
   const detailMarkup = fs.readFileSync(require.resolve('../pages/word/detail/index.wxml'), 'utf8');

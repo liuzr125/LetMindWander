@@ -4,7 +4,8 @@ const { formatBusinessDate: formatDate } = require('../../../utils/date');
 
 Page({
   data: { loading: true, error: '', date: '', title: '', words: [], bookName: '', selectedTime: '',
-    targetCount: null, selectionNote: '', fixed: false, doneCount: 0, unavailableCount: 0, isToday: false },
+    targetCount: null, selectionNote: '', fixed: false, doneCount: 0, unavailableCount: 0, isToday: false,
+    packageVersion: null, replacing: false },
   onLoad(options) {
     const date = options.date || formatDate(new Date());
     const parts = date.split('-');
@@ -40,6 +41,7 @@ Page({
           selectionNote: pack.wordsSelectionNote || '', isToday: this.data.date === formatDate(new Date()),
           doneCount: words.filter((word) => word.status === 'DONE').length,
           unavailableCount: Number(pack.wordsUnavailableCount || 0),
+          packageVersion: pack.versionNo,
         });
       })
       .catch((error) => {
@@ -48,6 +50,7 @@ Page({
       });
   },
   openWord(e) {
+    if(this.data.replacing) return;
     const { id, taskid, version } = e.currentTarget.dataset;
     if (!id) return;
     const word = this.data.words.find((item) => item.contentId === id);
@@ -56,7 +59,23 @@ Page({
       return wx.navigateTo({ url: `/pages/word/detail/index?id=${id}&readonly=1` });
     return this.continueStudy(id);
   },
+  replaceUnavailable() {
+    if(this.data.loading || this.data.replacing || this._replacementConfirming) return;
+    if(this.data.date!==formatDate(new Date())) return wx.showToast({title:'只能补换今天的不可用词',icon:'none'});
+    this._replacementConfirming=true;
+    wx.showModal({title:'补换不可用词？',content:'仅补换当前词书中不可用且未完成的词。已学词和原学习记录保留；候选不足时保留未补齐的词。',confirmText:'确认补换',success:(result)=>{
+      if(!result.confirm) return;
+      this.setData({replacing:true});
+      const before=this.data.unavailableCount;
+      dailyTaskService.replaceUnavailableWords(this.data.date,this.data.packageVersion)
+        .then(()=>this.load())
+        .then(()=>{if(!this.data.error) wx.showToast({title:this.data.unavailableCount<before?'已补换可安排的单词':'暂无合适候选，原范围已保留',icon:'none'});})
+        .catch((error)=>{wx.showToast({title:error.message || '补换失败，请重试',icon:'none'});if(error.statusCode===409) this.load();})
+        .finally(()=>this.setData({replacing:false}));
+    },complete:()=>{this._replacementConfirming=false;}});
+  },
   continueStudy(preferred) {
+    if(this.data.replacing) return;
     if (this.data.date !== formatDate(new Date())) {
       this.setData({ isToday: false });
       return wx.showToast({ title: '这是历史词表，请返回首页学习今天的新词', icon: 'none' });

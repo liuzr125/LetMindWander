@@ -32,10 +32,39 @@ function page(service, extras = {}) {
   });
   p.setData = (v) => Object.assign(p.data, v);
   p.data.contentId = 'word';
+  p.realLoad = p.load;
   p.load = async () => {};
   return { p, navigation, timers };
 }
 const queue = { businessDate: '2026-10-08', current: { contentId: 'word', version: 3 } };
+test('supplements load on demand, merge concurrent taps and reuse session configuration after changing words', async () => {
+  const calls={cards:0,hints:0,cardConfig:0,memoryConfig:0};
+  const {p}=page({}, {
+    contentService:{get:async()=>({title:'word',senses:[],pronunciations:[]}),wordStudyPreferences:async()=>({autoPlayEnabled:false}),
+      cardPreferences:async()=>{calls.cardConfig++;return {types:[]};},learningCards:async()=>{calls.cards++;return [];}},
+    wordMemoryService:{config:async()=>{calls.memoryConfig++;return {enabled:true};},hints:async()=>{calls.hints++;return [];}}
+  });
+  await p.realLoad();
+  assert.deepEqual(calls,{cards:0,hints:0,cardConfig:0,memoryConfig:0});
+  await Promise.all([p.showSupplements(),p.showSupplements()]);
+  assert.deepEqual(calls,{cards:1,hints:1,cardConfig:1,memoryConfig:1});
+  p.data.contentId='next';
+  p.studyQueue={current:{contentId:'next',recallRequired:true}};
+  await p.realLoad(true);
+  assert.equal(p.data.recallActive,true);
+  assert.equal(calls.cards,1);
+  p.toggleRecall();
+  await new Promise(setImmediate);
+  assert.deepEqual(calls,{cards:2,hints:2,cardConfig:1,memoryConfig:1});
+});
+
+test('a failed session configuration request is retried rather than cached as a permanent failure', async () => {
+  const {p}=page({});let reads=0;
+  const read=async()=>{if(++reads===1)throw Error('network');return {enabled:true};};
+  await assert.rejects(p.sessionConfiguration('_config',read));
+  assert.deepEqual(await p.sessionConfiguration('_config',read),{enabled:true});
+  assert.equal(reads,2);
+});
 test('daily continuous feedback rotates immediately and only recognizing every word completes the day', async () => {
   const continuous = (current, known, remaining) => ({
     businessDate: '2026-10-08', practiceMode: 'continuous', current,
@@ -70,7 +99,8 @@ test('daily continuous feedback rotates immediately and only recognizing every w
   assert.equal(p.data.dailyRecognized, 2);
   assert.equal(p.data.dailyRemaining, 0);
   assert.match(p.data.studyNotice, /全部已标记认识/);
-  assert.equal(timers.length, 1);
+  assert.equal(timers.length, 0);
+  assert.equal(p.data.studyCompleted, true);
 });
 test('continuous progress preserves unavailable unfinished words and does not finish or navigate away', async () => {
   const { p, timers } = page({

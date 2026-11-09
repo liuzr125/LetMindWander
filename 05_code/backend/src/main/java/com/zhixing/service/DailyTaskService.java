@@ -186,6 +186,85 @@ public class DailyTaskService {
     return new ArrayList<>(selected.values());
   }
 
+  /** 用户确认后只补换当前不可用且未完成的词，保留原任务与修订审计。 */
+  @Transactional
+  public DailyPackageView replaceUnavailableWords(
+      String owner, LocalDate date, Integer expectedVersion) {
+    if (!LocalDate.now(ZoneId.of("Asia/Shanghai")).equals(date))
+      throw fail(HttpStatus.BAD_REQUEST, "WORD_SELECTION_TODAY_ONLY", "只能补换今天的不可用词");
+    vocabularyBooks.lockOwner(owner);
+    DailyPackageEntity p = packages.selectByOwnerAndDateForUpdate(owner, date);
+    if (p == null || p.getWordsSelectedAt() == null || p.getWordsBookId() == null)
+      throw fail(HttpStatus.CONFLICT, "WORD_SELECTION_REQUIRED", "请先确定今日词表");
+    if (expectedVersion == null || !expectedVersion.equals(p.getVersionNo()))
+      throw fail(HttpStatus.CONFLICT, "PACKAGE_VERSION_CONFLICT", "今日词表已变化，请刷新后重试");
+    List<DailyTaskEntity> before = tasks.selectByPackage(p.getId());
+    Set<String> unavailable = new HashSet<>();
+    for (Map<String, Object> row : tasks.selectWordInfo(p.getId(), owner))
+      if (((Number) row.get("available")).intValue() == 0)
+        unavailable.add(String.valueOf(row.get("content_id")));
+    List<String> excluded = new ArrayList<>();
+    for (DailyTaskEntity t : before)
+      if ("word".equals(t.getTaskType()) && t.getContentId() != null)
+        excluded.add(t.getContentId());
+    String beforeJson = snapshot(p, before);
+    int replacements = 0;
+    LearningPlanEntity plan = plans.selectById(p.getPlanId());
+    for (DailyTaskEntity old : before) {
+      if (!"word".equals(old.getTaskType())
+          || !unavailable.contains(old.getContentId())
+          || !Arrays.asList(DailyTaskStatus.TODO, DailyTaskStatus.DOING).contains(old.getStatus()))
+        continue;
+      List<MaterialCandidate> candidates =
+          materials.selectReplacementWordContent(
+              owner,
+              p.getWordsBookId(),
+              plan == null ? "intro" : plan.getDifficulty(),
+              excluded,
+              old.getEstimatedSeconds());
+      if (candidates.isEmpty()) continue;
+      MaterialCandidate candidate = candidates.get(0);
+      DailyTaskStatus previous = old.getStatus();
+      old.setStatus(DailyTaskStatus.CANCELLED);
+      old.setCancelReason("content_unavailable");
+      old.setVersionNo(old.getVersionNo() + 1);
+      tasks.updateById(old);
+      recordSystemEvent(
+          old, "replace_unavailable", previous, DailyTaskStatus.CANCELLED, "用户确认补换不可用词，保留原学习事实");
+      List<DailyTaskEntity> created = new ArrayList<>();
+      int[] budget = {old.getEstimatedSeconds()};
+      add(
+          created,
+          p,
+          "word",
+          "word:" + candidate.getId(),
+          candidate.getTitle(),
+          candidate,
+          budget,
+          candidate.getEstimatedSeconds());
+      DailyTaskEntity replacement = created.get(0);
+      replacement.setSortNo(old.getSortNo());
+      tasks.insert(replacement);
+      recordSystemEvent(replacement, "readd", null, DailyTaskStatus.TODO, "用户确认补换不可用词");
+      excluded.add(candidate.getId());
+      replacements++;
+    }
+    if (replacements > 0) {
+      p.setVersionNo(p.getVersionNo() + 1);
+      packages.updateById(p);
+      PackageRevisionEntity revision = new PackageRevisionEntity();
+      revision.setId(CryptoUtils.randomId());
+      revision.setOwnerId(owner);
+      revision.setPackageId(p.getId());
+      revision.setVersionNo(p.getVersionNo());
+      revision.setReason("word_unavailable_replace");
+      revision.setBeforeJson(beforeJson);
+      revision.setAfterJson(snapshot(p, tasks.selectByPackage(p.getId())));
+      packages.insertRevision(revision);
+    }
+    return view(p, tasks.selectByPackage(p.getId()));
+  }
+
   /** 继续今日新词时恢复旧版跳过项；跳过不能代替“认识”，原事件仍保留。 */
   @Transactional
   public void resumeSkippedWords(String owner, LocalDate date) {
@@ -584,7 +663,7 @@ public class DailyTaskService {
     e.setTaskVersion(t.getVersionNo());
     e.setEventType(type);
     e.setActorType("system");
-    e.setFromStatus(from.name());
+    e.setFromStatus(from == null ? null : from.name());
     e.setToStatus(to.name());
     e.setOccurredAt(Instant.now());
     e.setReason(reason);
@@ -687,6 +766,7 @@ public class DailyTaskService {
     }
     DailyPackageView v = new DailyPackageView();
     v.setBusinessDate(p.getBusinessDate());
+    v.setVersionNo(p.getVersionNo());
     v.setWordsSelectedAt(p.getWordsSelectedAt());
     v.setWordsBookId(p.getWordsBookId());
     v.setWordsTargetCount(p.getWordsTargetCount());

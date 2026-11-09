@@ -71,7 +71,7 @@ public class WordStudyPreferenceService {
     result.put("defaultAnswerMode", "visible");
     result.put("autoPlayEnabled", true);
     result.put("autoPlayAccent", "uk");
-    result.put("autoPlayCount", 3);
+    result.put("autoPlayCount", 1);
     result.put("autoPlayIntervalMs", 1500);
     result.put("rowVersion", 0);
     return result;

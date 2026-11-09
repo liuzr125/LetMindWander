@@ -10,6 +10,25 @@ import org.apache.ibatis.annotations.Select;
 /** 今日任务素材查询集中在 Mapper，并排除该用户已完成过的同一素材。 */
 @Mapper
 public interface MaterialMapper {
+  @Select({
+    "<script>",
+    "SELECT lc.id,cv.id AS version_id,cv.title,cv.estimated_seconds FROM vocabulary_book_word w JOIN learning_content lc ON lc.id=w.content_id JOIN content_version cv ON cv.id=lc.published_version_id AND cv.content_id=lc.id",
+    "WHERE w.book_id=#{bookId} AND lc.content_type='word' AND lc.state='published' AND cv.review_status='approved' AND cv.estimated_seconds&gt;0 AND cv.estimated_seconds &lt;= #{maxSeconds}",
+    "AND NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status&lt;&gt;'unlearned')",
+    "AND NOT EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1)",
+    "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE' AND NOT EXISTS (SELECT 1 FROM learning_record reset_lr WHERE reset_lr.owner_id=#{ownerId} AND reset_lr.content_id=lc.id AND reset_lr.learning_status='unlearned'))",
+    "AND NOT EXISTS (SELECT 1 FROM review_schedule r JOIN knowledge_item k ON k.id=r.knowledge_id AND k.owner_id=r.owner_id WHERE r.owner_id=#{ownerId} AND k.source_content_id=lc.id AND r.state='active')",
+    "AND lc.id NOT IN <foreach collection='excluded' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+    "ORDER BY CASE WHEN cv.difficulty=#{difficulty} THEN 0 ELSE 1 END,RAND() LIMIT 1",
+    "</script>"
+  })
+  List<MaterialCandidate> selectReplacementWordContent(
+      @Param("ownerId") String ownerId,
+      @Param("bookId") String bookId,
+      @Param("difficulty") String difficulty,
+      @Param("excluded") List<String> excluded,
+      @Param("maxSeconds") int maxSeconds);
+
   String WORD_CANDIDATES =
       "SELECT lc.id,cv.id AS version_id,cv.title,cv.estimated_seconds FROM vocabulary_book_word vbw "
           + "JOIN learning_content lc ON lc.id=vbw.content_id "
@@ -20,7 +39,7 @@ public interface MaterialMapper {
           + "AND ((NOT EXISTS (SELECT 1 FROM learning_record lr WHERE lr.owner_id=#{ownerId} AND lr.content_id=lc.id AND lr.learning_status<>'unlearned') "
           + "AND NOT EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1)) "
           + "OR (EXISTS (SELECT 1 FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id "
-          + "WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND prior.status IN ('TODO','DOING') AND pd.business_date<#{date}) "
+          + "WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND (prior.status IN ('TODO','DOING') OR (prior.status='CANCELLED' AND prior.cancel_reason='content_unavailable')) AND pd.business_date<#{date}) "
           + "AND NOT EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND (ws.pending=0 OR ws.source_kind<>'new')))) "
           + "AND NOT EXISTS (SELECT 1 FROM daily_task t WHERE t.owner_id=#{ownerId} AND t.content_id=lc.id AND t.status='DONE' AND NOT EXISTS (SELECT 1 FROM learning_record reset_lr WHERE reset_lr.owner_id=#{ownerId} AND reset_lr.content_id=lc.id AND reset_lr.learning_status='unlearned')) ";
   /** 技术素材：标题/难度/预估耗时都在 content_version，经 published_version_id 关联。 */
@@ -52,14 +71,14 @@ public interface MaterialMapper {
       @Param("date") LocalDate date);
 
   String PRIOR_UNFINISHED_WORD =
-      "EXISTS (SELECT 1 FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND prior.status IN ('TODO','DOING') AND pd.business_date<#{date})";
+      "EXISTS (SELECT 1 FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND (prior.status IN ('TODO','DOING') OR (prior.status='CANCELLED' AND prior.cancel_reason='content_unavailable')) AND pd.business_date<#{date})";
 
   /** 优先续学最早未完成的词，仅使用同书、未认识且无活动复习排期的合格候选。 */
   @Select(
       WORD_CANDIDATES
           + "AND "
           + PRIOR_UNFINISHED_WORD
-          + " ORDER BY (SELECT MIN(pd.business_date) FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND prior.status IN ('TODO','DOING') AND pd.business_date<#{date}),"
+          + " ORDER BY (SELECT MIN(pd.business_date) FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND (prior.status IN ('TODO','DOING') OR (prior.status='CANCELLED' AND prior.cancel_reason='content_unavailable')) AND pd.business_date<#{date}),"
           + "CASE WHEN EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1 AND ws.pending=1) THEN 0 ELSE 1 END,RAND() LIMIT #{limit}")
   List<MaterialCandidate> selectUnfinishedWordContent(
       @Param("ownerId") String ownerId,

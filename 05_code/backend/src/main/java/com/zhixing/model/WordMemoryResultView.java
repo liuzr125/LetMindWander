@@ -21,6 +21,15 @@ public class WordMemoryResultView {
       weakWordCount,
       sessionVersion;
   private List<WordMemoryReviewPlanView> reviewPlans = new ArrayList<WordMemoryReviewPlanView>();
+  private List<String> weakContentIds = new ArrayList<>();
+
+  public List<String> getWeakContentIds() {
+    return weakContentIds;
+  }
+
+  public void setWeakContentIds(List<String> v) {
+    weakContentIds = v;
+  }
 
   public String getSessionId() {
     return sessionId;

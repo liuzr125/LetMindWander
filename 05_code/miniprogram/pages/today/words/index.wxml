@@ -12,7 +12,8 @@
     <text wx:if="{{fixed && isToday}}" class="selection-copy">未认识的词可连续轮练，全部标记认识后完成今日新词，后续仍会安排复习。</text>
     <text wx:if="{{selectionNote}}" class="selection-note">{{selectionNote}}</text>
     <text wx:if="{{unavailableCount}}" class="selection-note">{{unavailableCount}} 个词暂不可用，已保留原范围，请稍后重试。</text>
-    <button wx:if="{{isToday && words.length > doneCount}}" class="continue-study" bindtap="continueStudy">继续今日学习</button>
+    <button wx:if="{{isToday && unavailableCount}}" class="continue-study" bindtap="replaceUnavailable" loading="{{replacing}}" disabled="{{replacing || loading}}">补换不可用词</button>
+    <button wx:if="{{isToday && words.length > doneCount}}" class="continue-study" bindtap="continueStudy" disabled="{{replacing}}">继续今日学习</button>
   </view>
   <view wx:if="{{loading}}" class="state">正在加载…</view>
   <view wx:elif="{{error}}" class="state"

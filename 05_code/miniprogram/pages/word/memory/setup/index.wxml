@@ -6,7 +6,13 @@
     ><text>{{error}}</text><button bindtap="loadSources">重新加载</button></view
   >
   <block wx:else>
-    <view class="card source-card">
+    <view wx:if="{{weakSessionId}}" class="card source-card">
+      <text class="card-title">本轮薄弱词</text>
+      <text class="source-help">针对首答错误、依赖提示或尚未答对的词再练，不会覆盖原来的作答记录。</text>
+      <text class="desc">{{availableWeakCount}} 个可练习 · 本轮最多 5 词</text>
+      <text wx:if="{{weakCount > availableWeakCount}}" class="desc">另有 {{weakCount - availableWeakCount}} 个词暂不可测试，未算作练习完成。</text>
+    </view>
+    <view wx:else class="card source-card">
       <text class="card-title">单词来源</text>
       <text class="source-help">默认测试当天学过的单词，也可以切换到当前词书。</text>
       <view

@@ -1521,6 +1521,7 @@
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); idx_1(owner_id, purpose, occurred_at)</p>
         </section>
         <section id="daily_package">
+          <p>不可用词显式补换（2026-11-09）：POST /api/days/{date}/words/replace-unavailable 携带 expectedVersion；DailyPackageView.versionNo 对应已有 daily_package.version_no。事务按用户和任务包加锁，只替换当前不可用且 TODO/DOING 的词；候选限冻结词书、已发布审核通过、未学且无活动复习，排除原范围与本轮新词，单个候选耗时不得超过被替换项。原任务改 CANCELLED/cancel_reason=content_unavailable，保留学习记录与 task_event；新任务同排序槽位 TODO，包数量及已完成数不变，修订 reason=word_unavailable_replace。候选不足则保留缺项，不虚记完成；旧版本拒绝，普通刷新不换词。原词恢复可用后可自次日重回候选。本项无新增表或字段。</p>
           <p>回忆与巩固优化（2026-11-09）：首次确定今日范围时，优先按最早未完成日期选择最多 ceil(计划数量/2) 个同书合格旧词，再随机补全新词；全新词不足时用剩余旧词补齐，仍受预算约束，冻结后不重抽。首页不展示独立待巩固入口。daily / review 均返回 practiceMode=continuous，不以 120 秒或四词作为反馈门槛，eligible_position 仍用于轮转排序，长期跨日复习算法保留。current.recallRequired 标记已接触或复习词，客户端先隐藏答案、揭晓后反馈；首次接触遵循用户偏好。认识等反馈不再写入固定熟悉度，learning_record.familiarity_percent 保留用户已有自评，新记录为 NULL，历史值不批量改写。current.memoryEvidence 从已有 review_feedback / knowledge_item 与 word_memory_evidence 按 owner_id / content_id 聚合 recallDays、independentCorrect、hintedCorrect、firstIncorrect，区分复习自评和客观首答证据，不推算掌握率。无新增表、字段或迁移脚本；以下历史规则以本段更新为准。</p>
           <h2>daily_package <span>&#x6BCF;&#x65E5;&#x4EFB;&#x52A1;&#x5305;</span></h2>
           <p>今日新词连续轮练（2026-11-08，2026-11-09 更新）：mode=daily / review 不以 eligible_at 或 eligible_position 为再次反馈的门槛，仍以 eligible_position 维持已练词向后轮转的顺序；新反馈清空 eligible_at，版本和 attemptId 幂等保护不变。practiceMode=continuous，dailyTotal / dailyRecognized / unfinishedCount / unavailableCount 从本人当天非 CANCELLED 词任务聚合；只有 DONE 计认识，暂不可用和 SKIPPED 均不计完成。进入今日队列时将旧 SKIPPED 恢复 TODO 并记录 task_event.event_type=resume，原跳过事件保留，词表范围不变。当天“认识”为自评完成，继续生成原有长期复习排期；consolidation、all 模式保留原间隔规则。无新增表或字段。</p>
@@ -5809,6 +5810,7 @@
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_word_memory_question(content_version_id, sense_id, dimension, question_version); idx_word_memory_question_pick(content_version_id, dimension, state)</p>
         </section>
         <section id="word_memory_session">
+          <p>薄弱词再练（2026-11-09）：source_type 支持 weak。创建请求 sourceSessionId 必须是本人 completed/partial 的会话，服务端重算其薄弱词并过滤当前已学且可测试项，不信任客户端 contentIds。薄弱包含首答错误、提示依赖或仍未答对；结果 weakContentIds 只含当前可测试项，weakWordCount 保留全部薄弱事实，重试不覆盖原 episode/evidence。新会话沿用创建幂等键与词范围校验，return_to 保存来源结果页路径；未新增来源字段。无新增表、字段或迁移脚本。</p>
           <h2>word_memory_session <span>&#x5355;&#x8BCD;&#x8BB0;&#x5FC6;&#x4F1A;&#x8BDD;</span></h2>
           <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x53EF;&#x6062;&#x590D;&#x7684;&#x7528;&#x6237;&#x82F1;&#x8BED;&#x8BB0;&#x5FC6;&#x8BAD;&#x7EC3;&#x4F1A;&#x8BDD;&#x3002;</p>
           <div class="scroll">
@@ -13853,13 +13855,13 @@
         </section>
         <section id="word-study-preference">
           <h2>user_word_study_preference — V3.16.9 新词默认展示与发音连播设置（2026-09-20）</h2>
-          <p>账号级保存新词页进入行为。首次无记录时默认展示答案、开启自动播放、英式发音、3 次、每遍结束后间隔 1500 毫秒。间隔从上一遍音频 ended 事件开始计算，禁止固定计时并发播放；离页、切词、手动播放或关闭开关都会取消剩余连播。</p>
+          <p>账号级保存新词页进入行为。自 2026-11-09 起无设置记录时应用默认展示首次接触答案、开启自动播放、英式发音、1 次；已保存的次数不覆盖。数据库列的历史 DEFAULT 3 保留，应用保存设置时显式传入次数，不依赖该默认。多次播放每遍结束后间隔 1500 毫秒；自动播放遵循静音，手动播放可主动发声。离页、切词或关闭开关取消剩余连播；辅助内容按需请求，会话配置复用，设置返回失效；学习完成不再定时自动返回。</p>
           <table><thead><tr><th>字段</th><th>类型 / 默认</th><th>说明</th></tr></thead><tbody>
             <tr><td>owner_id</td><td>CHAR(32)，主键</td><td>小程序账号；每个账号最多一条有效设置。</td></tr>
             <tr><td>default_answer_mode</td><td>VARCHAR(16)，visible</td><td>visible 默认展示图 1 的答案内容；hidden 默认进入图 2 的遮住回想状态。</td></tr>
             <tr><td>auto_play_enabled</td><td>SMALLINT，1</td><td>1 进入新词自动播放；0 不自动播放，手动发音仍可用。</td></tr>
             <tr><td>auto_play_accent</td><td>VARCHAR(8)，uk</td><td>uk 英式、us 美式；当前词缺少所选口音时使用已有词头发音，不生成或猜测音频。</td></tr>
-            <tr><td>auto_play_count</td><td>SMALLINT，3</td><td>可设置 1–5 次；3 只是默认值，不写死在播放流程。</td></tr>
+            <tr><td>auto_play_count</td><td>SMALLINT，数据库历史默认 3</td><td>可设置 1–5 次；应用无记录时默认 1，已有用户配置保留，保存时显式传值。</td></tr>
             <tr><td>auto_play_interval_ms</td><td>INT，1500</td><td>两遍发音之间 1000–2000 毫秒；小程序提供 1、1.5、2 秒选项。</td></tr>
             <tr><td>row_version</td><td>INT，1</td><td>每次修改递增，供审计与后续并发控制。</td></tr>
             <tr><td>del_is</td><td>SMALLINT，0</td><td>软删除标识，不物理删除。</td></tr>
