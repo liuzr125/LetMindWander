@@ -55,6 +55,10 @@
     </view>
     <block wx:if="{{!recallActive}}">
       <text class="translation">{{detail.meaning}}</text>
+      <view wx:if="{{memoryEvidence}}" class="memory-evidence">
+        <text>复习记得 {{memoryEvidence.recallDays}} 天 · 无提示首答正确 {{memoryEvidence.independentCorrect}} 次</text>
+        <text>学习反馈是自评，以上记录不换算为掌握率</text>
+      </view>
       <view class="tags"
         ><text>{{detail.difficulty === 'advanced' ? '进阶' : '入门'}}</text
         ><text

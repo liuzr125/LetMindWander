@@ -206,7 +206,7 @@ public class WordStudyService {
     Map<String, Object> current = null;
     int fresh = 0, consolidation = 0, review = 0;
     long wait = Long.MAX_VALUE;
-    boolean continuous = "daily".equals(mode);
+    boolean continuous = "daily".equals(mode) || "review".equals(mode);
     for (Map<String, Object> s : rows) {
       boolean isReview = "review".equals(str(s, "source_kind"));
       if (isReview && s.get("recovery") == null) review++;
@@ -234,16 +234,18 @@ public class WordStudyService {
     result.put("practiceMode", continuous ? "continuous" : "spaced");
     if ("daily".equals(mode) || "consolidation".equals(mode)) {
       Map<String, Object> progress =
-          continuous
+          "daily".equals(mode)
               ? studyMapper.selectDailyProgress(owner, java.sql.Date.valueOf(today()))
               : null;
       int unfinished =
-          continuous
+          "daily".equals(mode)
               ? num(progress, "unfinished_count")
               : studyMapper.countConsolidation(owner, java.sql.Date.valueOf(today()));
       int unavailable =
-          continuous ? num(progress, "unavailable_count") : Math.max(0, unfinished - rows.size());
-      if (continuous) {
+          "daily".equals(mode)
+              ? num(progress, "unavailable_count")
+              : Math.max(0, unfinished - rows.size());
+      if ("daily".equals(mode)) {
         result.put("dailyTotal", num(progress, "total_count"));
         result.put("dailyRecognized", num(progress, "recognized_count"));
       }
@@ -258,6 +260,17 @@ public class WordStudyService {
       item.put("version", num(current, "version_no"));
       item.put("streak", num(current, "streak"));
       item.put("kind", str(current, "source_kind"));
+      item.put(
+          "recallRequired",
+          "review".equals(str(current, "source_kind")) || num(current, "exposed") > 0);
+      Map<String, Object> evidence =
+          studyMapper.selectMemoryEvidence(owner, str(current, "content_id"));
+      Map<String, Object> memory = new LinkedHashMap<>();
+      memory.put("recallDays", num(evidence, "recall_days"));
+      memory.put("independentCorrect", num(evidence, "independent_correct"));
+      memory.put("hintedCorrect", num(evidence, "hinted_correct"));
+      memory.put("firstIncorrect", num(evidence, "first_incorrect"));
+      item.put("memoryEvidence", memory);
       result.put("current", item);
     }
     return result;
@@ -304,7 +317,7 @@ public class WordStudyService {
         || num(s, "version_no") != ((Number) request.get("expectedVersion")).intValue())
       throw fail("WORD_VERSION_CONFLICT", "学习进度已变化，请刷新");
     long cursor = position(owner);
-    if (!"daily".equals(mode) && !ready(s, cursor))
+    if (!"daily".equals(mode) && !"review".equals(mode) && !ready(s, cursor))
       throw fail("WORD_RECALL_TOO_SOON", "先学习其他词，或稍后再回忆这个词");
     ContentDetailView word = required(owner, id);
     boolean review = "review".equals(str(s, "source_kind"));
@@ -338,20 +351,14 @@ public class WordStudyService {
         recovery,
         complete ? 0 : 1,
         position + 4,
-        "daily".equals(mode) ? null : Timestamp.from(moment.plusSeconds(120)),
+        "daily".equals(mode) || "review".equals(mode)
+            ? null
+            : Timestamp.from(moment.plusSeconds(120)),
         owner,
         id);
     String status = complete ? "understood" : "learning";
-    int familiarity = complete ? 85 : ("fuzzy".equals(feedback) ? 50 : 0);
     contents.upsertWordFeedback(
-        CryptoUtils.randomId(),
-        owner,
-        id,
-        "word:" + id,
-        word.getVersionId(),
-        status,
-        familiarity,
-        moment);
+        CryptoUtils.randomId(), owner, id, "word:" + id, word.getVersionId(), status, null, moment);
     contents.insertLearningEvent(
         CryptoUtils.randomId(),
         owner,

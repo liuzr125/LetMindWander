@@ -47,6 +47,7 @@ function harness(responses) {
   return { page, counts, clock };
 }
 const click = async (page) => {
+  page.revealAnswer();
   page.feedback({ currentTarget: { dataset: { value: 'remember' } } });
   await new Promise(setImmediate);
 };
@@ -74,15 +75,29 @@ test('review uses committed next queue, with no additional reads and exact remai
   assert.equal(page.data.progress, 100);
   assert.deepEqual(counts, { review: 1, word: 1, feedback: 2 });
 });
-test('spacing wait keeps pending word count without inventing completion or extra writes', async () => {
+test('old cooldown receipt refreshes once without inventing completion or another write', async () => {
   const { page, counts } = harness([() => ({ completed: false, remaining: 2, waitSeconds: 120 })]);
   await page.load();
   await click(page);
-  assert.equal(page.data.current, null);
+  assert.equal(page.data.current.contentId, 'a');
   assert.equal(page.data.completed, 0);
-  assert.equal(page.data.remainingCount, 2);
-  assert.match(page.data.error, /间隔/);
-  assert.equal(counts.word, 1);
+  assert.equal(page.data.remainingCount, 1);
+  assert.equal(page.data.error, '');
+  assert.equal(counts.word, 2);
+  assert.equal(counts.feedback, 1);
+});
+
+test('review requires revealing the answer for each card including the same word repeated', async () => {
+  const { page, counts } = harness([() => ({ completed: false, remaining: 2, practiceMode: 'continuous', current: {contentId:'a',version:4} })]);
+  await page.load();
+  assert.equal(page.data.answerRevealed, false);
+  page.feedback({currentTarget:{dataset:{value:'remember'}}});
+  assert.equal(counts.feedback, 0);
+  await click(page);
+  assert.equal(counts.feedback, 1);
+  assert.equal(page.data.answerRevealed, false);
+  assert.equal(page.data.current.contentId, 'a');
+  assert.equal(page.data.completed, 0);
 });
 
 test('first onShow does not duplicate load, returning from knowledge refreshes once', async () => {

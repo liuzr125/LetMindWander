@@ -13,6 +13,7 @@ Page({
     remainingCount: 0,
     progress: 0,
     error: '',
+    answerRevealed: false,
   },
   onLoad(options) {
     this.usesToday = !options.date;
@@ -96,7 +97,11 @@ Page({
       progress: total ? Math.round((completed * 100) / total) : 100,
       loading: false,
       error: '',
+      answerRevealed: !(queue[0] && queue[0].wordTerm),
     });
+  },
+  revealAnswer() {
+    if (this.data.current && !this.data.sending) this.setData({ answerRevealed: true });
   },
   openKnowledge() {
     if (this.data.current)
@@ -106,6 +111,7 @@ Page({
   },
   feedback(e) {
     if (this.data.sending || !this.data.current) return;
+    if (!this.data.answerRevealed && !this.pendingWordAttempt) return;
     const item = this.data.current;
     const feedback = e.currentTarget.dataset.value;
     const businessToday = formatDate(new Date());
@@ -131,6 +137,9 @@ Page({
         };
       request = wordStudyService.feedback(item.contentId, this.pendingWordAttempt).then((next) => {
         this.pendingWordAttempt = null;
+        if (next.businessDate && next.businessDate !== formatDate(new Date())) return this.load();
+        if (!next.current && next.remaining && next.practiceMode !== 'continuous')
+          return wordStudyService.queue('review').then((fresh) => this.applyWordFeedback(fresh, item.contentId));
         return this.applyWordFeedback(next, item.contentId);
       });
     } else

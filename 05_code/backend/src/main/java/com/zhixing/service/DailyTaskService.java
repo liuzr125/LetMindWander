@@ -102,8 +102,7 @@ public class DailyTaskService {
       List<MaterialCandidate> candidates = Collections.emptyList();
       if (plan.getNewWordCount() > 0 && budget[0] > 0)
         candidates =
-            materials.selectRandomWordContent(
-                owner, book, plan.getDifficulty(), plan.getNewWordCount(), date);
+            selectDailyWordCandidates(owner, book, plan.getDifficulty(), plan.getNewWordCount(), date);
       addMaterials(chosen, p, "word", candidates, budget);
       if (chosen.size() < plan.getNewWordCount())
         selectionNote =
@@ -169,6 +168,22 @@ public class DailyTaskService {
     revision.setAfterJson(snapshot(p, after));
     packages.insertRevision(revision);
     return view(p, after);
+  }
+
+  private List<MaterialCandidate> selectDailyWordCandidates(
+      String owner, String book, String difficulty, int limit, LocalDate date) {
+    List<MaterialCandidate> unfinished =
+        materials.selectUnfinishedWordContent(owner, book, difficulty, limit, date);
+    int quota = Math.min(unfinished.size(), (limit + 1) / 2);
+    LinkedHashMap<String, MaterialCandidate> selected = new LinkedHashMap<>();
+    for (int i = 0; i < quota; i++) selected.put(unfinished.get(i).getId(), unfinished.get(i));
+    for (MaterialCandidate fresh :
+        materials.selectRandomWordContent(owner, book, difficulty, limit - quota, date))
+      if (selected.size() < limit) selected.put(fresh.getId(), fresh);
+    // 全新词不足时用剩余旧词补齐；不扩大当日计划数量。
+    for (MaterialCandidate old : unfinished)
+      if (selected.size() < limit) selected.putIfAbsent(old.getId(), old);
+    return new ArrayList<>(selected.values());
   }
 
   /** 继续今日新词时恢复旧版跳过项；跳过不能代替“认识”，原事件仍保留。 */

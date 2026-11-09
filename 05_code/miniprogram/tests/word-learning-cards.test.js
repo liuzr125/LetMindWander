@@ -111,6 +111,20 @@ test('all translations, hints and cards are inside recall-hidden block', () => {
   assert.match(markup, /bindtap="rateWord"/);
   assert.doesNotMatch(markup, /进入回忆与巩固/);
 });
+test('repeated words require recall while first exposure and read-only views honor answer preferences', () => {
+  const p=page();
+  p.data.contentId='word';
+  p.studyQueue={current:{contentId:'word',recallRequired:false}};
+  p.applyStudyPreferences({defaultAnswerMode:'visible'},true);
+  assert.equal(p.data.recallActive,false);
+  p.studyQueue.current.recallRequired=true;
+  p.applyStudyPreferences({defaultAnswerMode:'visible'},true);
+  assert.equal(p.data.recallActive,true);
+  p.studyReadOnly=true;
+  p.applyStudyPreferences({defaultAnswerMode:'visible'},true);
+  assert.equal(p.data.recallActive,false);
+});
+
 test('new-word preferences default to visible British audio three times with a 1.5 second gap', () => {
   const value = studyPreferences.normalize();
   assert.deepEqual(

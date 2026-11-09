@@ -5,6 +5,9 @@ import org.apache.ibatis.annotations.Param;
 
 /** Persistence operations for the transaction-owned word recall queue. */
 public interface WordStudyMapper {
+  Map<String, Object> selectMemoryEvidence(
+      @Param("owner") String owner, @Param("content") String content);
+
   List<Map<String, Object>> selectCursorOwner(@Param("owner") String owner);
 
   int insertCursor(@Param("owner") String owner);

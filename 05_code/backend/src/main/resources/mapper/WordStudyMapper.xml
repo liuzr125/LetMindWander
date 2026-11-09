@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhixing.mapper.WordStudyMapper">
+  <select id="selectMemoryEvidence" resultType="map">
+    SELECT
+      (SELECT COUNT(DISTINCT f.business_date) FROM review_feedback f JOIN knowledge_item k ON k.id=f.knowledge_id AND k.owner_id=f.owner_id WHERE f.owner_id=#{owner} AND k.source_content_id=#{content} AND f.feedback='remember') AS recall_days,
+      COUNT(CASE WHEN first_result='independent_correct' AND hint_used=0 AND answer_revealed=0 THEN 1 END) AS independent_correct,
+      COUNT(CASE WHEN first_result='hinted_correct' THEN 1 END) AS hinted_correct,
+      COUNT(CASE WHEN first_result='incorrect' THEN 1 END) AS first_incorrect
+    FROM word_memory_evidence WHERE owner_id=#{owner} AND content_id=#{content}
+  </select>
   <select id="selectCursorOwner" resultType="map">
         SELECT owner_id FROM word_study_cursor WHERE owner_id=#{owner}
     </select>

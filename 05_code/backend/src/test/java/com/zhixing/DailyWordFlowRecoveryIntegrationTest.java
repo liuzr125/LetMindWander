@@ -106,6 +106,9 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
   @Test
   void recoveryConsolidationSurvivesNextDayAndCompletesWithoutChangingTodayRange() {
     String old = yesterdayFuzzy();
+    doReturn(Collections.emptyList())
+        .when(materials)
+        .selectUnfinishedWordContent(owner, book, "intro", 3, today);
     java.util.List<com.zhixing.model.MaterialCandidate> other =
         materials.selectWordContent(owner, book, "intro", 100, today);
     other.removeIf(candidate -> old.equals(candidate.getId()));
@@ -173,10 +176,6 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
     List<com.zhixing.model.MaterialCandidate> candidates =
         materials.selectWordContent(owner, book, "intro", 100, today);
     assertThat(candidates).extracting(com.zhixing.model.MaterialCandidate::getId).contains(old);
-    List<com.zhixing.model.MaterialCandidate> chosen = new ArrayList<>();
-    chosen.add(candidates.stream().filter(c -> old.equals(c.getId())).findFirst().get());
-    candidates.stream().filter(c -> !old.equals(c.getId())).limit(2).forEach(chosen::add);
-    doReturn(chosen).when(materials).selectRandomWordContent(owner, book, "intro", 3, today);
     DailyPackageView fixed = daily.selectWords(owner, today);
     assertThat(ids(fixed)).contains(old);
     assertThat(fixed.getPendingConsolidationCount()).isZero();
@@ -358,7 +357,7 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
   }
 
   @Test
-  void recoveryScheduledReviewStillUsesSpacingAfterContinuousDailyStudy() {
+  void recoveryScheduledReviewCanRepeatImmediatelyAndKeepsFutureSpacing() {
     jdbc.update("UPDATE learning_plan SET new_word_count=1 WHERE id=?", plan);
     Map<String, Object> queue = study.queue(owner, "daily", null);
     String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
@@ -370,9 +369,101 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
         owner);
     queue = study.queue(owner, "review", null);
     Map<String, Object> next = feedback(id, queue, "review", "fuzzy");
-    assertThat(next.get("practiceMode")).isEqualTo("spaced");
+    assertThat(next.get("practiceMode")).isEqualTo("continuous");
     assertThat(next.get("remaining")).isEqualTo(1);
-    assertThat(next.get("current")).isNull();
-    assertThat(((Number) next.get("waitSeconds")).longValue()).isGreaterThan(0);
+    assertThat(next.get("current")).isNotNull();
+    assertThat(((Map<?, ?>) next.get("current")).get("recallRequired")).isEqualTo(true);
+    assertThat(((Number) next.get("waitSeconds")).longValue()).isZero();
+    feedback(id, next, "review", "remember");
+    assertThat(
+            jdbc.queryForObject(
+                    "SELECT due_date FROM review_schedule WHERE owner_id=?",
+                    java.sql.Date.class,
+                    owner)
+                .toLocalDate())
+        .isEqualTo(today.plusDays(1));
+  }
+
+  @Test
+  void recoveryResumeQuotaPrioritizesOldWordsAndPreservesFreshAndFrozenRange() {
+    Set<String> old = new HashSet<>(ids(daily.get(owner, today)));
+    jdbc.update(
+        "UPDATE daily_package SET business_date=? WHERE owner_id=?", today.minusDays(1), owner);
+    assertThat(materials.selectUnfinishedWordContent(owner, book, "intro", 12, today)).hasSize(3);
+    assertThat(materials.selectRandomWordContent(owner, book, "intro", 12, today))
+        .noneMatch(w -> old.contains(w.getId()));
+    jdbc.update("UPDATE learning_plan SET new_word_count=5 WHERE id=?", plan);
+    DailyPackageView fixed = daily.selectWords(owner, today);
+    assertThat(ids(fixed)).hasSize(5);
+    assertThat(ids(fixed).stream().filter(old::contains).count()).isEqualTo(3);
+    assertThat(ids(daily.selectWords(owner, today))).containsExactlyElementsOf(ids(fixed));
+  }
+
+  @Test
+  void recoveryResumeQuotaFillsFromOldWordsWhenNoFreshWordsRemain() {
+    jdbc.update("UPDATE learning_plan SET new_word_count=12 WHERE id=?", plan);
+    Set<String> old = new HashSet<>(ids(daily.get(owner, today)));
+    jdbc.update(
+        "UPDATE daily_package SET business_date=? WHERE owner_id=?", today.minusDays(1), owner);
+    jdbc.update("UPDATE learning_plan SET new_word_count=5 WHERE id=?", plan);
+    assertThat(ids(daily.selectWords(owner, today))).hasSize(5).allMatch(old::contains);
+  }
+
+  @Test
+  void recoveryRecallRequiredAfterExposureAndFeedbackPreservesExplicitFamiliarity() {
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    Map<?, ?> current = (Map<?, ?>) queue.get("current");
+    String id = String.valueOf(current.get("contentId"));
+    assertThat(current.get("recallRequired")).isEqualTo(false);
+    assertThat(((Map<?, ?>) current.get("memoryEvidence")).get("independentCorrect")).isEqualTo(0);
+    feedback(id, queue, "daily", "fuzzy");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT familiarity_percent FROM learning_record WHERE owner_id=? AND content_id=?",
+                Integer.class,
+                owner,
+                id))
+        .isNull();
+    queue = study.queue(owner, "daily", id);
+    assertThat(((Map<?, ?>) queue.get("current")).get("recallRequired")).isEqualTo(true);
+    jdbc.update(
+        "UPDATE learning_record SET familiarity_percent=37 WHERE owner_id=? AND content_id=?",
+        owner,
+        id);
+    feedback(id, queue, "daily", "remember");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT familiarity_percent FROM learning_record WHERE owner_id=? AND content_id=?",
+                Integer.class,
+                owner,
+                id))
+        .isEqualTo(37);
+  }
+
+  @Test
+  void recoveryMemoryEvidenceSeparatesFirstAnswersAndOtherUsers() {
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    String[] results = {
+      "independent_correct", "hinted_correct", "incorrect", "independent_correct"
+    };
+    for (int i = 0; i < results.length; i++)
+      jdbc.update(
+          "INSERT INTO word_memory_evidence(id,owner_id,content_id,dimension,business_date,episode_id,first_attempt_id,first_result,hint_used,rule_version) VALUES(?,?,?,'meaning',?,?,?,?,?,'test')",
+          CryptoUtils.randomId(),
+          i == 3 ? CryptoUtils.randomId() : owner,
+          id,
+          today,
+          CryptoUtils.randomId(),
+          CryptoUtils.randomId(),
+          results[i],
+          i == 1 ? 1 : 0);
+    Map<?, ?> evidence =
+        (Map<?, ?>)
+            ((Map<?, ?>) study.queue(owner, "daily", id).get("current")).get("memoryEvidence");
+    assertThat(evidence.get("recallDays")).isEqualTo(0);
+    assertThat(evidence.get("independentCorrect")).isEqualTo(1);
+    assertThat(evidence.get("hintedCorrect")).isEqualTo(1);
+    assertThat(evidence.get("firstIncorrect")).isEqualTo(1);
   }
 }

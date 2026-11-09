@@ -51,10 +51,29 @@ public interface MaterialMapper {
       @Param("limit") int limit,
       @Param("date") LocalDate date);
 
-  /** 首次点击时仅在当前词书的合格未学词中随机抽取；结果由 daily_task 持久化。 */
+  String PRIOR_UNFINISHED_WORD =
+      "EXISTS (SELECT 1 FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND prior.status IN ('TODO','DOING') AND pd.business_date<#{date})";
+
+  /** 优先续学最早未完成的词，仅使用同书、未认识且无活动复习排期的合格候选。 */
   @Select(
       WORD_CANDIDATES
-          + "ORDER BY CASE WHEN cv.difficulty=#{difficulty} THEN 0 ELSE 1 END,RAND() LIMIT #{limit}")
+          + "AND "
+          + PRIOR_UNFINISHED_WORD
+          + " ORDER BY (SELECT MIN(pd.business_date) FROM daily_task prior JOIN daily_package pd ON pd.id=prior.package_id WHERE prior.owner_id=#{ownerId} AND prior.content_id=lc.id AND prior.task_type='word' AND prior.status IN ('TODO','DOING') AND pd.business_date<#{date}),"
+          + "CASE WHEN EXISTS (SELECT 1 FROM word_study_state ws WHERE ws.owner_id=#{ownerId} AND ws.content_id=lc.id AND ws.exposed=1 AND ws.pending=1) THEN 0 ELSE 1 END,RAND() LIMIT #{limit}")
+  List<MaterialCandidate> selectUnfinishedWordContent(
+      @Param("ownerId") String ownerId,
+      @Param("bookId") String bookId,
+      @Param("difficulty") String difficulty,
+      @Param("limit") int limit,
+      @Param("date") LocalDate date);
+
+  /** 首次点击随机补充全新候选，续学词由独立配额选择；结果持久化后不再重抽。 */
+  @Select(
+      WORD_CANDIDATES
+          + "AND NOT "
+          + PRIOR_UNFINISHED_WORD
+          + " ORDER BY CASE WHEN cv.difficulty=#{difficulty} THEN 0 ELSE 1 END,RAND() LIMIT #{limit}")
   List<MaterialCandidate> selectRandomWordContent(
       @Param("ownerId") String ownerId,
       @Param("bookId") String bookId,

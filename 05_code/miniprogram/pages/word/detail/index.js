@@ -32,6 +32,7 @@ Page({
     acting: false,
     studyNotice: '', studyPaused: false, studyReadOnly: false,
     continuousPractice: false, dailyTotal: 0, dailyRecognized: 0, dailyRemaining: 0, dailyUnavailable: 0,
+    memoryEvidence: null,
     displayExample: '',
     displayExampleTranslation: '',
     wordSizeClass: '',
@@ -104,12 +105,14 @@ Page({
   },
   currentStudyMode() { return this.studyMode || (this.dailyWordMode ? 'daily' : 'all'); },
   updatePracticeProgress(queue) {
+    const current = queue && queue.current;
     this.setData({
       continuousPractice: !!(this.currentStudyMode() === 'daily' && queue && queue.practiceMode === 'continuous'),
       dailyTotal: Number((queue && queue.dailyTotal) || 0),
       dailyRecognized: Number((queue && queue.dailyRecognized) || 0),
       dailyRemaining: Number((queue && queue.unfinishedCount) || 0),
       dailyUnavailable: Number((queue && queue.unavailableCount) || 0),
+      memoryEvidence: current && current.memoryEvidence || null,
     });
   },
   resumeStudy() {
@@ -142,7 +145,9 @@ Page({
   applyStudyPreferences(preference, applyRecall) {
     const value = studyPreferenceUtils.normalize(preference);
     const state = { wordStudyPreferences: value };
-    if (applyRecall) state.recallActive = value.defaultAnswerMode === 'hidden';
+    const current = this.studyQueue && this.studyQueue.current;
+    if (applyRecall) state.recallActive = value.defaultAnswerMode === 'hidden' || !!(
+      !this.studyReadOnly && current && current.contentId === this.data.contentId && current.recallRequired);
     this.setData(state);
   },
   loadLearningCards() {

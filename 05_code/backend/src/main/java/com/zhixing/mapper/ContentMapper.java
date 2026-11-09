@@ -83,7 +83,7 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
           + "VALUES (#{id},#{ownerId},#{contentId},#{learningKey},#{versionId},#{status},#{familiarity},"
           + "CASE WHEN #{status}='understood' THEN #{now} ELSE NULL END,#{now},1) "
           + "ON DUPLICATE KEY UPDATE last_version_id=VALUES(last_version_id),learning_status=VALUES(learning_status),"
-          + "familiarity_percent=VALUES(familiarity_percent),first_completed_at=CASE WHEN VALUES(learning_status)='understood' "
+          + "familiarity_percent=COALESCE(VALUES(familiarity_percent),familiarity_percent),first_completed_at=CASE WHEN VALUES(learning_status)='understood' "
           + "THEN COALESCE(first_completed_at,VALUES(first_completed_at)) ELSE first_completed_at END,"
           + "last_feedback_at=VALUES(last_feedback_at),version_no=version_no+1")
   int upsertWordFeedback(
@@ -93,7 +93,7 @@ public interface ContentMapper extends BaseMapper<LearningContentEntity> {
       @Param("learningKey") String learningKey,
       @Param("versionId") String versionId,
       @Param("status") String status,
-      @Param("familiarity") int familiarity,
+      @Param("familiarity") Integer familiarity,
       @Param("now") Instant now);
 
   @Select(

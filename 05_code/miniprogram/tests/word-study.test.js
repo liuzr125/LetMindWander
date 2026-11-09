@@ -206,6 +206,7 @@ test('review retains original card and buttons while saving a word receipt', asy
               feedback: async (id, body) => {
                 writes.push(body);
                 pending = false;
+                return { completed: false, remaining: 0 };
               },
             },
           },
@@ -217,6 +218,7 @@ test('review retains original card and buttons while saving a word receipt', asy
   p.setData = (v) => Object.assign(p.data, v);
   await p.load();
   assert.equal(p.data.current.wordTerm, 'word');
+  p.revealAnswer();
   p.feedback({ currentTarget: { dataset: { value: 'fuzzy' } } });
   await new Promise(setImmediate);
   assert.equal(writes[0].mode, 'review');
