@@ -62,13 +62,6 @@
       ></view
     >
   </block>
-  <view wx:if="{{!loading && !error && pendingConsolidationCount}}" class="home-section" bindtap="openConsolidation">
-    <view class="section-icon memory-icon">Aa</view>
-    <view class="section-main">
-      <view class="section-title-row"><text class="section-title">待巩固单词</text><text class="section-link">继续巩固 ›</text></view>
-      <text class="section-copy">还有 {{pendingConsolidationCount}} 个往日未学完的词，可先继续巩固，也会进入以后新词的候选范围</text>
-    </view>
-  </view>
   <view wx:if="{{memoryEnabled}}" class="home-section memory-entry" bindtap="openWordMemory">
     <view class="section-icon memory-icon">Aa</view>
     <view class="section-main">

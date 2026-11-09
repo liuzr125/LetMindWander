@@ -118,19 +118,6 @@ test('empty but unavailable daily queue is explained without claiming completion
   assert.match(navigation[0], /today\/words/);
 });
 
-test('previous unfinished words have a separate consolidation entry even without an active plan', async () => {
-  const modes = [];
-  const { p, navigation } = page('pages/today/index.js', {
-    dailyTaskService: { day: async () => ({ active: false, tasks: [], pendingConsolidationCount: 2 }) },
-    wordStudyService: { queue: async (mode) => { modes.push(mode); return { current: { contentId: 'yesterday' }, remaining: 2 }; } },
-  });
-  await p.load();
-  assert.equal(p.data.pendingConsolidationCount, 2);
-  await p.openConsolidation();
-  assert.equal(modes[0], 'consolidation');
-  assert.match(navigation[0], /id=yesterday&studyMode=consolidation/);
-});
-
 test('word list reads all meanings and selection explanation in a single request', async () => {
   let reads = 0, details = 0;
   const { p } = page('pages/today/words/index.js', {

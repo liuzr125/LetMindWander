@@ -36,7 +36,6 @@ Page({
     growthError: '',
     memoryEnabled: true,
     memorySummary: null,
-    pendingConsolidationCount: 0,
   },
   // 每次返回都读取任务完成状态；成长与记忆请求只合并在途调用，不跨返回缓存。
   onShow() {
@@ -105,7 +104,6 @@ Page({
           groups,
           remainingMinutes,
           loading: false,
-          pendingConsolidationCount: Number(pack.pendingConsolidationCount || 0),
         });
       })
       .catch((error) => {
@@ -201,17 +199,6 @@ Page({
         this._openingWords = null;
       });
     return this._openingWords;
-  },
-  openConsolidation() {
-    if (this._openingConsolidation) return this._openingConsolidation;
-    this._openingConsolidation = wordStudyService.queue('consolidation')
-      .then((queue) => {
-        if (!queue.current) return wx.showToast({ title: queueNotice(queue), icon: 'none' });
-        wx.navigateTo({ url: `/pages/word/detail/index?id=${queue.current.contentId}&studyMode=consolidation` });
-      })
-      .catch((error) => wx.showToast({ title: error.message || '待巩固词加载失败', icon: 'none' }))
-      .finally(() => { this._openingConsolidation = null; });
-    return this._openingConsolidation;
   },
   openBookSelector() {
     wx.navigateTo({ url: `/pages/word/books/index?date=${this.data.today}` });
