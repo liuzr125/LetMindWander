@@ -32,14 +32,14 @@ async function loadGroups(tasks, gaps = []) {
 test('zero, partial and full progress use distinct status text', async () => {
   for (const type of ['tech', 'word', 'review', 'journal', 'action']) {
     const tasks = [
-      { taskType: type, status: 'TODO' },
+      { taskType: type, status: 'TODO', available: type !== 'word' },
       { taskType: type, status: 'TODO' },
     ];
-    assert.equal((await loadGroups(tasks))[0].statusText, '未开始 0/2');
+    assert.equal((await loadGroups(tasks))[0].statusText, type === 'word' ? '0 / 2 · 0%' : '未开始 0/2');
     tasks[0].status = 'DONE';
-    assert.equal((await loadGroups(tasks))[0].statusText, '进行中 1/2');
+    assert.equal((await loadGroups(tasks))[0].statusText, type === 'word' ? '1 / 2 · 50%' : '进行中 1/2');
     tasks[1].status = 'DONE';
-    assert.equal((await loadGroups(tasks))[0].statusText, '已完成');
+    assert.equal((await loadGroups(tasks))[0].statusText, type === 'word' ? '2 / 2 · 100%' : '已完成');
   }
 });
 

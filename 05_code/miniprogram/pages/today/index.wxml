@@ -47,7 +47,7 @@
           ><text class="group-title">{{item.title}}</text
           ><text class="group-status {{item.done === item.total ? 'complete' : ''}}"
             >{{item.statusText}}</text
-          ><text wx:if="{{item.selectionText}}" class="group-status">{{item.selectionText}}</text></view
+          ></view
         >
         <text class="group-action"
           >{{item.requiresBook ? '选择词书' : (item.done === item.total ? '查看' : (item.type ===

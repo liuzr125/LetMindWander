@@ -67,8 +67,7 @@ Page({
             const blocked = items.filter((item) => item.available === false && item.status !== 'DONE' && item.status !== 'SKIPPED').length;
             return Object.assign(
               { type, items, done, total: items.length,
-                statusText: blocked ? `${statusText} · ${blocked} 词暂不可用` : statusText,
-                selectionText: type === 'word' ? (pack.wordsSelectedAt ? `今日词表已固定${pack.wordsBookName ? ' · ' + pack.wordsBookName : ''}` : '首次进入时随机确定今日词表') : '', },
+                statusText: type === 'word' ? `${done} / ${items.length} · ${Math.round(done * 100 / items.length)}%` : (blocked ? `${statusText} · ${blocked} 词暂不可用` : statusText), },
               GROUPS[type],
             );
           })
