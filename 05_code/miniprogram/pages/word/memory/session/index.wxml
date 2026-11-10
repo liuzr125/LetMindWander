@@ -4,7 +4,11 @@
     ><text>{{error}}</text><button bindtap="load">重试</button></view
   >
   <block wx:else>
-    <view class="progress"
+    <view wx:if="{{saveNotice}}" class="hint">
+      <text>{{saveNotice}}</text>
+      <button wx:if="{{pendingSave}}" bindtap="submit" disabled="{{acting}}" loading="{{acting}}">重试保存原答案</button>
+    </view>
+    <view wx:if="{{session}}" class="progress"
       ><text>本轮 {{session.targetCount}} 词</text
       ><text>{{current ? '第 ' + current.position + ' 题' : '可结算'}}</text></view
     >
@@ -23,18 +27,18 @@
         placeholder="在这里输入答案"
         placeholder-class="answer-placeholder"
         maxlength="1000"
-        disabled="{{feedback}}"
+        disabled="{{feedback || acting || pendingSave}}"
         focus="{{editingRetry}}"
       />
       <view wx:if="{{!feedback}}" class="hint-row"
-        ><button data-type="first_letter" bindtap="revealHint" disabled="{{acting}}">首字母</button
+        ><button data-type="first_letter" bindtap="revealHint" disabled="{{acting || pendingSave}}">首字母</button
         ><button
           wx:if="{{current.hasClue}}"
           data-type="clue"
           bindtap="revealHint"
-          disabled="{{acting}}"
+          disabled="{{acting || pendingSave}}"
           >给点提示</button
-        ><button class="answer-hint" data-type="answer" bindtap="revealHint" disabled="{{acting}}"
+        ><button class="answer-hint" data-type="answer" bindtap="revealHint" disabled="{{acting || pendingSave}}"
           >看答案</button
         ></view
       >
@@ -43,12 +47,12 @@
         ><text class="hint-content">{{hintContent}}</text></view
       >
       <button
-        wx:if="{{!feedback}}"
+        wx:if="{{!feedback && !pendingSave}}"
         class="primary"
         loading="{{acting}}"
         disabled="{{acting}}"
         bindtap="submit"
-        >{{editingRetry ? '重新提交答案' : '提交答案'}}</button
+        >{{pendingSave ? '重试保存原答案' : editingRetry ? '重新提交答案' : '提交答案'}}</button
       >
       <view wx:else class="feedback {{feedback.correct ? 'correct' : 'wrong'}}">
         <text class="feedback-title"
@@ -68,11 +72,11 @@
         >
       </view>
     </view>
-    <view wx:else class="card finish"
+    <view wx:elif="{{!pendingSave}}" class="card finish"
       ><text class="finish-title">已完成当前可用题目</text
       ><text>结算只保留客观作答证据，不会暗改“已理解”或生词本。</text
       ><button class="primary" bindtap="finish">查看本轮结果</button></view
     >
-    <button class="partial" bindtap="finishPartial">现在结束（部分完成）</button>
+    <button class="partial" bindtap="finishPartial" disabled="{{acting || pendingSave}}">现在结束（部分完成）</button>
   </block>
 </view>

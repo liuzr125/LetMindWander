@@ -25,7 +25,7 @@
         SELECT t.id,t.content_id FROM daily_task t JOIN daily_package p ON p.id=t.package_id JOIN learning_content lc ON lc.id=t.content_id AND lc.state='published' JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' LEFT JOIN learning_record lr ON lr.owner_id=t.owner_id AND lr.content_id=t.content_id WHERE t.owner_id=#{owner} AND p.business_date=#{date} AND t.task_type='word' AND t.status NOT IN ('DONE','CANCELLED','SKIPPED') AND (lr.id IS NULL OR lr.learning_status IN ('unlearned','learning'))
     </select>
   <select id="selectDueWordReviews" resultType="map">
-        SELECT rs.id,k.source_content_id,rs.stage,rs.due_date FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id JOIN learning_content lc ON lc.id=k.source_content_id AND lc.content_type='word' WHERE rs.owner_id=#{owner} AND rs.state='active' AND rs.due_date&lt;=#{date}
+        SELECT rs.id,k.source_content_id,rs.stage,rs.due_date FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id AND k.state&lt;&gt;'deleted' JOIN learning_content lc ON lc.id=k.source_content_id AND lc.content_type='word' WHERE rs.owner_id=#{owner} AND rs.state='active' AND rs.due_date&lt;=#{date}
     </select>
   <update id="activateReviewState">
         UPDATE word_study_state SET pending=1,source_kind='review',task_id=#{task},schedule_id=#{schedule},streak=0,recovery=NULL,business_date=#{date},eligible_position=0,eligible_at=NULL,version_no=version_no+1 WHERE owner_id=#{owner} AND content_id=#{content}
@@ -76,7 +76,7 @@
         SELECT content_id,request_json,result_json FROM word_study_attempt WHERE owner_id=#{owner} AND attempt_id=#{attempt}
     </select>
   <select id="countDueActiveSchedule" resultType="Integer">
-        SELECT COUNT(*) FROM review_schedule WHERE owner_id=#{owner} AND id=#{schedule} AND state='active' AND due_date&lt;=#{date}
+        SELECT COUNT(*) FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id AND k.state&lt;&gt;'deleted' WHERE rs.owner_id=#{owner} AND rs.id=#{schedule} AND rs.state='active' AND rs.due_date&lt;=#{date}
     </select>
   <update id="advanceCursor">
         UPDATE word_study_cursor SET position_no=#{position} WHERE owner_id=#{owner}
@@ -127,7 +127,7 @@
         DELETE FROM word_study_state WHERE owner_id=#{owner} AND content_id IN (SELECT content_id FROM vocabulary_book_word WHERE book_id=#{book})
     </delete>
   <select id="selectPending" resultType="map">
-        SELECT s.*,cv.word_term FROM word_study_state s JOIN learning_content lc ON lc.id=s.content_id AND lc.state='published' JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' WHERE s.owner_id=#{owner} AND s.pending=1 AND (s.source_kind&lt;&gt;'review' OR EXISTS(SELECT 1 FROM review_schedule live WHERE live.id=s.schedule_id AND live.owner_id=s.owner_id AND live.state='active' AND live.due_date&lt;=#{date})) AND (s.exposed=1 OR s.source_kind='review' OR s.free_study=1 OR EXISTS(SELECT 1 FROM daily_task allocated JOIN daily_package dp ON dp.id=allocated.package_id WHERE allocated.id=s.task_id AND allocated.status IN ('TODO','DOING') AND dp.business_date=#{date}))
+        SELECT s.*,cv.word_term FROM word_study_state s JOIN learning_content lc ON lc.id=s.content_id AND lc.state='published' JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved' WHERE s.owner_id=#{owner} AND s.pending=1 AND (s.source_kind&lt;&gt;'review' OR EXISTS(SELECT 1 FROM review_schedule live JOIN knowledge_item live_k ON live_k.id=live.knowledge_id AND live_k.owner_id=live.owner_id AND live_k.state&lt;&gt;'deleted' WHERE live.id=s.schedule_id AND live.owner_id=s.owner_id AND live.state='active' AND live.due_date&lt;=#{date})) AND (s.exposed=1 OR s.source_kind='review' OR s.free_study=1 OR EXISTS(SELECT 1 FROM daily_task allocated JOIN daily_package dp ON dp.id=allocated.package_id WHERE allocated.id=s.task_id AND allocated.status IN ('TODO','DOING') AND dp.business_date=#{date}))
         <choose><when test="reviewOnly"> AND s.source_kind='review'</when><otherwise> AND (s.source_kind='review' OR s.free_study=1 OR EXISTS(SELECT 1 FROM daily_task t WHERE t.id=s.task_id AND t.status='DOING') OR EXISTS(SELECT 1 FROM vocabulary_book_word w WHERE w.content_id=s.content_id AND w.book_id=#{book}))</otherwise></choose>
         ORDER BY s.eligible_position,s.first_seen_date,s.content_id
     </select>
@@ -138,7 +138,7 @@
       JOIN learning_content lc ON lc.id=s.content_id AND lc.state='published'
       JOIN content_version cv ON cv.id=lc.published_version_id AND cv.review_status='approved'
       WHERE s.owner_id=#{owner} AND s.pending=1
-      AND (s.source_kind&lt;&gt;'review' OR EXISTS(SELECT 1 FROM review_schedule live WHERE live.id=s.schedule_id AND live.owner_id=s.owner_id AND live.state='active' AND live.due_date&lt;=#{date}))
+      AND (s.source_kind&lt;&gt;'review' OR EXISTS(SELECT 1 FROM review_schedule live JOIN knowledge_item live_k ON live_k.id=live.knowledge_id AND live_k.owner_id=live.owner_id AND live_k.state&lt;&gt;'deleted' WHERE live.id=s.schedule_id AND live.owner_id=s.owner_id AND live.state='active' AND live.due_date&lt;=#{date}))
       ORDER BY s.eligible_position,t.sort_no,t.id
   </select>
   <sql id="consolidationScope">

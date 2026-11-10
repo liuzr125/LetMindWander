@@ -225,7 +225,7 @@ test('review retains original card and buttons while saving a word receipt', asy
     Page: (v) => (p = v),
     require: (n) =>
       n.includes('/date')
-        ? { formatBusinessDate: () => '' }
+        ? { formatBusinessDate: () => '2026-10-08' }
         : {
             reviewService: {
               queue: async () =>

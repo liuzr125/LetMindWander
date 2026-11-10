@@ -15,6 +15,9 @@ import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegrationTest {
+  @org.springframework.beans.factory.annotation.Autowired
+  com.zhixing.service.ReviewService reviewService;
+
   @SpyBean DailyTaskMapper taskMapper;
   @SpyBean ContentMapper contentMapper;
   @SpyBean com.zhixing.service.DailyTaskService dailySpy;
@@ -521,5 +524,52 @@ class DailyWordFlowRecoveryIntegrationTest extends DailyWordSelectionIntegration
             () ->
                 daily.replaceUnavailableWords(CryptoUtils.randomId(), today, before.getVersionNo()))
         .isInstanceOf(com.zhixing.common.ApiException.class);
+  }
+
+  @Test
+  void recoveryReviewSnapshotPreservesUnavailableWordsAndRestoresCompletedFacts() {
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    feedback(id, queue, "daily", "remember");
+    jdbc.update("UPDATE review_schedule SET due_date=? WHERE owner_id=?", today, owner);
+    jdbc.update(
+        "UPDATE word_study_state SET last_completed_date=? WHERE owner_id=?",
+        today.minusDays(1),
+        owner);
+    jdbc.update(
+        "UPDATE learning_content SET state='withdrawn',published_version_id=NULL WHERE id=?", id);
+    Map<String, Object> blocked = reviewService.snapshot(owner, today);
+    java.util.List<com.zhixing.model.ReviewItemView> items =
+        (java.util.List<com.zhixing.model.ReviewItemView>) blocked.get("items");
+    assertThat(items).hasSize(1);
+    assertThat(items.get(0).getAvailable()).isFalse();
+    assertThat(items.get(0).getWordReview()).isTrue();
+    assertThat(blocked.get("completedCount")).isEqualTo(0);
+    assertThat(study.queue(owner, "review", null).get("current")).isNull();
+    jdbc.update(
+        "UPDATE learning_content SET state='published',published_version_id=current_version_id WHERE id=?",
+        id);
+    feedback(id, study.queue(owner, "review", null), "review", "remember");
+    Map<String, Object> finished = reviewService.snapshot(owner, today);
+    assertThat((java.util.List<?>) finished.get("items")).isEmpty();
+    assertThat(finished.get("completedCount")).isEqualTo(1);
+    assertThat(reviewService.snapshot(CryptoUtils.randomId(), today).get("completedCount"))
+        .isEqualTo(0);
+  }
+
+  @Test
+  void recoveryDeletedWordKnowledgeDoesNotLeaveAGhostReviewQueue() {
+    Map<String, Object> queue = study.queue(owner, "daily", null);
+    String id = String.valueOf(((Map<?, ?>) queue.get("current")).get("contentId"));
+    feedback(id, queue, "daily", "remember");
+    jdbc.update("UPDATE review_schedule SET due_date=? WHERE owner_id=?", today, owner);
+    jdbc.update(
+        "UPDATE word_study_state SET last_completed_date=? WHERE owner_id=?",
+        today.minusDays(1),
+        owner);
+    assertThat(study.queue(owner, "review", null).get("current")).isNotNull();
+    jdbc.update("UPDATE knowledge_item SET state='deleted' WHERE owner_id=?", owner);
+    assertThat(study.queue(owner, "review", null).get("current")).isNull();
+    assertThat((java.util.List<?>) reviewService.snapshot(owner, today).get("items")).isEmpty();
   }
 }

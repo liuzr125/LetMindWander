@@ -12,16 +12,24 @@ import org.apache.ibatis.annotations.*;
 public interface ReviewMapper {
   @Select(
       "SELECT rs.id AS schedule_id,k.id AS knowledge_id,k.source_content_id AS content_id,t.id AS task_id,t.version_no AS task_version,k.item_type,k.title,"
-          + "COALESCE(NULLIF(k.body,''),cv.summary,cv.body,'') AS body,cv.word_term,cv.meaning,cv.example_text,rs.stage "
+          + "COALESCE(NULLIF(k.body,''),cv.summary,cv.body,'') AS body,cv.word_term,cv.meaning,cv.example_text,rs.stage, "
+          + "CASE WHEN lc.content_type='word' OR NULLIF(original.word_term,'') IS NOT NULL OR EXISTS(SELECT 1 FROM word_study_state ws WHERE ws.owner_id=rs.owner_id AND ws.content_id=k.source_content_id) THEN 1 ELSE 0 END AS word_review, "
+          + "CASE WHEN k.source_content_id IS NULL OR (lc.state='published' AND cv.review_status='approved') THEN 1 ELSE 0 END AS available "
           + "FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id "
           + "LEFT JOIN daily_package p ON p.owner_id=rs.owner_id AND p.business_date=#{date} "
           + "LEFT JOIN daily_task t ON t.package_id=p.id AND t.knowledge_id=k.id AND t.task_type='review' AND t.status NOT IN ('DONE','CANCELLED') "
-          + "LEFT JOIN learning_content lc ON lc.id=k.source_content_id LEFT JOIN content_version cv ON cv.id=lc.published_version_id "
-          + "WHERE rs.owner_id=#{ownerId} AND rs.state='active' AND rs.due_date<=#{date} "
+          + "LEFT JOIN learning_content lc ON lc.id=k.source_content_id LEFT JOIN content_version cv ON cv.id=lc.published_version_id AND cv.content_id=lc.id "
+          + "LEFT JOIN content_version original ON original.id=k.source_content_version_id AND original.content_id=k.source_content_id "
+          + "WHERE rs.owner_id=#{ownerId} AND k.state<>'deleted' AND rs.state='active' AND rs.due_date<=#{date} "
           + "ORDER BY rs.due_date,COALESCE(t.sort_no,32767),rs.id")
   List<ReviewItemView> selectQueue(@Param("ownerId") String ownerId, @Param("date") LocalDate date);
 
-  @Select("SELECT * FROM review_schedule WHERE id=#{id} AND owner_id=#{ownerId} FOR UPDATE")
+  @Select(
+      "SELECT COUNT(*) FROM review_feedback WHERE owner_id=#{ownerId} AND business_date=#{date}")
+  int countCompletedOn(@Param("ownerId") String ownerId, @Param("date") LocalDate date);
+
+  @Select(
+      "SELECT rs.* FROM review_schedule rs JOIN knowledge_item k ON k.id=rs.knowledge_id AND k.owner_id=rs.owner_id AND k.state<>'deleted' WHERE rs.id=#{id} AND rs.owner_id=#{ownerId} FOR UPDATE")
   ReviewScheduleEntity selectScheduleForUpdate(
       @Param("ownerId") String ownerId, @Param("id") String id);
 

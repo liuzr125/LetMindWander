@@ -34,6 +34,16 @@ public class ReviewService {
     return reviews.selectQueue(ownerId, date);
   }
 
+  @Transactional(readOnly = true)
+  public Map<String, Object> snapshot(String ownerId, LocalDate date) {
+    if (date == null) date = LocalDate.now(BUSINESS_ZONE);
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("businessDate", date.toString());
+    result.put("items", queue(ownerId, date));
+    result.put("completedCount", reviews.countCompletedOn(ownerId, date));
+    return result;
+  }
+
   @Transactional
   public List<ReviewItemView> feedback(
       String ownerId, String scheduleId, ReviewFeedbackRequest request) {

@@ -5810,6 +5810,7 @@
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_word_memory_question(content_version_id, sense_id, dimension, question_version); idx_word_memory_question_pick(content_version_id, dimension, state)</p>
         </section>
         <section id="word_memory_session">
+          <p>断网恢复（2026-11-10）：客户端 word_memory_pending_v1 按账号与 session 隔离临时保存待确认的 sessionId / episodeId / 原 payload / Idempotency-Key / createdAt，最长 7 天，不包含登录凭据；平台存储失败时仍保留当前页面内存重试。重开页面先重放原请求，复用已有 word_memory_attempt 幂等回执；未确认时锁定答案、提示、换题和结算。确认成功或明确拒绝后清理临时项，版本冲突刷新服务端进度，仅相同题目保留未提交输入。过期只丢弃本地待确认项，不删除数据库事实。本项无新增表、字段或迁移脚本。</p>
           <p>薄弱词再练（2026-11-09）：source_type 支持 weak。创建请求 sourceSessionId 必须是本人 completed/partial 的会话，服务端重算其薄弱词并过滤当前已学且可测试项，不信任客户端 contentIds。薄弱包含首答错误、提示依赖或仍未答对；结果 weakContentIds 只含当前可测试项，weakWordCount 保留全部薄弱事实，重试不覆盖原 episode/evidence。新会话沿用创建幂等键与词范围校验，return_to 保存来源结果页路径；未新增来源字段。无新增表、字段或迁移脚本。</p>
           <h2>word_memory_session <span>&#x5355;&#x8BCD;&#x8BB0;&#x5FC6;&#x4F1A;&#x8BDD;</span></h2>
           <p class="meta">03 &#x5185;&#x5BB9;&#x4E0E;&#x5B66;&#x4E60; &#xB7; &#x53EF;&#x6062;&#x590D;&#x7684;&#x7528;&#x6237;&#x82F1;&#x8BED;&#x8BB0;&#x5FC6;&#x8BAD;&#x7EC3;&#x4F1A;&#x8BDD;&#x3002;</p>
@@ -6873,6 +6874,7 @@
           <p class="indexes"><b>&#x7D22;&#x5F15;&#xFF1A;</b>PRIMARY(id); uk_1(knowledge_id, tag_name); idx_2(owner_id, tag_name)</p>
         </section>
         <section id="review_feedback">
+          <p>复习快照（2026-11-10）：GET /api/reviews/snapshot 按认证账号和业务日期返回 businessDate、items、completedCount，completedCount 对已有 review_feedback 按 owner_id / business_date 计数，刷新或重进页面不清零。ReviewItemView.wordReview 使用源内容、历史版本和该用户单词学习状态识别单词，available 按当前发布与审核状态计算；不可用项仍计待完成，不能显示已完成。knowledge_item.state=deleted 从普通及单词复习队列和排期有效性校验中统一排除，保留历史反馈。客户端交互始终使用北京时间今天，跨日响应最多补读一次。仅新增查询及响应字段，无数据库结构迁移。</p>
           <h2>review_feedback <span>&#x590D;&#x4E60;&#x65E5;&#x53CD;&#x9988;</span></h2>
           <p class="meta">05 &#x590D;&#x4E60;&#x4E0E;&#x5468;&#x603B;&#x7ED3; &#xB7; &#x540C;&#x7528;&#x6237;&#x540C;&#x77E5;&#x8BC6;&#x540C;&#x5B9E;&#x9645;&#x65E5;&#x671F;&#x53EA;&#x7B97;&#x4E00;&#x6B21;&#x6709;&#x6548;&#x53CD;&#x9988;&#xFF1B;&#x4FEE;&#x6539;&#x53CD;&#x9988;&#x4EE5;&#x5F53;&#x5929;&#x7B2C;&#x4E00;&#x6B21;&#x53CD;&#x9988;&#x524D;&#x72B6;&#x6001;&#x91CD;&#x65B0;&#x8BA1;&#x7B97;&#x3002;</p>
           <div class="scroll">

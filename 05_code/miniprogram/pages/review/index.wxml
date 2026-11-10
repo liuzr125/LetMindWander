@@ -9,30 +9,37 @@
     ><view class="track"><view class="bar" style="width: {{progress}}%;"></view></view>
     <view class="card"
       ><view class="badge-row"
-        ><text class="type">{{current.wordTerm ? 'Aa 英语复习' : '知识复习'}}</text
+        ><text class="type">{{current.wordReview ? 'Aa 英语复习' : '知识复习'}}</text
         ><text class="stage">本轮第 {{current.stage + 1}} 阶段</text></view
       ><text class="word">{{current.wordTerm || current.title}}</text
       ><text class="question">还记得它的含义吗？</text><view class="divider"></view
       ><button wx:if="{{!answerRevealed}}" bindtap="revealAnswer">想一想，再显示答案</button>
       <block wx:if="{{answerRevealed}}">
-        <text wx:if="{{current.wordTerm}}" class="meaning">{{current.meaning}}</text>
+        <text wx:if="{{current.wordReview}}" class="meaning">{{current.meaning}}</text>
         <text class="body">{{current.body}}</text>
         <text wx:if="{{current.exampleText}}" class="example">例句　{{current.exampleText}}</text>
         <button class="note-link" bindtap="openKnowledge">查看原笔记　›</button>
       </block></view
     >
-    <text class="hint">凭真实感受选择</text>
+    <text class="hint">{{saveNotice || '凭真实感受选择'}}</text>
     <view class="feedbacks"
-      ><button class="unclear" data-value="unclear" bindtap="feedback" disabled="{{sending || !answerRevealed}}">？<text>{{current.wordTerm ? '不认识' : '没懂'}}</text></button
+      ><button class="unclear" data-value="unclear" bindtap="feedback" disabled="{{sending || !answerRevealed}}">？<text>{{current.wordReview ? '不认识' : '没懂'}}</text></button
       ><button class="fuzzy" data-value="fuzzy" bindtap="feedback" disabled="{{sending || !answerRevealed}}">～<text>模糊</text></button
       ><button class="remember" data-value="remember" bindtap="feedback" disabled="{{sending || !answerRevealed}}"
         >✓<text>记住</text></button
       ></view
     >
     <text class="remaining">还有 {{remainingCount}} 项待复习</text>
+    <text wx:if="{{blockedCount}}" class="remaining">其中 {{blockedCount}} 项暂不可用，未计为完成</text>
   </block>
+  <view wx:elif="{{pendingCount}}" class="done">
+    <text class="done-title">还有 {{pendingCount}} 项暂不可复习</text>
+    <text class="done-copy">已完成 {{completed}} / {{total}} 项</text>
+    <text class="done-copy">内容恢复后可继续，进度未计为完成。</text>
+    <button bindtap="load">刷新队列</button>
+  </view>
   <view wx:else class="done"
-    ><text class="done-icon">✓</text><text class="done-title">今日复习完成</text
+    ><text class="done-icon">✓</text><text class="done-title">{{completed ? '今日复习完成' : '今天暂无到期复习'}}</text
     ><text class="done-copy">真实反馈会决定下一次复习日期。</text
     ><button bindtap="load">刷新队列</button></view
   >

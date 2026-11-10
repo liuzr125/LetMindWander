@@ -12,6 +12,23 @@ public class ReviewItemView {
       meaning,
       exampleText;
   private Integer stage, taskVersion;
+  private Boolean wordReview, available;
+
+  public Boolean getWordReview() {
+    return wordReview;
+  }
+
+  public void setWordReview(Boolean v) {
+    wordReview = v;
+  }
+
+  public Boolean getAvailable() {
+    return available;
+  }
+
+  public void setAvailable(Boolean v) {
+    available = v;
+  }
 
   public String getContentId() {
     return contentId;

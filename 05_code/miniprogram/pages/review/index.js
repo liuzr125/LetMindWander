@@ -14,11 +14,13 @@ Page({
     progress: 0,
     error: '',
     answerRevealed: false,
+    pendingCount: 0,
+    blockedCount: 0,
+    saveNotice: '',
   },
   onLoad(options) {
-    this.usesToday = !options.date;
     this.hasShown = false;
-    this.setData({ date: options.date || formatDate(new Date()), from: options.from || '' });
+    this.setData({ date: formatDate(new Date()), from: options.from || '' });
     return this.load();
   },
   onShow() {
@@ -28,34 +30,39 @@ Page({
     }
     // An uncertain write must retry its original receipt, even after navigation.
     if (this.data.sending || this.pendingWordAttempt) return;
-    if (this.usesToday) this.setData({ date: formatDate(new Date()) });
+    this.setData({ date: formatDate(new Date()) });
     return this.load();
   },
-  load() {
+  load(allowRolloverRefresh) {
     if (this.queueRequest) return this.queueRequest;
+    const date=formatDate(new Date());
+    this.setData({date,loading:true,error:''});
+    let refreshForDate=false;
+    const read=reviewService.snapshot ? reviewService.snapshot(date)
+      : reviewService.queue(date).then(items=>({items,completedCount:0}));
     this.queueRequest = Promise.all([
-      reviewService.queue(this.data.date),
+      read,
       wordStudyService.queue('review'),
     ])
-      .then(([queue, study]) => {
-        this.reviewRows = queue;
+      .then(([snapshot, study]) => {
+        const today=formatDate(new Date());
+        if(date!==today || (snapshot.businessDate && snapshot.businessDate!==today) || (study.businessDate && study.businessDate!==today)) {
+          refreshForDate=allowRolloverRefresh!==false;
+          this.setData({date:today,loading:false,error:'复习日期正在同步，请稍后重试'});
+          return;
+        }
+        this.reviewRows = (snapshot.items || []).map(item=>({...item,wordReview:item.wordReview==null?!!item.wordTerm:!!item.wordReview}));
+        this.reviewCompletedCount = Number(snapshot.completedCount || 0);
         this.wordStudyQueue = study;
-        const words = queue.filter((item) => item.wordTerm);
-        const currentWord =
-          study.current && words.find((item) => item.contentId === study.current.contentId);
-        const available = queue.filter((item) => !item.wordTerm);
-        if (currentWord) available.unshift(currentWord);
-        this.apply(available, queue.length);
-        this.setData({ completed: 0, progress: 0, remainingCount: Math.max(0, queue.length - 1) });
-        if (!available.length && study.remaining)
-          this.setData({ error: '本轮反馈已保存，请间隔后刷新队列继续巩固' });
+        this.renderQueue(study);
       })
       .catch((error) =>
         this.setData({ loading: false, error: error.message || '复习队列加载失败' }),
       )
       .finally(() => {
         this.queueRequest = null;
-      });
+      })
+      .then(()=>refreshForDate?this.load(false):undefined);
     return this.queueRequest;
   },
   applyWordFeedback(study, contentId) {
@@ -67,37 +74,36 @@ Page({
       !this.reviewRows.some((item) => item.contentId === study.current.contentId)
     )
       return this.load();
-    if (study.completed)
-      this.reviewRows = this.reviewRows.filter((item) => item.contentId !== contentId);
+    if (study.completed) this.markCompleted(contentId);
     this.wordStudyQueue = study;
-    const available = this.reviewRows.filter((item) => !item.wordTerm);
-    const currentWord =
-      study.current && this.reviewRows.find((item) => item.contentId === study.current.contentId);
-    if (currentWord) available.unshift(currentWord);
-    const total = this.data.total;
-    const remaining =
-      available.filter((item) => !item.wordTerm).length + Number(study.remaining || 0);
-    this.apply(available, total);
-    this.setData({
-      completed: Math.max(0, total - remaining),
-      remainingCount: Math.max(0, remaining - (available.length ? 1 : 0)),
-      progress: total ? Math.round((Math.max(0, total - remaining) * 100) / total) : 100,
-    });
-    if (!available.length && study.remaining)
-      this.setData({ error: '本轮反馈已保存，请间隔后刷新队列继续巩固' });
+    this.renderQueue(study);
   },
-  apply(queue, total) {
-    const completed = Math.max(0, total - queue.length);
+  markCompleted(contentId) {
+    if(this.reviewRows.some(item=>item.wordReview && item.contentId===contentId)) {
+      this.reviewRows=this.reviewRows.filter(item=>!item.wordReview || item.contentId!==contentId);
+      this.reviewCompletedCount=(this.reviewCompletedCount || 0)+1;
+    }
+  },
+  renderQueue(study) {
+    const available = this.reviewRows.filter((item) => !item.wordReview && item.available!==false);
+    const currentWord =
+      study.current && this.reviewRows.find((item) => item.wordReview && item.available!==false && item.contentId === study.current.contentId);
+    if (currentWord) available.unshift(currentWord);
+    const pendingCount=this.reviewRows.length;
+    const completed=this.reviewCompletedCount || 0;
+    const total=completed+pendingCount;
+    const blockedCount=this.reviewRows.filter(item=>item.available===false).length;
     this.setData({
-      queue,
-      current: queue[0] || null,
+      queue:available,
+      current: available[0] || null,
       total,
       completed,
-      remainingCount: Math.max(0, total - 1),
-      progress: total ? Math.round((completed * 100) / total) : 100,
+      remainingCount: Math.max(0, pendingCount - (available.length?1:0)),
+      pendingCount,blockedCount,
+      progress: total ? Math.round((completed * 100) / total) : 0,
       loading: false,
-      error: '',
-      answerRevealed: !(queue[0] && queue[0].wordTerm),
+      error: !available.length && (pendingCount>blockedCount || Number(study.remaining || 0)>0) ? '复习进度已变化，请刷新后继续' : '',
+      answerRevealed: !(available[0] && available[0].wordReview),
     });
   },
   revealAnswer() {
@@ -110,13 +116,14 @@ Page({
       });
   },
   feedback(e) {
-    if (this.data.sending || !this.data.current) return;
+    if (this.data.sending) return this._feedbackRequest;
+    if (!this.data.current) return;
     if (!this.data.answerRevealed && !this.pendingWordAttempt) return;
     const item = this.data.current;
     const feedback = e.currentTarget.dataset.value;
     const businessToday = formatDate(new Date());
     if (
-      item.wordTerm &&
+      item.wordReview &&
       !this.pendingWordAttempt &&
       businessToday &&
       this.wordStudyQueue.businessDate !== businessToday
@@ -125,7 +132,7 @@ Page({
     }
     this.setData({ sending: true });
     let request;
-    if (item.wordTerm) {
+    if (item.wordReview) {
       const study = this.wordStudyQueue;
       if (!this.pendingWordAttempt)
         this.pendingWordAttempt = {
@@ -137,23 +144,29 @@ Page({
         };
       request = wordStudyService.feedback(item.contentId, this.pendingWordAttempt).then((next) => {
         this.pendingWordAttempt = null;
+        this.setData({saveNotice:''});
         if (next.businessDate && next.businessDate !== formatDate(new Date())) return this.load();
-        if (!next.current && next.remaining && next.practiceMode !== 'continuous')
+        if (!next.current && next.remaining && next.practiceMode !== 'continuous') {
+          if(next.completed) this.markCompleted(item.contentId);
           return wordStudyService.queue('review').then((fresh) => this.applyWordFeedback(fresh, item.contentId));
+        }
         return this.applyWordFeedback(next, item.contentId);
       });
     } else
       request = reviewService
         .feedback(item.scheduleId, { feedback, taskId: item.taskId })
         .then(() => this.load());
-    request
+    this._feedbackRequest = request
       .catch((error) => {
         wx.showToast({ title: error.message || '反馈失败', icon: 'none' });
         if ([400, 403, 404, 409].includes(error.statusCode || error.status)) {
           this.pendingWordAttempt = null;
+          this.setData({saveNotice:''});
           return this.load();
         }
+        if(this.pendingWordAttempt) this.setData({saveNotice:'上次反馈尚未确认，再次点击会重试原反馈'});
       })
-      .finally(() => this.setData({ sending: false }));
+      .finally(() => {this.setData({ sending: false });this._feedbackRequest=null;});
+    return this._feedbackRequest;
   },
 });

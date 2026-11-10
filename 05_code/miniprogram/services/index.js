@@ -320,6 +320,9 @@ const journalService = {
 };
 
 const reviewService = {
+  snapshot(date) {
+    return request({url:`/reviews/snapshot?date=${encodeURIComponent(date)}`});
+  },
   queue(date) {
     return request({ url: `/reviews/queue?date=${encodeURIComponent(date)}` });
   },

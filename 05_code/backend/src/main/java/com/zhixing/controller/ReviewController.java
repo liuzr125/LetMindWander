@@ -35,6 +35,15 @@ public class ReviewController {
     return reviews.queue(user(auth), date);
   }
 
+  /** 同时读取复习队列与当天已完成反馈数，避免重进页面丢失进度。 */
+  @GetMapping("/snapshot")
+  public java.util.Map<String, Object> snapshot(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate date) {
+    return reviews.snapshot(user(auth), date);
+  }
+
   /** 提交非单词复习反馈；单词反馈必须使用单词学习接口。 */
   @PostMapping("/{id}/feedback")
   public List<ReviewItemView> feedback(
