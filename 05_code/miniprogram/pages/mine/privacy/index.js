@@ -1,5 +1,4 @@
 const { mineService, authService } = require('../../../services/index');
-const FOLLOW_CONSENT_KEY = 'follow_recording_consent_v1';
 Page({
   data: { info: {}, loading: true, busy: false },
   onShow() {
@@ -9,8 +8,6 @@ Page({
     mineService
       .privacy()
       .then((info) => {
-        if (info.followRecordingConsent) wx.setStorageSync(FOLLOW_CONSENT_KEY, true);
-        else wx.removeStorageSync(FOLLOW_CONSENT_KEY);
         this.setData({ info, loading: false });
       })
       .catch((e) => {
@@ -27,8 +24,6 @@ Page({
     authService
       .consent({ purpose, documentVersion, decision })
       .then(() => {
-        if (granted) wx.setStorageSync(FOLLOW_CONSENT_KEY, true);
-        else wx.removeStorageSync(FOLLOW_CONSENT_KEY);
         this.load();
       })
       .catch((e) => wx.showToast({ title: e.message || '保存失败', icon: 'none' }))

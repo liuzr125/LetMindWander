@@ -52,22 +52,44 @@
         ><view
           ><text class="audio-title">跟读练习</text
           ><text class="audio-note"
-            >{{recordUploading ? '正在安全上传…' : (recordSaved ?
-            '已私密保存至云端，新录音会替换旧录音' : '录音经同意后私密保存至云端')}}</text
+            >{{recordUploading ? '正在安全上传…' : (recordNeedsUpload ?
+            '本次录音尚未保存，请在离开前重试保存' : (recordSaved ?
+            '已私密保存至云端，新录音会替换旧录音' : '录音经同意后私密保存至云端'))}}</text
           ></view
         ><button
           wx:if="{{!recording}}"
           class="outline"
-          loading="{{recordUploading}}"
-          disabled="{{recordUploading}}"
+          loading="{{recordStarting || recordUploading}}"
+          disabled="{{recordStarting || recordUploading || recordNeedsUpload}}"
           bindtap="startFollow"
-          >开始跟读</button
+          >{{recordStarting ? '正在准备…' : '开始跟读'}}</button
         ><button wx:else class="recording" bindtap="stopFollow">停止录音</button></view
       >
+      <view wx:if="{{recordError}}" class="record-error">{{recordError}}</view>
+      <button
+        wx:if="{{recordPermissionDenied}}"
+        class="outline record-settings"
+        open-type="openSetting"
+        >打开录音设置</button
+      >
+      <button
+        wx:if="{{recordNeedsUpload}}"
+        class="outline record-retry"
+        loading="{{recordUploading}}"
+        disabled="{{recordUploading}}"
+        bindtap="saveFollowRecording"
+        >重试保存录音</button
+      >
       <view wx:if="{{recordPath || recordUrl}}" class="record-actions"
-        ><button class="record-play" bindtap="playRecording"
+        ><button
+          class="record-play"
+          disabled="{{recordStarting || recording}}"
+          bindtap="playRecording"
           >{{recordPlaying ? '停止回放' : '▶ 回放我的跟读'}}</button
-        ><button class="record-delete" disabled="{{recordUploading}}" bindtap="deleteRecording"
+        ><button
+          class="record-delete"
+          disabled="{{recordUploading || recordStarting || recording}}"
+          bindtap="deleteRecording"
           >删除录音</button
         ></view
       >

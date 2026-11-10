@@ -1,5 +1,4 @@
-const { contentService, authService } = require('../../../services/index');
-const FOLLOW_CONSENT_KEY = 'follow_recording_consent_v1';
+const { contentService, authService, mineService } = require('../../../services/index');
 
 Page({
   data: {
@@ -27,6 +26,10 @@ Page({
     articlePlaying: false,
     selectedWord: null,
     recording: false,
+    recordStarting: false,
+    recordError: '',
+    recordPermissionDenied: false,
+    recordNeedsUpload: false,
     recordPath: '',
     recordUrl: '',
     recordPlaying: false,
@@ -46,11 +49,25 @@ Page({
     this.recordAudio.onEnded(() => this.setData({ recordPlaying: false }));
     this.recordAudio.onStop(() => this.setData({ recordPlaying: false }));
     this.recorder = wx.getRecorderManager();
-    this.recorder.onStop((result) => this.handleRecordingStopped(result));
-    this.recorder.onError((error) => {
-      this.setData({ recording: false });
-      wx.showToast({ title: error.errMsg || '录音失败', icon: 'none' });
-    });
+    this.recordOnStart = () => {
+      if (this.followDisposed || !this.recordRequested) return;
+      this.setData({
+        recording: true,
+        recordStarting: false,
+        recordPath: '',
+        recordNeedsUpload: false,
+      });
+    };
+    this.recordOnStop = (result) => this.handleRecordingStopped(result);
+    this.recordOnError = (error) => {
+      if (this.followDisposed || !this.recordRequested) return;
+      this.recordRequested = false;
+      this.setData({ recording: false, recordStarting: false });
+      this.showFollowError(error, '录音启动失败');
+    };
+    this.recorder.onStart(this.recordOnStart);
+    this.recorder.onStop(this.recordOnStop);
+    this.recorder.onError(this.recordOnError);
     this.setData({
       contentId: options.id || '',
       taskId: options.taskId || '',
@@ -60,11 +77,17 @@ Page({
     this.loadFollowRecording();
   },
   onUnload() {
+    this.followDisposed = true;
+    if (this.recorder) {
+      this.recorder.offStart(this.recordOnStart);
+      this.recorder.offStop(this.recordOnStop);
+      this.recorder.offError(this.recordOnError);
+      if (this.recordRequested) this.recorder.stop();
+    }
     this.wordLookupSeq = (this.wordLookupSeq || 0) + 1;
     [this.articleAudio, this.wordAudio, this.recordAudio].forEach(
       (audio) => audio && audio.destroy(),
     );
-    if (this.data.recording && this.recorder) this.recorder.stop();
   },
   load() {
     this.setData({ loading: true, error: '', titleTranslationError: '' });
@@ -109,6 +132,7 @@ Page({
     contentService
       .followRecording(this.data.contentId)
       .then((recording) => {
+        if (this.followDisposed || this.recordRequested || this.data.recordPath) return;
         if (recording && recording.exists)
           this.setData({
             recordUrl: recording.previewUrl || '',
@@ -270,15 +294,22 @@ Page({
     this.wordAudio.play();
     this.setData({ articlePlaying: false, recordPlaying: false });
   },
-  ensureFollowConsent() {
-    if (wx.getStorageSync(FOLLOW_CONSENT_KEY)) return Promise.resolve();
+  async ensureFollowConsent() {
+    // 以当前账号服务端记录为准，避免跨账号或撤回后的本地布尔缓存继续生效。
+    const privacy = await mineService.privacy();
+    if (this.followDisposed) throw { cancelled: true };
+    if (privacy.followRecordingConsent) return;
     return new Promise((resolve, reject) =>
       wx.showModal({
         title: '保存跟读录音到云端',
         content:
           '录音将上传至阿里云 OSS 私有存储，仅本人可访问。同一短文的新录音会替换旧录音，你可随时删除。是否同意？',
-        confirmText: '同意并录音',
+        confirmText: '同意录音',
         success: (result) => {
+          if (this.followDisposed) {
+            reject({ cancelled: true });
+            return;
+          }
           if (!result.confirm) {
             const error = new Error('已取消');
             error.cancelled = true;
@@ -291,70 +322,144 @@ Page({
               documentVersion: 'FOLLOW_RECORDING_V1',
               decision: 'grant',
             })
-            .then(() => {
-              wx.setStorageSync(FOLLOW_CONSENT_KEY, true);
-              resolve();
-            })
+            .then(resolve)
             .catch(reject);
         },
         fail: reject,
       }),
     );
   },
-  startFollow() {
-    if (this.data.recording || this.data.recordUploading) return;
-    this.ensureFollowConsent()
-      .then(() => {
-        this.recordAudio.stop();
-        this.recorder.start({
-          duration: 60000,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          encodeBitRate: 48000,
-          format: 'mp3',
-        });
-        this.setData({ recording: true, recordPath: '', recordPlaying: false });
-      })
-      .catch((error) => {
-        if (!error.cancelled)
-          wx.showToast({ title: error.message || '授权保存失败', icon: 'none' });
+  ensureRecordPermission() {
+    return new Promise((resolve, reject) => {
+      wx.getSetting({
+        success: (settings) => {
+          if (this.followDisposed) {
+            reject({ cancelled: true });
+            return;
+          }
+          if (settings.authSetting['scope.record']) {
+            resolve();
+            return;
+          }
+          const denied = (reason) => {
+            if (reason && /privacy|隐私/i.test(reason.errMsg || '')) {
+              reject(reason);
+              return;
+            }
+            const error = new Error('麦克风未授权，请打开录音设置，允许使用麦克风后再试');
+            error.recordPermissionDenied = true;
+            reject(error);
+          };
+          if (settings.authSetting['scope.record'] === false) {
+            denied();
+            return;
+          }
+          wx.authorize({ scope: 'scope.record', success: resolve, fail: denied });
+        },
+        fail: reject,
       });
+    });
+  },
+  showFollowError(error, stage) {
+    if (this.followDisposed || (error && error.cancelled)) return;
+    const detail = (error && (error.message || error.errMsg)) || '请稍后重试';
+    const privacyError = /privacy|隐私/i.test(detail);
+    const permissionDenied =
+      !privacyError &&
+      (!!(error && error.recordPermissionDenied) || /auth deny|permission.*denied/i.test(detail));
+    this.setData({
+      recordError: privacyError
+        ? '微信隐私授权未完成，请同意小程序隐私指引后重试；若仍失败，请联系管理员检查录音隐私声明'
+        : permissionDenied
+          ? '麦克风未授权，请打开录音设置并检查手机系统的微信麦克风权限，允许后重试'
+          : `${stage}：${detail}`,
+      recordPermissionDenied: permissionDenied,
+    });
+    wx.showToast({ title: privacyError ? '请完成微信隐私授权' : stage, icon: 'none' });
+  },
+  async startFollow() {
+    if (this.data.recording || this.data.recordStarting || this.data.recordUploading) return;
+    if (this.data.recordNeedsUpload) {
+      this.setData({ recordError: '请先重试保存或删除本次录音，再开始新的跟读' });
+      return;
+    }
+    this.setData({ recordStarting: true, recordError: '', recordPermissionDenied: false });
+    let stage = '录音授权未完成';
+    try {
+      await this.ensureFollowConsent();
+      if (this.followDisposed) return;
+      stage = '麦克风授权未完成';
+      await this.ensureRecordPermission();
+      if (this.followDisposed) return;
+      stage = '录音启动失败';
+      [this.articleAudio, this.wordAudio, this.recordAudio].forEach((audio) => audio.stop());
+      this.setData({ articlePlaying: false, recordPlaying: false });
+      this.recordRequested = true;
+      this.recorder.start({
+        duration: 60000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000,
+        format: 'mp3',
+      });
+    } catch (error) {
+      this.recordRequested = false;
+      if (!this.followDisposed) this.setData({ recordStarting: false });
+      this.showFollowError(error, stage);
+    }
   },
   stopFollow() {
     if (this.data.recording) this.recorder.stop();
   },
   handleRecordingStopped(result) {
+    if (this.followDisposed || !this.recordRequested) return;
+    this.recordRequested = false;
     const path = result.tempFilePath || '';
     const durationMs = Math.max(1, Math.min(60000, Math.round(result.duration || 0)));
     this.setData({
       recording: false,
+      recordStarting: false,
       recordPath: path,
       recordPlaying: false,
-      recordUploading: !!path,
+      recordNeedsUpload: !!path,
       recordDurationMs: durationMs,
     });
-    if (!path) return;
-    contentService
-      .uploadFollowRecording(this.data.contentId, path, durationMs)
-      .then((saved) => {
+    if (!path) {
+      this.showFollowError(new Error('未获取到录音文件，请重新录制'), '录音失败');
+      return;
+    }
+    return this.saveFollowRecording();
+  },
+  async saveFollowRecording() {
+    if (!this.data.recordPath || !this.data.recordNeedsUpload || this.data.recordUploading) return;
+    this.setData({ recordUploading: true, recordError: '', recordPermissionDenied: false });
+    let stage = '录音授权未完成';
+    try {
+      await this.ensureFollowConsent();
+      if (this.followDisposed) return;
+      stage = '录音上传失败';
+      const saved = await contentService.uploadFollowRecording(
+        this.data.contentId,
+        this.data.recordPath,
+        this.data.recordDurationMs,
+      );
+      if (!this.followDisposed) {
         this.setData({
           recordUrl: saved.previewUrl || '',
           recordSaved: true,
-          recordUploading: false,
-          recordDurationMs: saved.durationMs || durationMs,
+          recordNeedsUpload: false,
+          recordDurationMs: saved.durationMs || this.data.recordDurationMs,
         });
         wx.showToast({ title: '录音已安全保存', icon: 'success' });
-      })
-      .catch((error) => {
-        this.setData({ recordUploading: false });
-        wx.showToast({
-          title: error.message || '云端保存失败，可重试录制',
-          icon: 'none',
-          duration: 3000,
-        });
-      });
+      }
+    } catch (error) {
+      this.showFollowError(error, stage);
+    } finally {
+      if (!this.followDisposed) this.setData({ recordUploading: false });
+    }
   },
   playRecording() {
+    if (this.data.recordStarting || this.data.recording) return;
     const url = this.data.recordPath || this.data.recordUrl;
     if (!url) return;
     if (this.data.recordPlaying) {
@@ -366,7 +471,7 @@ Page({
     this.setData({ recordPlaying: true });
   },
   deleteRecording() {
-    if (this.data.recordUploading) return;
+    if (this.data.recordUploading || this.data.recordStarting || this.data.recording) return;
     wx.showModal({
       title: '删除跟读录音？',
       content: '云端录音将从你的账号中删除，无法恢复。',
@@ -376,7 +481,13 @@ Page({
         if (!result.confirm) return;
         if (!this.data.recordSaved) {
           this.recordAudio.stop();
-          this.setData({ recordPath: '', recordUrl: '', recordDurationMs: 0 });
+          this.setData({
+            recordPath: '',
+            recordUrl: '',
+            recordDurationMs: 0,
+            recordNeedsUpload: false,
+            recordError: '',
+          });
           return;
         }
         this.setData({ recordUploading: true });
@@ -388,6 +499,8 @@ Page({
               recordPath: '',
               recordUrl: '',
               recordSaved: false,
+              recordNeedsUpload: false,
+              recordError: '',
               recordDurationMs: 0,
             });
             wx.showToast({ title: '录音已删除', icon: 'success' });

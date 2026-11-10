@@ -288,6 +288,18 @@ page {
   gap: 14rpx;
   margin-top: 20rpx;
 }
+.record-error {
+  margin-top: 16rpx;
+  color: #bd3545;
+  font-size: 25rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.record-settings,
+.record-retry {
+  margin-top: 16rpx;
+  width: 100%;
+}
 .record-actions button {
   flex: 1;
   margin: 0;
