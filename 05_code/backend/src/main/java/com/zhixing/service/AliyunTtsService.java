@@ -1,5 +1,8 @@
 package com.zhixing.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixing.common.ApiException;
 import com.zhixing.common.CryptoUtils;
 import com.zhixing.config.AppProperties;
@@ -17,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
@@ -28,6 +32,7 @@ public class AliyunTtsService {
       AK_ID = "ALIYUN_AK_ID",
       AK_SECRET = "ALIYUN_AK_SECRET";
   private static final String PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog.";
+  private static final ObjectMapper PROVIDER_JSON = new ObjectMapper();
   private static final Map<String, VoiceDefinition> VOCABULARY_VOICES = voiceCatalog();
   private final AliyunTtsPersistenceMapper persistence;
   private final AppParameterService parameters;
@@ -249,20 +254,15 @@ public class AliyunTtsService {
     int rate = validSampleRate(sampleRate == null ? 16000 : sampleRate);
     String selected = clean(voice);
     if (selected.isEmpty()) selected = parameters.optional("tts.aliyun.voice", "aixia");
-    try {
-      Synthesis audio = synthesizeWithToken(content, selected, rate, temporary);
-      Map<String, Object> result = new LinkedHashMap<String, Object>();
-      result.put("ready", true);
-      result.put("productionEnabled", false);
-      result.put("message", "临时 NLS Token 试听成功；如需小程序使用，请点击“保存 Token 到系统参数”");
-      result.put(
-          "audioDataUrl",
-          "data:audio/mpeg;base64," + Base64.getEncoder().encodeToString(audio.bytes));
-      return result;
-    } catch (RestClientResponseException e) {
-      throw ttsProviderFailure(
-          providerCode(e.getResponseBodyAsString()), providerMessage(e.getResponseBodyAsString()));
-    }
+    Synthesis audio = synthesizeWithToken(content, selected, rate, temporary);
+    Map<String, Object> result = new LinkedHashMap<String, Object>();
+    result.put("ready", true);
+    result.put("productionEnabled", false);
+    result.put("message", "临时 NLS Token 试听成功；如需小程序使用，请点击“保存 Token 到系统参数”");
+    result.put(
+        "audioDataUrl",
+        "data:audio/mpeg;base64," + Base64.getEncoder().encodeToString(audio.bytes));
+    return result;
   }
   /** 启用后，实际“生成音频”任务使用此临时 Token，并继续按既有规则保存音频文件及其资源记录。 */
   @Transactional
@@ -501,12 +501,7 @@ public class AliyunTtsService {
   private Synthesis synthesizeExplicitToken(String text, String voice, String temporary) {
     int rate =
         validSampleRate(integer(parameters.optional("tts.aliyun.sample_rate", "16000"), 16000));
-    try {
-      return synthesizeWithToken(text, voice, rate, temporary);
-    } catch (RestClientResponseException e) {
-      throw ttsProviderFailure(
-          providerCode(e.getResponseBodyAsString()), providerMessage(e.getResponseBodyAsString()));
-    }
+    return synthesizeWithToken(text, voice, rate, temporary);
   }
 
   private Synthesis synthesizeArticle(String text, String voice, String explicitToken) {
@@ -541,12 +536,7 @@ public class AliyunTtsService {
         parameters.storedSecretConfigured(AppParameterService.NLS_TEMPORARY_TOKEN)
             ? parameters.requiredStoredSecret(AppParameterService.NLS_TEMPORARY_TOKEN)
             : accessToken();
-    try {
-      return synthesizeWithToken(text, voice, sampleRate, credential);
-    } catch (RestClientResponseException e) {
-      throw ttsProviderFailure(
-          providerCode(e.getResponseBodyAsString()), providerMessage(e.getResponseBodyAsString()));
-    }
+    return synthesizeWithToken(text, voice, sampleRate, credential);
   }
 
   private Synthesis synthesizeStoredToken(String text, String voice) {
@@ -569,7 +559,7 @@ public class AliyunTtsService {
         throw new ApiException(
             HttpStatus.SERVICE_UNAVAILABLE,
             "TTS_TEMPORARY_TOKEN_REJECTED",
-            "语音临时 Token 已失效或与 AppKey 不匹配，请管理员更新系统参数中的临时 Token");
+            e.getMessage() + "。请管理员在系统参数中更新临时 Token 后重试");
       throw e;
     }
   }
@@ -604,30 +594,35 @@ public class AliyunTtsService {
     body.put("speech_rate", 0);
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    ResponseEntity<byte[]> response =
-        http.exchange(
-            parameters.optional(
-                "tts.aliyun.endpoint",
-                "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts"),
-            HttpMethod.POST,
-            new HttpEntity<Map<String, Object>>(body, headers),
-            byte[].class);
+    ResponseEntity<byte[]> response;
+    try {
+      response =
+          http.exchange(
+              parameters.optional(
+                  "tts.aliyun.endpoint",
+                  "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts"),
+              HttpMethod.POST,
+              new HttpEntity<Map<String, Object>>(body, headers),
+              byte[].class);
+    } catch (RestClientResponseException e) {
+      throw ttsProviderFailure(e.getRawStatusCode(), e.getResponseBodyAsString());
+    } catch (ResourceAccessException e) {
+      throw new ApiException(
+          HttpStatus.BAD_GATEWAY, "TTS_PROVIDER_UNREACHABLE", "暂时无法连接阿里云语音服务，请稍后重试");
+    }
+    byte[] audio = response.getBody();
     MediaType type = response.getHeaders().getContentType();
     if (!response.getStatusCode().is2xxSuccessful()
         || type == null
         || !"audio".equalsIgnoreCase(type.getType())
-        || response.getBody() == null
-        || response.getBody().length == 0)
+        || audio == null
+        || audio.length == 0)
       throw ttsProviderFailure(
-          providerCode(
-              response.getBody() == null
-                  ? null
-                  : new String(response.getBody(), StandardCharsets.UTF_8)),
-          providerMessage(
-              response.getBody() == null
-                  ? null
-                  : new String(response.getBody(), StandardCharsets.UTF_8)));
-    return new Synthesis(response.getHeaders().getFirst("task_id"), response.getBody());
+          response.getStatusCodeValue(),
+          audio == null ? "" : new String(audio, StandardCharsets.UTF_8));
+    String requestId = response.getHeaders().getFirst("X-NLS-RequestId");
+    if (requestId == null) requestId = response.getHeaders().getFirst("task_id");
+    return new Synthesis(requestId, audio);
   }
   /**
    * NLS SDK 在 Token 接口返回错误时仅记录日志、不会抛出包含响应体的异常，导致上层只能得到空 Token。 这里按阿里云 RPC 签名规范通过 HTTPS 请求，既避免明文
@@ -851,26 +846,74 @@ public class AliyunTtsService {
         "阿里云 Token 请求被拒绝；请核对 RAM 权限、AccessKey 状态以及 AppKey 是否属于同一阿里云账号" + suffix);
   }
 
-  private ApiException ttsProviderFailure(String providerCode, String providerMessage) {
+  private ApiException ttsProviderFailure(int httpStatus, String responseBody) {
+    String status = "";
+    String details = "";
+    try {
+      JsonNode body = PROVIDER_JSON.readTree(responseBody);
+      if (body != null) {
+        status = body.path("status").asText(body.path("Code").asText(""));
+        details =
+            (body.path("message").asText("")
+                    + " "
+                    + body.path("status_text").asText("")
+                    + " "
+                    + body.path("Message").asText(""))
+                .toLowerCase(Locale.ROOT);
+      }
+    } catch (JsonProcessingException ignored) {
+      // A gateway can return an empty or non-JSON response. Use its HTTP status.
+    }
+    // Error text can echo a credential. Only expose a numeric provider status.
+    if (!status.matches("[0-9]{8}")) status = "";
+    LOGGER.warn(
+        "Aliyun speech synthesis rejected: httpStatus={}, providerStatus={}, requestId={}",
+        httpStatus,
+        status,
+        org.slf4j.MDC.get("requestId"));
     String suffix =
-        providerCode == null || providerCode.isEmpty() ? "" : "（阿里云返回码：" + providerCode + "）";
-    String details =
-        ((providerCode == null ? "" : providerCode)
-                + " "
-                + (providerMessage == null ? "" : providerMessage))
-            .toLowerCase(Locale.ROOT);
-    if (details.contains("token") || details.contains("auth"))
-      return new ApiException(
-          HttpStatus.BAD_GATEWAY,
-          "TTS_TEMPORARY_TOKEN_REJECTED",
-          "临时 NLS Token 无效、过期或与项目 AppKey 不匹配" + suffix);
-    if (details.contains("appkey") || details.contains("app key"))
-      return new ApiException(
-          HttpStatus.BAD_GATEWAY, "TTS_APP_KEY_REJECTED", "项目 AppKey 无效或不属于该 NLS 服务账号" + suffix);
-    return new ApiException(
-        HttpStatus.BAD_GATEWAY,
-        "TTS_PROVIDER_REJECTED",
-        "阿里云未接受语音合成请求，请检查临时 Token、AppKey 和语音服务配置" + suffix);
+        status.isEmpty() ? "（阿里云 HTTP " + httpStatus + "）" : "（阿里云返回码：" + status + "）";
+
+    String code;
+    String message;
+    // 40000001 can also mean voice access denied, so check the specific message first.
+    if (details.contains("no privilege to this voice")
+        || details.matches("(?s).*error code:\\s*418\\b.*")) {
+      code = "TTS_VOICE_UNAVAILABLE";
+      message = "阿里云项目无法使用当前发音人，请管理员核对项目的音色权限和语音合成服务";
+    } else if ("40020106".equals(status) || details.contains("appkey_uid_mismatch")) {
+      code = "TTS_APP_KEY_REJECTED";
+      message = "语音项目 AppKey 和临时 Token 所属账号不一致，请管理员使用同一阿里云账号的配置";
+    } else if ("40020105".equals(status)
+        || "41000003".equals(status)
+        || details.contains("appkey")
+        || details.contains("app key")) {
+      code = "TTS_APP_KEY_REJECTED";
+      message = "阿里云语音项目 AppKey 不可用，请管理员核对项目及服务地域";
+    } else if ("40000010".equals(status) || details.contains("free_trial_expired")) {
+      code = "TTS_SERVICE_INACTIVE";
+      message = "阿里云语音合成试用已结束或服务不可用，请管理员核对语音合成开通状态及账号余额";
+    } else if ("40000005".equals(status) || httpStatus == 429) {
+      code = "TTS_RATE_LIMITED";
+      message = "阿里云语音合成请求过多，请稍后重试";
+    } else if ("40000003".equals(status) || "41020001".equals(status)) {
+      code = "TTS_PROVIDER_INVALID_REQUEST";
+      message = "阿里云拒绝了语音合成参数，请管理员核对音色、采样率和朗读文本";
+    } else if (httpStatus >= 500 || status.startsWith("5")) {
+      code = "TTS_PROVIDER_UNAVAILABLE";
+      message = "阿里云语音服务暂时不可用，请稍后重试";
+    } else if ("40000001".equals(status)
+        || httpStatus == 401
+        || httpStatus == 403
+        || details.contains("token")
+        || details.contains("authentication")) {
+      code = "TTS_TEMPORARY_TOKEN_REJECTED";
+      message = "阿里云未通过临时 NLS Token 校验，请核对 Token 有效期和项目账号";
+    } else {
+      code = "TTS_PROVIDER_REJECTED";
+      message = "阿里云未接受语音合成请求，请管理员按返回码检查语音服务配置";
+    }
+    return new ApiException(HttpStatus.BAD_GATEWAY, code, message + suffix);
   }
 
   private String maskAccountId(String value) {

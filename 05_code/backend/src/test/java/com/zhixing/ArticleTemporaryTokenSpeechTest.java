@@ -17,6 +17,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zhixing.common.CryptoUtils;
 import com.zhixing.common.GlobalExceptionHandler;
 import com.zhixing.config.ApiAccessLoggingFilter;
@@ -29,6 +30,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -391,6 +394,37 @@ class ArticleTemporaryTokenSpeechTest {
     generate(body())
         .andExpect(status().isBadGateway())
         .andExpect(jsonPath("$.code").value("TTS_TEMPORARY_TOKEN_REJECTED"));
+    assertNoSavedAudio();
+    verifyNoInteractions(oss);
+    nls.verify();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "40000001,Gateway:ACCESS_DENIED:No privilege to this voice!,TTS_VOICE_UNAVAILABLE",
+    "41020001,Engine return error code: 418.,TTS_VOICE_UNAVAILABLE",
+    "40020106,Meta:APPKEY_UID_MISMATCH:Appkey and user mismatch!,TTS_APP_KEY_REJECTED",
+    "40000010,Gateway:FREE_TRIAL_EXPIRED:The free trial has expired!,TTS_SERVICE_INACTIVE",
+    "40000005,Gateway:TOO_MANY_REQUESTS:Too many requests!,TTS_RATE_LIMITED"
+  })
+  void providerErrorsExposeSafeActionableCodesWithoutPersistingAudio(
+      int providerStatus, String message, String expectedCode) throws Exception {
+    ObjectNode rejection = new ObjectMapper().createObjectNode();
+    rejection.put("status", providerStatus);
+    rejection.put("message", message + " " + TOKEN);
+    nls.expect(requestTo(ENDPOINT))
+        .andRespond(
+            withStatus(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(rejection.toString()));
+    String response =
+        generate(body())
+            .andExpect(status().isBadGateway())
+            .andExpect(jsonPath("$.code").value(expectedCode))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(response).contains(String.valueOf(providerStatus)).doesNotContain(TOKEN);
     assertNoSavedAudio();
     verifyNoInteractions(oss);
     nls.verify();

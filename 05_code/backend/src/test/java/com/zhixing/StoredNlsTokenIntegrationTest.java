@@ -253,10 +253,18 @@ class StoredNlsTokenIntegrationTest {
   void expiredTokenIsReportedWithoutPersistingAnAudioAssociation() throws Exception {
     saveToken(TOKEN, true);
     nls.expect(requestTo("https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts"))
-        .andRespond(withSuccess("{\"status_text\":\"Token expired\"}", MediaType.APPLICATION_JSON));
-    mvc.perform(post(PATH).header("Authorization", "Bearer test-user"))
-        .andExpect(status().isServiceUnavailable())
-        .andExpect(jsonPath("$.code").value("TTS_TEMPORARY_TOKEN_REJECTED"));
+        .andRespond(
+            withSuccess(
+                "{\"status\":40000001,\"message\":\"The token '" + TOKEN + "' has expired\"}",
+                MediaType.APPLICATION_JSON));
+    String response =
+        mvc.perform(post(PATH).header("Authorization", "Bearer test-user"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("TTS_TEMPORARY_TOKEN_REJECTED"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+    assertThat(response).contains("40000001", "系统参数").doesNotContain(TOKEN);
     assertThat(
             jdbc.queryForObject(
                 "SELECT audio_asset_id FROM article_word_glossary WHERE term='working'",
